@@ -18,7 +18,7 @@
 		$(window).on('resizeEnd', function() {
 			callback();
 		});
-	}
+	};
 
 	googleHelper.createDataTable = function(resultData)
 	{
@@ -32,7 +32,7 @@
 			}
 		}
 		return google.visualization.arrayToDataTable(arrayData);
-	}
+	};
 
 	googleHelper.initializeSelections = function(dataTable, resultData)
 	{
@@ -56,7 +56,7 @@
 			dataTable.removeColumn(brushIndex);
 		}		
 		return selections;
-	}	
+	};
 	
 	googleHelper.formatData = function(dataTable, resultData)
 	{
@@ -113,7 +113,7 @@
 				}
 			}
 		}		
-	}	
+	};
 		
 	if (!window.va)
 		window.va = {};

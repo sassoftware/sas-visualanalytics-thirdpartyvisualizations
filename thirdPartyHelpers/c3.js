@@ -79,7 +79,7 @@
 			chartData.unload = shouldUnload;
 		
 		return chartData;
-	}
+	};
 		
 	if (!window.va)
 		window.va = {};

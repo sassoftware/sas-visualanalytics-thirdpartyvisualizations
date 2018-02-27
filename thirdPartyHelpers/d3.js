@@ -3,20 +3,6 @@
 
     var d3Helper = {};
 	
-	d3Helper.createDataTable = function(resultData)
-	{
-		var arrayData;
-		if (resultData.data)
-		{
-			arrayData = resultData.data;
-			if (resultData.columns)
-			{
-				arrayData.splice(0, 0, resultData.columns);
-			}
-		}
-		return google.visualization.arrayToDataTable(arrayData);
-	}
-
 	d3Helper.configureFormatter = function(resultData, formatter)
 	{
 		if (!resultData || !formatter)
@@ -44,7 +30,7 @@
 				}
 			}
 		}
-	}	
+	};
 		
 	if (!window.va)
 		window.va = {};
