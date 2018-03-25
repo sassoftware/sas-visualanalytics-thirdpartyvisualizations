@@ -31,6 +31,35 @@
 		return true;
 	};
 	
+	contentUtil.initializeSelections = function(resultData) {
+		if (!resultData)
+			return null;
+			
+		var columnsInfo = resultData.columns;
+		var arrayData = resultData.data;
+		var selections = [];
+		// Remove the brush column as the brush column is used for knowing 
+		// whether a given row is selected or not, not something that should be handled to chart
+		if (columnsInfo && arrayData) {
+			for (var c = 0; c < columnsInfo.length; c++) {
+				if ((columnsInfo[c].usage) && (columnsInfo[c].usage === "brush")) {
+					// brush column: remove the column info
+					columnsInfo.splice(c,1);
+					// for each row of data, check the bush column for indication of row selection
+					for (var r = 0; r < arrayData.length; r++) {
+						if (arrayData[r][c] !== 0) {
+							// row r has been selected
+							selections.push({row: r});
+						}
+						// remove the value of the brush column from the row being processed
+						arrayData[r].splice(c,1);
+					}
+				}				
+			}
+		}
+		return selections;
+	};
+	
 	if (!window.va)
 		window.va = {};
     window.va.contentUtil = contentUtil;

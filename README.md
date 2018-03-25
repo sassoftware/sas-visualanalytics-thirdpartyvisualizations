@@ -22,7 +22,7 @@ va.messagingUtil.setOnDataReceivedCallback(callback)
 
 * `callback` is the callback function name that you must define.
 
-### postSelectionMessage (parameter name and implementation changed)
+### postSelectionMessage
 
 Sends back to VA a message containing selections made in the third-party visualization. VA will use that information to either filter or select (brush) other report objects, depending on the Actions defined between the data-driven object and other VA report objects.
 
@@ -35,7 +35,7 @@ va.messagingUtil.postSelectionMessage(resultName, selectedRows)
 * `resultName`is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
 * `selectedRows` is an array of numbers (e.g. `[0, 3, 4]`) or objects (e.g. `[{row: 0}, {row: 3}, {row: 4}]`) that contains the indexes of the selected rows, as they appear in event.data.data.
 
-### postInstructionalMessage (NEW)
+### postInstructionalMessage
 
 Sends back to VA an instructional message. This message is displayed in the data-driven content object in the VA report and is useful for sending text messages back to report authors informing required roles, their assignment order, types, etc.
 
@@ -48,7 +48,7 @@ va.messagingUtil.postInstructionalMessage(resultName, strMessage)
 * `resultName`is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
 * `strMessage` is the text message to be sent.
 
-## util/contentUtil.js (NEW)
+## util/contentUtil.js
 
 It contains the functions you need to validate the data received from VA. You must include the following line in the _\<head\>_ of the web page:
 
@@ -142,7 +142,7 @@ It contains helper functions you most likely need with D3 charts. You must inclu
 
 ### configureFormatter
 
-Uses the columns metadata within the message received from VA to configure D3 formats. Only numeric columns are affected. Supported VA formats are: DOLLAR, COMMA, F, and PERCENT. Other column formats are kept unchanged.
+Uses the columns metadata within the message received from VA to configure D3 formats. Only numeric columns are affected. Supported VA formats are: DOLLAR, COMMA, F, and PERCENT. Other columns formats are kept unchanged.
 
 _Usage:_
 

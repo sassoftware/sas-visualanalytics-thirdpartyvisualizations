@@ -34,30 +34,6 @@
 		return google.visualization.arrayToDataTable(arrayData);
 	};
 
-	googleHelper.initializeSelections = function(dataTable, resultData)
-	{
-		if (!resultData || !dataTable)
-			return null;
-			
-		var columnInfo = resultData.columns;
-		var selections = [];
-		//remove the brush column as the brush column is used for knowing 
-		//whether a given row is selected or not, not something that should be handed to chart
-		if (columnInfo && columnInfo.length > 0 && columnInfo[columnInfo.length - 1].usage == "brush")
-		{
-			var brushIndex = columnInfo.length - 1;
-			for (var i = 0; i < dataTable.getNumberOfRows(); i++)
-			{
-				if (dataTable.getValue(i, brushIndex) > 0)
-					selections.push({row:i});
-			}
-		
-			//brush column, remove it
-			dataTable.removeColumn(brushIndex);
-		}		
-		return selections;
-	};
-	
 	googleHelper.formatData = function(dataTable, resultData)
 	{
 		if (!resultData || !dataTable)
