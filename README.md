@@ -71,6 +71,19 @@ isValid = va.contentUtil.validateRoles(resultData, expectedTypes, optionalTypes)
 * `optionalTypes` is an array describing the types of the columns that are optional. The order is important and indicates the sequence that columns are assigned in the Roles tab in VA, after the required columns. Example: ["string", "number", "number"]. Because they are optional, the **number** of optional columns and optional types provided don't need to match. Type comparison will be made while there is still a column and a type to be compared, and the rest will be ignored. One or more optional columns of same type can be represented as a single type instead of an array, for example: "number" indicates that all optional columns, if existent, must be numeric columns. An empty array [] indicates their types can be anything. A value null indicates no optional columns are accepted. Valid types are "string", "number", and "date".
 * Returns _true_ or _false_.
 
+### initializeSelections
+
+Uses the message received from VA to extract information about selections made in VA objects. After extracting selection information, the "brush" column is removed from the message.
+
+_Usage:_
+
+```javascript
+selections = va.contentUtil.initializeSelections(resultData)
+```
+
+* `resultData` is the message received from VA (event.data).
+* Returns `selections`, an array of objects containing the indexes of the selected rows (e.g. `[{row: 2}, {row: 5}]`)
+
 ## thirdPartyHelpers/google.js
 
 It contains helper functions you most likely need with Google Charts. You must include the following lines in the _\<head\>_ of the web page:
@@ -104,20 +117,6 @@ dataTable = va.googleHelper.createDataTable(resultData)
 
 * `resultData` is the message received from VA (event.data).
 * Returns `dataTable`, the input data as a DataTable object.
-
-### initializeSelections
-
-Uses the message received from VA to extract information about selections made in VA objects. After extracting selection information, the "brush" column is eliminated from dataTable.
-
-_Usage:_
-
-```javascript
-selections = va.googleHelper.initializeSelections(dataTable, resultData)
-```
-
-* `dataTable` is the input data as a DataTable object.
-* `resultData` is the message received from VA (event.data).
-* Returns `selections`, an array of objects containing the indexes of the selected rows (e.g. `[{row: 2}, {row: 5}]`)
 
 ### formatData
 
