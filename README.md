@@ -167,17 +167,17 @@ chartData = va.c3Helper.configureChartData(resultData, chartType, previousConfig
 * `resultData` is the message received from VA (event.data).
 * `chartType` is the chart type string as defined in C3 [documentation](http://c3js.org/reference.html#data-type).
 * `previousConfig` is the previous `chartData` JSON object that was assigned to the `data`key in function `c3.generate({... , data: , ...})` to draw the C3 chart. Information from `previousConfig` is compared with the information from `resultData` to determine if the existing chart must be unload due to changes in the new data received from VA. `null` indicates there is no previous configuration (chart was never drawn).
-* Returns `chartData`, a JSON object to be assigned to the `data` key when calling the function `c3.generate({... , data: chartData, ...})` to draw the C3 chart. It has the following structure: 
-`{`
-&nbsp;&nbsp;`type: <chartType parameter>,`
-&nbsp;&nbsp;`x: <label of category column>,`
-&nbsp;&nbsp;`rows:[<array of column labels>,` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`<array of row1 values>,` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`... ,` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`<array of rowN values>`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]` 
-&nbsp;&nbsp;`keys:{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`x: <label of category column>,` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`value: <array of all numeric columns labels>`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`}`
+* Returns `chartData`, a JSON object to be assigned to the `data` key when calling the function `c3.generate({... , data: chartData, ...})` to draw the C3 chart. It has the following structure:    
+`{`   
+&nbsp;&nbsp;`type: <chartType parameter>,`   
+&nbsp;&nbsp;`x: <label of category column>,`   
+&nbsp;&nbsp;`rows:[<array of column labels>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`<array of row1 values>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`... ,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`<array of rowN values>`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`   
+&nbsp;&nbsp;`keys:{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`x: <label of category column>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`value: <array of all numeric columns labels>`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`}`   
 `}`
