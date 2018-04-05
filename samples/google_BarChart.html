@@ -2,8 +2,8 @@
 <html>
 <head>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
     <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
     <script type="text/javascript" src="../thirdPartyHelpers/google.js"></script>
 
     <style>
@@ -45,7 +45,7 @@
         google.charts.load('upcoming', {'packages':['corechart']});
         google.charts.setOnLoadCallback(onChartLoad);
 		
-		va.googleHelper.setupResizeListeners(drawChart);
+		va.contentUtil.setupResizeListener(drawChart);
 		
         function onChartLoad() 
 		{
@@ -69,7 +69,8 @@
 				_resultName = resultData.resultName;
                 _dataTable = va.googleHelper.createDataTable(resultData);
 				va.googleHelper.formatData(_dataTable, resultData);
-				_selections = va.googleHelper.initializeSelections(_dataTable, resultData);
+				va.googleHelper.formatAxis('hAxis', _options, resultData);
+				_selections = va.contentUtil.initializeSelections(resultData);
             }
 
 			drawChart();

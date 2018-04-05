@@ -3,6 +3,25 @@
 
     var contentUtil = {};
 	
+	contentUtil.setupResizeListener = function(callback)
+	{
+		var resizeEndEvent = new Event ('resizeEndEvent');
+
+		//redraw graph when window resize is completed  
+		window.addEventListener ('resizeEndEvent', function() {
+			callback();
+		});
+		
+		//create trigger to resizeEnd event     
+		window.addEventListener('resize',function() {
+			if (this._timeoutID) 
+				clearTimeout(this._timeoutID);
+			this._timeoutID = setTimeout(function() {
+				window.dispatchEvent(resizeEndEvent);
+			}, 25);
+		});
+	}
+	
 	// Example of expectedTypes: ["string", "number", "date"]
 	// Example of optionalTypes: ["string", "number", "date"] OR "string" OR "number" OR "date" OR [] OR null
 	//
