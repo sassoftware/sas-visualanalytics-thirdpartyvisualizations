@@ -3,23 +3,6 @@
 
     var googleHelper = {};
 	
-	googleHelper.setupResizeListeners = function(callback)
-	{
-		//create trigger to resizeEnd event     
-		$(window).resize(function() {
-			if (this.resizeTO) 
-				clearTimeout(this.resizeTO);
-			this.resizeTO = setTimeout(function() {
-				$(this).trigger('resizeEnd');
-			}, 25);
-		});
-
-		//redraw graph when window resize is completed  
-		$(window).on('resizeEnd', function() {
-			callback();
-		});
-	};
-
 	googleHelper.createDataTable = function(resultData)
 	{
 		var arrayData;
@@ -62,7 +45,7 @@
 						});
 						formatter.format(dataTable, i);
 					}
-					else if (colInfo.format.name == "F")
+					else if (colInfo.format.name == "F" || colInfo.format.name == "BEST")
 					{
 						var formatter = new google.visualization.NumberFormat({
 							groupingSymbol: '',
@@ -91,6 +74,41 @@
 		}		
 	};
 		
+	googleHelper.formatAxis = function(axis, options, resultData)
+	{
+		if (!resultData || !options || !axis)
+			return;
+			
+		var columnInfo = resultData.columns;
+		if (columnInfo)
+		{
+			if (!options[axis]) options[axis] = {};
+			for (var i = 0; i < columnInfo.length; i++)
+			{
+				var colInfo = columnInfo[i];
+				if (colInfo.format)
+				{
+					if (colInfo.format.name == "DOLLAR")
+					{
+						options[axis].format = '$#,###';
+					}
+					else if (colInfo.format.name == "COMMA")
+					{
+						options[axis].format = '#,###';
+					}
+					else if (colInfo.format.name == "F" || colInfo.format.name == "BEST")
+					{
+						options[axis].format = '####';
+					}
+					else if (colInfo.format.name == "PERCENT")
+					{
+						options[axis].format = 'percent';
+					}
+				}
+			}
+		}
+	};
+	
 	if (!window.va)
 		window.va = {};
     window.va.googleHelper = googleHelper;
