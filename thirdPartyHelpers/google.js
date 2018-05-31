@@ -45,7 +45,7 @@
 						});
 						formatter.format(dataTable, i);
 					}
-					else if (colInfo.format.name == "F" || colInfo.format.name == "BEST")
+					else if (colInfo.format.name == "F")
 					{
 						var formatter = new google.visualization.NumberFormat({
 							groupingSymbol: '',
@@ -67,6 +67,51 @@
 						var formatter = new google.visualization.NumberFormat({
 							pattern: pattern
 						});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.name == "MONYY")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "MMMyyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.name == "MMYY")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "MM/yyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.name == "DATEN" || colInfo.format.formatString == "MMDDYY8")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "MM/dd/yyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.formatString == "DATE9")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "ddMMMyyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.formatString == "DATE11")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "MMM/dd/yyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.formatString == "DDMMYY8")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "dd/MM/yyyy"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.formatString == "WORDDATE28")
+					{
+						var formatter = new google.visualization.DateFormat({formatType: "long"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.formatString == "YYMMDD8")
+					{dd
+						var formatter = new google.visualization.DateFormat({pattern: "yyyy/MM/dd"});
+						formatter.format(dataTable, i);
+					}
+					else if (colInfo.format.name == "DATETIME")
+					{
+						var formatter = new google.visualization.DateFormat({pattern: "ddMMMyyyy:HH:mm:ss"});
 						formatter.format(dataTable, i);
 					}
 				}

@@ -79,6 +79,41 @@
 		return selections;
 	};
 	
+	contentUtil.convertDateColumns = function(resultData) {
+		if (!resultData)
+			return;
+		
+		var columnsInfo = resultData.columns;
+		var arrayData = resultData.data;
+		for (var c = 0; c < columnsInfo.length; c++) {
+			var colInfo = columnsInfo[c];
+			if (colInfo) { // <--- just to be safe
+				if (colInfo.type == "date") {
+					for (var r = 0; r < arrayData.length; r++) {
+						var dateStr = arrayData[r][c].trim();
+						
+						// One of the Date() constructors accept dates as strings in ISO format as input, such as:
+						// "02/12/2012", "Feb/12/2012", "February 12, 2012", "12Feb2012", "Sunday, February 12, 2012", "2012/02/12"
+						// (support for some of those formats may be browser vendor and version dependent).
+						// It does NOT accept Julian neither DD/MM/YYYY formats. In those cases, a transformation is necessary
+						// to put the date string in a supported format.
+						
+						// There is room for a lot of improvement here.
+						if (colInfo.format && colInfo.format.formatString == "DDMMYY8") {
+							dateStr = dateStr.substr(6)+'-'+dateStr.substr(3,2)+'-'+dateStr.substr(0,2); // = YYYY-MM-DD (international standard)
+						}
+						else if (colInfo.format && colInfo.format.formatString == "JULIAN7") {
+							// This is just a placeholder. Need code for this transformation.
+						}
+						// Other transformations should be added here as needed.
+						
+						arrayData[r][c] = new Date(dateStr);
+					}
+				}
+			}
+		}
+	};
+	
 	if (!window.va)
 		window.va = {};
     window.va.contentUtil = contentUtil;
