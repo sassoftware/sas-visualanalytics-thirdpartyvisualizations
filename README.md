@@ -80,6 +80,16 @@ selections = va.contentUtil.initializeSelections(resultData)
 ```
 * `resultData` is the message received from VA (event.data).
 * Returns `selections`, an array of objects containing the indexes of the selected rows (e.g. `[{row: 2}, {row: 5}]`)
+
+### convertDateColumns
+
+Transforms the message received from VA so that date values (represented as strings) are converted to Date objects. This standardizes date representation and might be helpful to support further transformations and formatting on dates.
+
+_Usage:_
+```javascript
+va.contentUtil.convertDateColumns(resultData)
+```
+* `resultData` is the message received from VA (event.data).
 ---
 ## thirdPartyHelpers/google.js
 
@@ -101,7 +111,7 @@ dataTable = va.googleHelper.createDataTable(resultData)
 
 ### formatData
 
-Uses the columns metadata within the message received from VA to update column formats in a DataTable object. Only numeric columns are affected. Supported VA formats are: DOLLAR, COMMA, F, BEST, and PERCENT. Other column formats are kept unchanged.
+Uses the columns metadata within the message received from VA to update column formats in a DataTable object. Only numeric and date columns are affected. Supported formats are: DOLLAR, COMMA, F, BEST, and PERCENT for numeric, and MONYY, MMYY, MMDDYY, DATE, DDMMYY, WORDDATE, YYMMDD, and DATETIME for dates. Other column formats are kept unchanged.
 
 _Usage:_
 ```javascript
