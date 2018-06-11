@@ -106,6 +106,9 @@
 						else if (colInfo.format && colInfo.format.formatString == "JULIAN7") {
 							// This is just a placeholder. Need code for this transformation.
 						}
+                        else if (colInfo.format && colInfo.format.formatString == "DATE9") { //DDMMMYY
+                            dateStr = dateStr.substr(0,2)+' '+dateStr.substr(2,3)+' '+dateStr.substr(5); // = DD MMM YY
+                        }
 						// Other transformations should be added here as needed.
 						
 						arrayData[r][c] = new Date(dateStr);
