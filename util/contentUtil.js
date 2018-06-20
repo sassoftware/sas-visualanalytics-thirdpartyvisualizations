@@ -20,16 +20,17 @@ limitations under the License.
 	
 	contentUtil.setupResizeListener = function(callback)
 	{
-		var resizeEndEvent = new Event ('resizeEndEvent');
+        var resizeEndEvent = document.createEvent("Event");
+        resizeEndEvent.initEvent("resizeEndEvent", false, true);
 
-		//redraw graph when window resize is completed  
+        //redraw graph when window resize is completed
 		window.addEventListener ('resizeEndEvent', function() {
 			callback();
 		});
-		
-		//create trigger to resizeEnd event     
+
+		//create trigger to resizeEnd event
 		window.addEventListener('resize',function() {
-			if (this._timeoutID) 
+			if (this._timeoutID)
 				clearTimeout(this._timeoutID);
 			this._timeoutID = setTimeout(function() {
 				window.dispatchEvent(resizeEndEvent);
@@ -120,6 +121,9 @@ limitations under the License.
 						else if (colInfo.format && colInfo.format.formatString == "JULIAN7") {
 							// This is just a placeholder. Need code for this transformation.
 						}
+                        else if (colInfo.format && colInfo.format.formatString == "DATE9") { //DDMMMYY
+                            dateStr = dateStr.substr(0,2)+' '+dateStr.substr(2,3)+' '+dateStr.substr(5); // = DD MMM YY
+                        }
 						// Other transformations should be added here as needed.
 						
 						arrayData[r][c] = new Date(dateStr);

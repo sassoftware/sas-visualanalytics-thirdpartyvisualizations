@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+    <script data-require="d3@4.0.0" data-semver="4.0.0" src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v0.3.min.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+    <script type="text/javascript" src="../thirdPartyHelpers/d3.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Catamaran" rel="stylesheet">
+    
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #chart {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        body {
+            font-family: 'Catamaran', sans-serif;
+        }
+
+        line {
+            stroke: #E9E9E9;
+        }
+
+        .coil-label {
+            fill: #000;
+            font-size: 12px;
+        }
+
+        .arc path {
+            stroke: #FFF;
+        }
+
+        .tooltip {
+            background: #eee;
+            box-shadow: 0 0 5px #999999;
+            color: #333;
+            font-size: 12px;
+            left: 130px;
+            padding: 10px;
+            position: absolute;
+            text-align: left;
+            top: 95px;
+            z-index: 10;
+            display: block;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+    var _data = [];
+
+    var width = $(document).width();
+    var margin = { "top": 40, "bottom": 40, "left": 40, "right": 40 };
+
+    var chartWidth = width - margin.left - margin.right - 40;
+    var chartHeight = chartWidth;
+    var chartRadius = chartWidth / 2;
+
+    // let dateParse = d3.timeParse("%d/%m/%Y");
+    let yearFormat = d3.timeFormat("%Y");
+    let monthFormat = d3.timeFormat("%b");
+
+    //Colour scale
+    var colour = d3.scaleSequential(d3.interpolateRdYlGn);
+
+    function initChart() {
+        // Set up event listener for resizes
+        va.contentUtil.setupResizeListener(updateChart);
+    }
+
+    function updateChart() {
+        d3.select("#chart").selectAll("div").remove();
+
+        var nestedData = d3.nest()
+            .key(function (d) { return d.group; })
+            .sortValues(function (a, b) { return a.date - b.date; })
+            .entries(_data);
+
+        width = $(document).width();
+        height = $(document).height();
+
+        chartWidth = Math.min(width, height) - margin.left - margin.right - 40;
+        chartHeight = chartWidth;
+        chartRadius = chartWidth / 2;
+
+        nestedData.forEach(function (chartData) {
+
+            colour.domain(d3.extent(chartData.values, function (d) { return d.value; }));
+
+            //set the options for the sprial heatmap
+            let heatmap = spiralHeatmap()
+                .radius(chartRadius)
+                .holeRadiusProportion(0.2)
+                .arcsPerCoil(12)
+                .coilPadding(0.1)
+                .arcLabel("month")
+                .coilLabel("year");
+
+            //CREATE SVG AND A G PLACED IN THE CENTRE OF THE SVG
+            const div = d3.select("#chart").append("div");
+
+            div.append("p")
+                .text(chartData.key);
+
+            const svg = div.append("svg")
+                .attr("width", chartWidth + margin.left + margin.right)
+                .attr("height", chartHeight + margin.top + margin.bottom);
+
+            const g = svg.append("g")
+                .attr("transform", "translate("
+                    + (margin.left + chartRadius)
+                    + ","
+                    + (margin.top + chartRadius) + ")");
+
+            g.datum(chartData.values)
+                .call(heatmap);
+
+            g.selectAll(".arc").selectAll("path")
+                .style("fill", function (d) { return colour(d.value); });
+
+            var tooltip = d3.select("#chart")
+                .append('div')
+                .attr('class', 'tooltip');
+            tooltip.append('div')
+                .attr('class', 'date');
+            tooltip.append('div')
+                .attr('class', 'value');
+
+            g.selectAll(".arc").on('mouseover', function (d) {
+
+                tooltip.select('.date').html("Date: <b>" + d.month + " " + d.year + "</b>");
+                tooltip.select('.value').html("Value: <b>" + d.valueFormatted + "<b>");
+
+                d3.select(this)
+                    .style("opacity", .5);
+
+                tooltip.style('display', 'block');
+                tooltip.style('opacity', 2);
+
+            })
+                .on('mousemove', function (d) {
+                    tooltip.style('top', (d3.event.layerY + 10) + 'px')
+                        .style('left', (d3.event.layerX - 25) + 'px');
+                })
+                .on('mouseout', function (d) {
+                    d3.selectAll(".arc")
+                        .style("opacity", 1);
+
+                    tooltip.style('display', 'none');
+                    tooltip.style('opacity', 0);
+                });
+        });
+    }
+
+    /**
+     * Executed when a message is received from SAS VA (e.g. by interaction or filter)
+     * @param evt {Event}
+     */
+    function onDataReceived(evt) {
+        if (evt && evt.data && evt.data.length > 0) {
+            var dateColumnIndex = -1,
+                measureColumnIndex = -1,
+                stringColumnIndex = -1,
+                measureColumnFormat = null;
+
+            // try to find a date and a measure
+            evt.columns.forEach(function (column, index) {
+                switch (column.type) {
+                    case "date":
+                        dateColumnIndex = index;
+                        break;
+                    case "string":
+                        if (stringColumnIndex == -1)
+                            stringColumnIndex = index;
+                        break;
+                    case "number":
+                        measureColumnIndex = index;
+                        measureColumnFormat = column.format;
+                        break;
+                }
+            });
+
+            if (dateColumnIndex >= 0 && measureColumnIndex >= 0) {
+                var chartData = evt.data.map(function (values) {
+                    var jsDate = new Date(Date.parse(values[dateColumnIndex])),
+                        jsValue = values[measureColumnIndex],
+                        jsValueFormatted = Math.round(jsValue).toLocaleString();
+
+                    // format value if required / TODO: add more formats
+                    if (measureColumnFormat != null) {
+                        switch (measureColumnFormat.name) {
+                            case "DOLLAR":
+                                var formatter = new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: 'USD',
+                                    minimumFractionDigits: measureColumnFormat.precision,
+                                });
+                                jsValueFormatted = formatter.format(jsValue);
+                                break;
+                        }
+                    }
+                    
+                    return {
+                        date: jsDate,
+                        // date: dateParse(jsDate),
+                        year: yearFormat(jsDate),
+                        month: monthFormat(jsDate),
+                        value: jsValue,
+                        valueFormatted: jsValueFormatted,
+                        group: values[stringColumnIndex]//jsDate.getMonth()
+                    }
+                });
+                _data = chartData;
+                updateChart();
+            } else {
+                // TODO: display a warning to assign required roles in VA
+            }
+        }
+    }
+
+    va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+    initChart();
+    updateChart();
+
+
+    // A spiral heatmap
+    // The following options are available
+    // radius: radius of the overall plot, not including any labels. Default 250
+    // holeRadiusProportion: the proportion (0 to 1) of the radius (see above) that is left as a hole. Default 0.
+    // arcsPerCoil: a 'coil' is one revolution of the spiral.  This sets how many arcs (or arcs) you want per coil. Typically this would
+    //                  be set according to the periodicity of the data. For example, 12 for months per year, 24 for hours per day, etc
+    // coilPadding: the proportion (0 to 1) of the coil width that is used for padding between coils. Useful for making the spiral very noticeable
+    // arcLabel: the field name to use for the labels around the circumference
+    // coilLabel: the field name to use for the labels at the beginning of each coil
+
+    function spiralHeatmap () {
+        // constants
+        const radians = 0.0174532925
+
+        // All options that are accessible to caller
+        // Default values
+        var radius = 250
+        var holeRadiusProportion = 0.3 // proportion of radius
+        var arcsPerCoil = 12 // assuming months per year
+        var coilPadding = 0 // no padding
+        var arcLabel = '' // no labels
+        var coilLabel = '' // no labels
+
+        function chart (selection) {
+            selection.each(function (data) {
+                const arcAngle = 360 / arcsPerCoil
+                const labelRadius = radius + 20
+
+                var arcLabelsArray = []
+
+                for (var i = 0; i < arcsPerCoil; i++) {
+                    arcLabelsArray.push(i)
+                }
+
+
+
+                // Create/update the x/y coordinates for the vertices and control points for the paths
+                // Stores the x/y coordinates on the data
+                updatePathData(data)
+
+                let thisSelection = d3
+                    .select(this)
+                    .append('g')
+                    .attr('class', 'spiral-heatmap')
+
+                var arcLabelsG = thisSelection
+                    .selectAll('.arc-label')
+                    .data(arcLabelsArray)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'arc-label')
+
+                arcLabelsG
+                    .append('text')
+                    .text(function (d) {
+                        return data[d][arcLabel]
+                    })
+                    .attr('x', function (d, i) {
+                        let labelAngle = i * arcAngle + arcAngle / 2
+                        return x(labelAngle, labelRadius)
+                    })
+                    .attr('y', function (d, i) {
+                        let labelAngle = i * arcAngle + arcAngle / 2
+                        return y(labelAngle, labelRadius)
+                    })
+                    .style('text-anchor', function (d, i) {
+                        return i < arcLabelsArray.length / 2 ? 'start' : 'end'
+                    })
+
+                arcLabelsG
+                    .append('line')
+                    .attr('x2', function (d, i) {
+                        let lineAngle = i * arcAngle
+                        let lineRadius = chartRadius + 10
+                        return x(lineAngle, lineRadius)
+                    })
+                    .attr('y2', function (d, i) {
+                        let lineAngle = i * arcAngle
+                        let lineRadius = chartRadius + 10
+                        return y(lineAngle, lineRadius)
+                    })
+
+                var arcs = thisSelection
+                    .selectAll('.arc')
+                    .data(data)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'arc')
+
+                arcs.append('path').attr('d', function (d) {
+                    // start at vertice 1
+                    let start = 'M ' + d.x1 + ' ' + d.y1
+                    // inner curve to vertice 2
+                    let side1 =
+                        ' Q ' +
+                        d.controlPoint1x +
+                        ' ' +
+                        d.controlPoint1y +
+                        ' ' +
+                        d.x2 +
+                        ' ' +
+                        d.y2
+                    // straight line to vertice 3
+                    let side2 = 'L ' + d.x3 + ' ' + d.y3
+                    // outer curve vertice 4
+                    let side3 =
+                        ' Q ' +
+                        d.controlPoint2x +
+                        ' ' +
+                        d.controlPoint2y +
+                        ' ' +
+                        d.x4 +
+                        ' ' +
+                        d.y4
+                    // combine into string, with closure (Z) to vertice 1
+                    return start + ' ' + side1 + ' ' + side2 + ' ' + side3 + ' Z'
+                })
+
+                // create coil labels on the first arc of each coil
+                coilLabels = arcs
+                    .filter(function (d) {
+                        return d.arcNumber == 0
+                    })
+                    .raise()
+
+                coilLabels
+                    .append('path')
+                    .attr('id', function (d) {
+                        return 'path-' + d[coilLabel]
+                    })
+                    .attr('d', function (d) {
+                        // start at vertice 1
+                        let start = 'M ' + d.x1 + ' ' + d.y1
+                        // inner curve to vertice 2
+                        let side1 =
+                            ' Q ' +
+                            d.controlPoint1x +
+                            ' ' +
+                            d.controlPoint1y +
+                            ' ' +
+                            d.x2 +
+                            ' ' +
+                            d.y2
+                        return start + side1
+                    })
+                    .style('opacity', 0)
+
+                coilLabels
+                    .append('text')
+                    .attr('class', 'coil-label')
+                    .attr('x', 3)
+                    .attr('dy', -4)
+                    .append('textPath')
+                    .attr('xlink:href', function (d) {
+                        return '#path-' + d[coilLabel]
+                    })
+                    .text(function (d) {
+                        return d[coilLabel]
+                    })
+            })
+
+            function updatePathData (data) {
+                let holeRadius = radius * holeRadiusProportion
+                let arcAngle = 360 / arcsPerCoil
+                let dataLength = data.length
+                let coils = Math.ceil(dataLength / arcsPerCoil) // number of coils, based on data.length / arcsPerCoil
+                let coilWidth = chartRadius * (1 - holeRadiusProportion) / (coils + 1) // remaining chartRadius (after holeRadius removed), divided by coils + 1. I add 1 as the end of the coil moves out by 1 each time
+
+                data.forEach(function (d, i) {
+                    let coil = Math.floor(i / arcsPerCoil)
+                    let position = i - coil * arcsPerCoil
+                    let startAngle = position * arcAngle
+                    let endAngle = (position + 1) * arcAngle
+                    let startInnerRadius = holeRadius + i / arcsPerCoil * coilWidth
+                    let startOuterRadius =
+                        holeRadius +
+                        i / arcsPerCoil * coilWidth +
+                        coilWidth * (1 - coilPadding)
+                    let endInnerRadius = holeRadius + (i + 1) / arcsPerCoil * coilWidth
+                    let endOuterRadius =
+                        holeRadius +
+                        (i + 1) / arcsPerCoil * coilWidth +
+                        coilWidth * (1 - coilPadding)
+
+                    // vertices of each arc
+                    d.x1 = x(startAngle, startInnerRadius)
+                    d.y1 = y(startAngle, startInnerRadius)
+                    d.x2 = x(endAngle, endInnerRadius)
+                    d.y2 = y(endAngle, endInnerRadius)
+                    d.x3 = x(endAngle, endOuterRadius)
+                    d.y3 = y(endAngle, endOuterRadius)
+                    d.x4 = x(startAngle, startOuterRadius)
+                    d.y4 = y(startAngle, startOuterRadius)
+
+                    // CURVE CONTROL POINTS
+                    let midAngle = startAngle + arcAngle / 2
+                    let midInnerRadius =
+                        holeRadius + (i + 0.5) / arcsPerCoil * coilWidth
+                    let midOuterRadius =
+                        holeRadius +
+                        (i + 0.5) / arcsPerCoil * coilWidth +
+                        coilWidth * (1 - coilPadding)
+
+                    // MID POINTS, WHERE THE CURVE WILL PASS THRU
+                    d.mid1x = x(midAngle, midInnerRadius)
+                    d.mid1y = y(midAngle, midInnerRadius)
+                    d.mid2x = x(midAngle, midOuterRadius)
+                    d.mid2y = y(midAngle, midOuterRadius)
+
+                    d.controlPoint1x = (d.mid1x - 0.25 * d.x1 - 0.25 * d.x2) / 0.5
+                    d.controlPoint1y = (d.mid1y - 0.25 * d.y1 - 0.25 * d.y2) / 0.5
+                    d.controlPoint2x = (d.mid2x - 0.25 * d.x3 - 0.25 * d.x4) / 0.5
+                    d.controlPoint2y = (d.mid2y - 0.25 * d.y3 - 0.25 * d.y4) / 0.5
+
+                    d.arcNumber = position
+                    d.coilNumber = coil
+                })
+
+                return data
+            }
+
+            function x (angle, radius) {
+                // change to clockwise
+                let a = 360 - angle
+                // start from 12 o'clock
+                a = a + 180
+                return radius * Math.sin(a * radians)
+            }
+
+            function y (angle, radius) {
+                // change to clockwise
+                let a = 360 - angle
+                // start from 12 o'clock
+                a = a + 180
+                return radius * Math.cos(a * radians)
+            }
+
+            function chartWH (r) {
+                return r * 2
+            }
+        }
+
+        chart.radius = function (value) {
+            if (!arguments.length) return radius
+            radius = value
+            return chart
+        }
+
+        chart.holeRadiusProportion = function (value) {
+            if (!arguments.length) return holeRadiusProportion
+            holeRadiusProportion = value
+            return chart
+        }
+
+        chart.arcsPerCoil = function (value) {
+            if (!arguments.length) return arcsPerCoil
+            arcsPerCoil = value
+            return chart
+        }
+
+        chart.coilPadding = function (value) {
+            if (!arguments.length) return coilPadding
+            coilPadding = value
+            return chart
+        }
+
+        chart.arcLabel = function (value) {
+            if (!arguments.length) return arcLabel
+            arcLabel = value
+            return chart
+        }
+
+        chart.coilLabel = function (value) {
+            if (!arguments.length) return coilLabel
+            coilLabel = value
+            return chart
+        }
+
+        return chart
+    }
+
+
+
+
+
+
+</script>
+
+</body>
+</html>
