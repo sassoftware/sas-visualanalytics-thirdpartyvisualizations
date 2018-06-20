@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+    <script type="text/javascript" src="../thirdPartyHelpers/google.js"></script>
+
+    <style>
+        html {
+            overflow: hidden;
+        }
+        html, body, #chart_div {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #chart_div {
+            position: relative;
+        }
+    </style>
+
+    <script>
+        "use strict";
+
+        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+        var _resultName = null;
+        var _dataTable = null;
+        var _selections = null;
+        var _calendar = null;
+        var _options = {
+            chartArea: {
+                left: 80,
+                bottom: 100,
+                width: '100%',
+                height: '100%'
+            },
+            legend: {
+                position: 'bottom'
+            },
+            width: '100%',
+            height: '100%'
+        };
+
+        google.charts.load('upcoming', {'packages':['calendar']});
+        google.charts.setOnLoadCallback(onChartLoad);
+
+        va.contentUtil.setupResizeListener(drawChart);
+
+        function onChartLoad()
+        {
+            _calendar = new google.visualization.Calendar(document.getElementById('chart_div'));
+            google.visualization.events.addListener(_calendar, 'ready', readyHandler);
+            google.visualization.events.addListener(_calendar, 'select', selectHandler);
+
+            drawChart();
+        };
+
+        function drawChart()
+        {
+            if (_calendar)
+                _calendar.draw(_dataTable, _options);
+        }
+
+        function onDataReceived(resultData)
+        {
+            if (!resultData || resultData.rowCount < 0)
+            {
+                resultData = {
+                    "version" : "1",
+                    "rowCount" : 18,
+                    "availableRowCount" : 18,
+                    "data" : [ [ "01/01/1998", 10000.0 ], [ "02/01/1998", 10000.0 ], [ "03/01/1998", 4000.0 ], [ "04/01/1998", 30000.0 ], [ "01/02/1998", 15000.0 ], [ "02/02/1998", 10000.0 ], [ "03/02/1998", 4000.0 ], [ "04/02/1998", 35000.0 ], [ "01/03/1998", 17000.0 ], [ "02/03/1998", 15000.0 ], [ "03/03/1998", 10000.0 ], [ "04/03/1998", 17000.0 ], [ "01/04/1998", 12000.0 ], [ "02/04/1998", 12000.0 ], [ "03/04/1998", 10000.0 ], [ "01/05/1998", 4000.0 ], [ "02/05/1998", 4000.0 ], [ "03/05/1998", 10000.0 ] ],
+                    "columns" : [ {
+                        "label" : "dte",
+                        "type" : "date",
+                        "usage" : "categorical",
+                        "format" : {
+                            "name" : "DDMMYY",
+                            "width" : 8,
+                            "precision" : 0,
+                            "formatString" : "DDMMYY8"
+                        }
+                    }, {
+                        "label" : "sales",
+                        "type" : "number",
+                        "usage" : "quantitative",
+                        "aggregation" : "sum",
+                        "format" : {
+                            "name" : "BEST",
+                            "width" : 12,
+                            "precision" : 0,
+                            "formatString" : "BEST12."
+                        }
+                    } ]
+                };
+            }
+
+            if (resultData)
+            {
+                _resultName = resultData.resultName;
+                va.contentUtil.convertDateColumns(resultData);
+                _dataTable = va.googleHelper.createDataTable(resultData);
+                va.googleHelper.formatData(_dataTable, resultData);
+                _selections = va.contentUtil.initializeSelections(resultData);
+            }
+
+            drawChart();
+        }
+
+        function readyHandler(e)
+        {
+            if (_selections && _selections.length > 0)
+            {
+                _calendar.setSelection(_selections);
+            }
+        }
+
+        function selectHandler(e)
+        {
+            var selection = _calendar.getSelection();
+            va.messagingUtil.postSelectionMessage(_resultName, selection);
+        }
+
+    </script>
+</head>
+<body>
+<div id="chart_div"/>
+</body>
+</html>
