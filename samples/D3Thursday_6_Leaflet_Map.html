@@ -489,7 +489,7 @@
 				.attr("y", 0)
 			.merge(KV_STATIC)
 				.style("font-size", "1em")
-  				.style("font-size", function() { return Math.min((2 * KV_INNER_RADIUS) / this.getComputedTextLength(), 3) + "em"; })
+  				.style("font-size", function() { return (2 * KV_INNER_RADIUS) / this.getComputedTextLength() + "em"; })
 				.each(function() { KV_STATIC_HEIGHT = this.getBBox().height });
 
 			// Create key value type
