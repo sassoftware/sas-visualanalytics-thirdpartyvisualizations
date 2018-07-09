@@ -123,7 +123,77 @@
 		var MAP_ID = "map";													// ID of map div
 		var ACCESS_TOKEN = "pk.eyJ1Ijoicnlid2VzIiwiYSI6ImNqajhsbXFyazJ4bW0zdmxmZ3E2cHNmOGUifQ.nigRtPYSdcQK_XaoquVSiQ";
 																			// Your personal access token for Mapbox which can be retrieved from https://www.mapbox.com/studio/account/tokens/
-		var SAMPLE_MESSAGE;													// Sample data message to render map outside of VA for debugging
+		var SAMPLE_MESSAGE = {
+		    "version": "1",
+		    "resultName": "dd61",
+		    "rowCount": 6,
+		    "availableRowCount": 6,
+		    "data": [
+		        [
+		            "Hybrid",
+		            3,
+		            165
+		        ],
+		        [
+		            "Sedan",
+		            262,
+		            5524
+		        ],
+		        [
+		            "Sports",
+		            49,
+		            902
+		        ],
+		        [
+		            "SUV",
+		            60,
+		            966
+		        ],
+		        [
+		            "Truck",
+		            24,
+		            396
+		        ],
+		        [
+		            "Wagon",
+		            30,
+		            633
+		        ]
+		    ],
+		    "columns": [
+		        {
+		            "name": "bi62",
+		            "label": "Type",
+		            "type": "string"
+		        },
+		        {
+		            "name": "bi63",
+		            "label": "Frequency",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "totalCount",
+		            "format": {
+		                "name": "COMMA",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "COMMA12."
+		            }
+		        },
+		        {
+		            "name": "bi70",
+		            "label": "MPG (City)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "sum",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        }
+		    ]
+		};													// Sample data message to render map outside of VA for debugging
 		var VA_MESSAGE;														// Data message to be received from VA
 		var VA_RESULT_NAME;													// Result name required to send messages back to VA
 		var DATA = [];														// Data to be parsed from VA data message
