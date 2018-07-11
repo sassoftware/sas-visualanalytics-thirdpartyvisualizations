@@ -221,6 +221,7 @@ limitations under the License.
 		var LEG_SVG_ID = "legend";											// ID of legend SVG
 
 		var KV_SVG_ID = "key-value";										// ID of key value SVG
+		var KV_TYPE_COST_MAX_LENGTH_STRING;									// The longest key value type or cost by length
 
 		// Static dimension variables
 		var MARGIN = {top: 5, right: 5, bottom: 5, left: 5};				// MARGIN on interior edge of legend SVG
@@ -255,6 +256,7 @@ limitations under the License.
 		var KV_CHORD;														// Chord that defines maximum width of key value type/cost text
 		var KV_EXTERNAL_PAD;												// Padding between inside key value ring and key value type/cost text
 		var KV_STATIC_HEIGHT;												// Height of key value static text
+		var KV_TYPE_COST_FONT_SIZE;											// Font size for key value type and cost text
 
 		// Selection, leaflet, and d3 variables
 		var MAP;															// Leaflet map variable
@@ -314,6 +316,8 @@ limitations under the License.
 					distMile: VA_MESSAGE.data[i][2]/VA_MESSAGE.data[i][1]/10, 				// cumulative mpg / frequency of vehicle by type / 10 trips per week = miles that can be traveled on 1 gal
 					cost: (3/(VA_MESSAGE.data[i][2]/VA_MESSAGE.data[i][1]/10) * 2.53 * 54) 	// 3 miles per trip / dist per gal per week * $2.53 per gallon * 54 weeks per year = cost per year to commute 3 miles a day to work
 				});
+
+				KV_TYPE_COST_MAX_LENGTH_STRING = COST_FORMAT(DATA[i].cost).length > DATA[i].type.length ? COST_FORMAT(DATA[i].cost) : DATA[i].type;
 			}
 
 			// Sort data from most fuel efficient to least
@@ -504,6 +508,18 @@ limitations under the License.
   				.style("font-size", function() { return (2 * KV_INNER_RADIUS - 2 * KV_STATIC_PADDING) / this.getComputedTextLength() + "em"; })
 				.each(function() { KV_STATIC_HEIGHT = this.getBBox().height });
 
+			// Determine font size for key value type and cost text
+			G_KV.append("text")
+				.text(KV_TYPE_COST_MAX_LENGTH_STRING)
+				.style("font-size", "1em")
+  				.each(function() {
+					console.log(this);
+					var widthConstrained = KV_CHORD / this.getComputedTextLength();
+					var heightConstrained = (KV_INNER_RADIUS - KV_EXTERNAL_PAD - KV_INTERNAL_MIN_PAD - KV_STATIC_HEIGHT/2) / this.getBBox().height;
+					KV_TYPE_COST_FONT_SIZE = Math.min(widthConstrained, heightConstrained) + "em";
+					d3.select(this).remove();
+				});
+
 			// Create key value type
 			KV_TYPE = G_KV.selectAll("#key-value-type").data([DATA]);
 
@@ -514,12 +530,7 @@ limitations under the License.
 				.attr("x", 0)
 			.merge(KV_TYPE)
 				.attr("y", (-KV_INNER_RADIUS + KV_EXTERNAL_PAD))
-				.style("font-size", "1em")
-  				.style("font-size", function() {
-					var widthConstrained = KV_CHORD / this.getComputedTextLength();
-					var heightConstrained = (KV_INNER_RADIUS - KV_EXTERNAL_PAD - KV_INTERNAL_MIN_PAD - KV_STATIC_HEIGHT/2) / this.getBBox().height;
-					return Math.min(widthConstrained, heightConstrained) + "em";
-				});
+  				.style("font-size", KV_TYPE_COST_FONT_SIZE);
 
 			// Create key value cost
 			KV_COST = G_KV.selectAll("#key-value-cost").data([DATA]);
@@ -530,12 +541,7 @@ limitations under the License.
 				.attr("x", 0)
 			.merge(KV_COST)
 				.attr("y", (KV_INNER_RADIUS - KV_EXTERNAL_PAD))
-				.style("font-size", "1em")
-  				.style("font-size", function() {
-					var widthConstrained = KV_CHORD / this.getComputedTextLength();
-					var heightConstrained = (KV_INNER_RADIUS - KV_EXTERNAL_PAD - KV_INTERNAL_MIN_PAD - KV_STATIC_HEIGHT/2) / this.getBBox().height;
-					return Math.min(widthConstrained, heightConstrained) + "em";
-				});
+  				.style("font-size", KV_TYPE_COST_FONT_SIZE);
 		}
 
 		// Transition necessary elements on selection
@@ -571,12 +577,7 @@ limitations under the License.
 				.attr("fill", STROKE[index])
 				.attr("x", 0)
 				.attr("y", (-KV_INNER_RADIUS + KV_EXTERNAL_PAD))
-				.style("font-size", "1em")
-  				.style("font-size", function() {
-					var widthConstrained = KV_CHORD / this.getComputedTextLength();
-					var heightConstrained = (KV_INNER_RADIUS - KV_EXTERNAL_PAD - KV_INTERNAL_MIN_PAD - KV_STATIC_HEIGHT/2) / this.getBBox().height;
-					return Math.min(widthConstrained, heightConstrained) + "em";
-				})
+  				.style("font-size", KV_TYPE_COST_FONT_SIZE)
 				.style("opacity", 0)
 			.transition("key-value-type-enter").duration(TRANS_TIME)
 				.style("opacity", 1);
