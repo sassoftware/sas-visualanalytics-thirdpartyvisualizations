@@ -1,18 +1,27 @@
 <!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <html>
 <head>
 	<!-- Import D3.js -->
 	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
-	<!-- Import jQuery -->
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
 	<!-- Import utilities  -->
-	<script type="text/javascript" src="https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/util/messagingUtil.js"></script>
-	<script type="text/javascript" src="https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/util/contentUtil.js"></script>
-
-    <!-- Import Web Font Loader -->
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
+	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../../util/contentUtil.js"></script>
 
 	<!-- Import Leaflet CSS -->
 	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
@@ -31,6 +40,10 @@
 		margin: 0px;
 		width: 100%;
 		height: 100%;
+	}
+
+	text {
+		font-family: Verdana, sans-serif;
 	}
 
 	#map {
@@ -59,8 +72,19 @@
     	cursor: pointer;
 	}
 
-	text {
-		font-family: "Noto Sans", sans-serif;
+	#key-value-static {
+		text-anchor: middle;
+		alignment-baseline: middle;
+	}
+
+	#key-value-type {
+		text-anchor: middle;
+		alignment-baseline: hanging;
+	}
+
+	#key-value-cost {
+		text-anchor: middle;
+		alignment-baseline: ideographic;
 	}
 
 	.leaflet-popup-content {
@@ -86,21 +110,6 @@
 	.g-legend-entry.selected .legend-rect {
 		stroke-width: 2px;
 	}
-
-	#key-value-static {
-		text-anchor: middle;
-		alignment-baseline: middle;
-	}
-
-	#key-value-type {
-		text-anchor: middle;
-		alignment-baseline: hanging;
-	}
-
-	#key-value-cost {
-		text-anchor: middle;
-		alignment-baseline: ideographic;
-	}
 </style>
 
 <div id="map">
@@ -112,12 +121,7 @@
 <script>
 	"use strict";
 
-	WebFont.load({
-		google: { families: ['Noto Sans'] },
-		active: fontLoaded()
-	});
-
-	function fontLoaded() {
+	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
 		// Data variables
 		var MAP_ID = "map";													// ID of map div
@@ -231,6 +235,7 @@
 		var KV_RING_WIDTH = .05;											// Width of key value ring in percent of radius
 		var KV_EXTERNAL_PAD_PROP = .25;										// Proportion of radius to leave as padding between inside key value ring and key value type/cost text
 		var KV_INTERNAL_MIN_PAD = 5;										// Minimum padding between key value static text and key value type/cost text
+		var KV_STATIC_PADDING = 5;											// Horizontal padding on either side of key value static text
 
 		// Dynamic dimension variables
 		var LEG_SVG_WIDTH;													// Width of legend SVG element
@@ -251,8 +256,11 @@
 		var KV_EXTERNAL_PAD;												// Padding between inside key value ring and key value type/cost text
 		var KV_STATIC_HEIGHT;												// Height of key value static text
 
-		// Selection and d3 variables
+		// Selection, leaflet, and d3 variables
 		var MAP;															// Leaflet map variable
+		var LAT = 42.3953;													// Latitude to center map on
+		var LNG = -94.6339;													// Longitude to center map on
+		var ZOOM = 12;														// Initial zoom level
 		var CIRCLES = [];													// Array of leaflet circles
 		var POPUPS = [];													// Array of leaflet popups
 
@@ -316,12 +324,13 @@
 			drawKeyValue();
 		}
 
+		// Draw leaflet map
 		function drawMap() {
 			// Initialize map
 			MAP = L.map("map", {
-				zoomControl: false
-			})
-			.setView([42.3953, -94.6339]/*[35.818379, -78.757441]*/, 12);
+					zoomControl: false
+				})
+				.setView([LAT, LNG], ZOOM);
 
 			// Add tile layer to map
 			L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=" + ACCESS_TOKEN, {
@@ -360,6 +369,7 @@
 			d3.selectAll(".leaflet-interactive").on("click", function(d, i) { keyValSelect(d, i); });
 		}
 
+		// Draw legend on map
 		function drawLegend() {
 			// Append and remove legend title element to get height of legend title
 			d3.select("#" + LEG_SVG_ID).selectAll(".dummyText").data([DATA]).enter().append("text")
@@ -374,6 +384,7 @@
 			d3.select("#" + LEG_SVG_ID).selectAll(".dummyText").data(DATA).enter().append("text")
 				.classed("legend-text", true)
 			    .text(function(d) { return d.type; })
+				.style("font-weight", "bold")
 			    .each(function(d, i) {
 			        LEG_ROW_HEIGHT = Math.max(this.getBBox().height, LEG_RECT_WIDTH);
 			        LEG_TEXT_MAX_WIDTH = Math.max(LEG_TEXT_MAX_WIDTH, this.getComputedTextLength());
@@ -440,10 +451,11 @@
 				.attr("x", (LEG_RECT_WIDTH + LEG_RECT_PAD));
 		}
 
+		// Draw key value
 		function drawKeyValue() {
 			// Get overall key value dimensions
-			KV_SVG_WIDTH = $("#" + KV_SVG_ID).width();
-			KV_SVG_HEIGHT = $("#" + KV_SVG_ID).height();
+			KV_SVG_WIDTH = d3.select("#" + KV_SVG_ID).node().getBoundingClientRect().width;
+			KV_SVG_HEIGHT = d3.select("#" + KV_SVG_ID).node().getBoundingClientRect().height;
 			DRAWABLE_KV_SVG_WIDTH = KV_SVG_WIDTH - MARGIN.right - MARGIN.left;
 			DRAWABLE_KV_SVG_HEIGHT = KV_SVG_HEIGHT - MARGIN.bottom - MARGIN.top;
 			KV_RADIUS = Math.min(DRAWABLE_KV_SVG_WIDTH, DRAWABLE_KV_SVG_HEIGHT) / 2;
@@ -489,7 +501,7 @@
 				.attr("y", 0)
 			.merge(KV_STATIC)
 				.style("font-size", "1em")
-  				.style("font-size", function() { return (2 * KV_INNER_RADIUS) / this.getComputedTextLength() + "em"; })
+  				.style("font-size", function() { return (2 * KV_INNER_RADIUS - 2 * KV_STATIC_PADDING) / this.getComputedTextLength() + "em"; })
 				.each(function() { KV_STATIC_HEIGHT = this.getBBox().height });
 
 			// Create key value type
@@ -526,6 +538,7 @@
 				});
 		}
 
+		// Transition necessary elements on selection
 		function keyValSelect(datum, index) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
@@ -624,7 +637,6 @@
 					return type.toLowerCase();
 			}
 		}
-
-	}
+	});
 </script>
 </html>

@@ -1,11 +1,23 @@
 <!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <html>
 <head>
 	<!-- Import D3.js -->
 	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
-
-	<!-- Import jQuery -->
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 </head>
 <body>
 <style type="text/css">
@@ -25,12 +37,10 @@
 	}
 </style>
 
-<svg id="simple-bar"></svg>
-
 <script>
 	"use strict";
 
-	$(function() {
+	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
 		// Data variables
 		var SVG_ID = "simple-bar";											// ID of SVG element
@@ -62,10 +72,13 @@
 
 
 		/**************************************************** Create Static Elements ****************************************************/
-		// Save reference for svg
+		// Append svg and save reference
+		d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
+			.attr("id", SVG_ID);
+
 		SVG = d3.select("#" + SVG_ID)
-		   .attr("width", WIDTH)
-		   .attr("height", HEIGHT);
+			.attr("width", WIDTH)
+			.attr("height", HEIGHT);
 
 		// Append x axis group and save reference
 		SVG.selectAll(".g-x-axis").data([DATA]).enter().append("g")

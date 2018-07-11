@@ -1,15 +1,27 @@
 <!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
 <html>
 <head>
 	<!-- Import D3.js -->
 	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
-	<!-- Import jQuery -->
-	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-
 	<!-- Import utilities  -->
-	<script type="text/javascript" src="https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/util/messagingUtil.js"></script>
-	<script type="text/javascript" src="https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/util/contentUtil.js"></script>
+	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../../util/contentUtil.js"></script>
 </head>
 <body>
 <style type="text/css">
@@ -34,12 +46,10 @@
 	}
 </style>
 
-<SVG id="dynamic-bar"></SVG>
-
 <script>
 	"use strict";
 
-	$(function() {
+	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
 		// Data variables
 		var SVG_ID = "dynamic-bar";											// ID of SVG element
@@ -155,7 +165,7 @@
 			}
 
 			// Initialize chart if first draw, otherwise process data and update elements accordingly
-			if ($("#" + SVG_ID).children().length == 0) {
+			if (d3.select("#" + SVG_ID).empty()) {
 				drawElements();
 			}
 			else {
@@ -171,11 +181,14 @@
 			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
 			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
 
-			// Save reference for svg
+			// Append svg and save reference
+			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
+				.attr("id", SVG_ID)
+				.on("click", deselectAllElements);
+
 			SVG = d3.select("#" + SVG_ID)
 				.attr("width", WIDTH)
-				.attr("height", HEIGHT)
-				.on("click", deselectAllElements);
+				.attr("height", HEIGHT);
 
 			// Append/update x-axis group and save reference
 			SVG.selectAll(".g-x-axis").data([DATA]).enter().append("g")
@@ -277,13 +290,23 @@
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
 				.attr("height", function(d) { return DRAWABLE_HEIGHT - Y_SCALE(d.y); })
-				.style("opacity", .000001)
+				.style("opacity", 0)
 			.transition().duration(TRANS_TIME)
 				.style("opacity", 1);
 
 			DATA_BARS.exit().transition().duration(TRANS_TIME)
 				.style("opacity", 0.000001)
 				.remove();
+		}
+
+		/******************************************************* Helper Functions *******************************************************/
+		// Determine whether or not page is being rendered in iFrame
+		function inIframe () {
+			try {
+				return window.self !== window.top;
+			} catch (e) {
+				return true;
+			}
 		}
 
 		// Deselect all on svg click
@@ -324,16 +347,6 @@
 			}
 		}
 
-		/******************************************************* Helper Functions *******************************************************/
-		// Determine whether or not page is being rendered in iFrame
-		function inIframe () {
-			try {
-				return window.self !== window.top;
-			} catch (e) {
-				return true;
-			}
-		}
-		
 		// Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
 		d3.selection.prototype.moveToFront = function() {
 	    	return this.each(function(){
