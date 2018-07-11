@@ -310,7 +310,7 @@ limitations under the License.
 				.attr("fill", function(d, i) { return COLOR_SCALE(i); })
 				.attr("d", function(d) {
 					var prev = d3.select(this.previousElementSibling);
-					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
+					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
 
 					return PATH({startAngle: prevD.endAngle, endAngle: prevD.endAngle});
 				})
@@ -319,7 +319,7 @@ limitations under the License.
 		    	.duration(TRANS_TIME)
 		    	.attrTween("d", function(d) {
 					var prev = d3.select(this.previousElementSibling);
-					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
+					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
 
 		    		return arcTween(d, prevD.endAngle, d.finalStartAngle, prevD.endAngle, d.finalEndAngle);
 		    	});
@@ -329,10 +329,10 @@ limitations under the License.
 		    .transition().duration(TRANS_TIME)
 		    	.attrTween("d", function(d, i) {
 					var prev = d3.select(this.previousElementSibling);
-					while (prev.classed("exiting")) {
+					while (prev.node() && prev.classed("exiting")) {
 						prev = d3.select(prev.node().previousElementSibling);
 					}
-					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: 0};
+					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: 0};
 
 		    		return arcTween(d, d.startAngle, prevD.finalEndAngle, d.endAngle, prevD.finalEndAngle);
 		    	})
