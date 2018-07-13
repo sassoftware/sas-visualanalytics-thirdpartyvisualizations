@@ -144,6 +144,7 @@ limitations under the License.
 		};																					// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;																		// Data message to be received from VA
 		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
+		var SELECTED = [];																	// Selected rows passed in from VA
 		var DATA = [];																		// Data to be parsed from VA data message
 		var METADATA = [];																	// Metadata to be parsed from VA data message
 		var FILL = {
@@ -212,6 +213,7 @@ limitations under the License.
 			// Initialize global data variables
 			VA_MESSAGE = messageFromVA;
 			VA_RESULT_NAME = messageFromVA.resultName;
+			SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
 			// Validate data roles
 			if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)) {
@@ -235,13 +237,13 @@ limitations under the License.
 				var currentData = d3.select("#" + VA_MESSAGE.data[i][0]);
 
 				DATA.push({
+					row: i,
 					label: VA_MESSAGE.data[i][0],
 					measure: VA_MESSAGE.data[i][1],
 					startAngle: currentData.empty() ?  (i==0 ? 0 : DATA[i-1].finalEndAngle) : JSON.parse(currentData.attr("data-d")).startAngle,
 					endAngle:   currentData.empty() ? ( i==0 ? ((VA_MESSAGE.data[i][1]/total)*2*Math.PI) : (DATA[i-1].finalEndAngle + (VA_MESSAGE.data[i][1]/total)*2*Math.PI)) : JSON.parse(currentData.attr("data-d")).endAngle,
 					finalStartAngle: i==0 ? 0 : DATA[i-1].finalEndAngle,
 					finalEndAngle: i==0 ? ((VA_MESSAGE.data[i][1]/total)*2*Math.PI) : (DATA[i-1].finalEndAngle + (VA_MESSAGE.data[i][1]/total)*2*Math.PI),
-					selected: VA_MESSAGE.data[i][2]
 				});
 			}
 
@@ -252,6 +254,19 @@ limitations under the License.
 			else {
 				updateElements();
 			}
+
+			// Apply selections
+			d3.selectAll(".selectable")
+				.classed("selected", false)
+				.filter(function(d) {
+					return SELECTED.find(function(selection) {
+						 return selection.row == d.row;
+					 });
+				})
+				.classed("selected", true)
+				.each(function() {
+					d3.select(this).moveToFront();
+				});
 		}
 
 		// Draw elements for first time and on resize event
@@ -338,13 +353,12 @@ limitations under the License.
 		    	.classed("exiting", false)
 				.classed("data-arc", true)
 				.classed("selectable", true)
-				.classed("selected", function(d) { return d.selected; })
 				.attr("id", function(d) { return d.label; })
 				.attr("data-d", function(d) { return JSON.stringify(d); })
 				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
 				.attr("stroke-width", 1)
 				.attr("stroke", function(d) { return STROKE[d.label]; })
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d) { selectElement(d, this); })
 		    	.on("mouseover", TIP.show)
 		    	.on("mouseout", TIP.hide)
 			.merge(DATA_ARCS)
@@ -434,7 +448,6 @@ limitations under the License.
 				.classed("exiting", false)
 				.classed("data-arc", true)
 				.classed("selectable", true)
-				.classed("selected", function(d) { return d.selected; })
 				.attr("id", function(d) { return d.label; })
 				.attr("data-d", function(d) { return JSON.stringify(d); })
 				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
@@ -446,7 +459,7 @@ limitations under the License.
 
 					return PATH({startAngle: prevD.endAngle, endAngle: prevD.endAngle});
 				})
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d) { selectElement(d, this); })
 			.transition().duration(TRANS_TIME)
 				.attr("stroke-width", 1)
 		    	.attrTween("d", function(d) {
@@ -528,13 +541,15 @@ limitations under the License.
 
 		// Deselect all on svg click
 		function deselectAllElements() {
-			d3.selectAll(".selectable").each(function(d) { d.selected = false; });
+			// Deselect all elements
 			d3.selectAll(".selectable").classed("selected", false);
+
+			// Post message to VA
 			va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
 		}
 
 		// Handle selection on element
-		function selectElement(d, i, el) {
+		function selectElement(datum, el) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
 
@@ -543,24 +558,29 @@ limitations under the License.
 
 			// If control is held toggle selected on click preserving array, otherwise select only clicked element
 			if (d3.event.ctrlKey) {
-				d.selected = !d.selected;
-				d3.select(el).classed("selected", d.selected);
+				// Toggle selection on clicked element
+				d3.select(el).classed("selected", !d3.select(el).classed("selected"));
 
+				// Build array of selected elements
 				var selections = [];
-				d3.selectAll(".selectable").each(function(d, i){
-					if (d.selected) {
-						selections.push({row: i});
+				d3.selectAll(".selectable").each(function(d){
+					if (d3.select(this).classed("selected")) {
+						selections.push({row: d.row});
 					}
 				});
 
+				// Post message to VA
 				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
 			}
 			else {
-				d3.selectAll(".selectable").each(function(d) { d.selected = false; });
+				// Deselect all elements
 				d3.selectAll(".selectable").classed("selected", false);
-				d.selected = true;
+
+				// Select clicked element
 				d3.select(el).classed("selected", true);
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: i}]);
+
+				// Post message to VA
+				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: datum.row}]);
 			}
 		}
 

@@ -107,6 +107,7 @@ limitations under the License.
 		};																	// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;														// Data message to be received from VA
 		var VA_RESULT_NAME;													// Result name required to send messages back to VA
+		var SELECTED = [];													// Selected rows passed in from VA
 		var DATA = [];														// Data to be parsed from VA data message
 
 		// Static dimension variables
@@ -144,6 +145,7 @@ limitations under the License.
 			// Initialize global data variables
 			VA_MESSAGE = messageFromVA;
 			VA_RESULT_NAME = messageFromVA.resultName;
+			SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
 			// Validate data roles
 			if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)) {
@@ -158,9 +160,9 @@ limitations under the License.
 			DATA = [];
 			for (var i=0, length=VA_MESSAGE.data.length; i<length; i++) {
 				DATA.push({
+					row: i,
 					x: VA_MESSAGE.data[i][0],
-					y: VA_MESSAGE.data[i][1],
-					selected: VA_MESSAGE.data[i][2]
+					y: VA_MESSAGE.data[i][1]
 				});
 			}
 
@@ -171,6 +173,19 @@ limitations under the License.
 			else {
 				updateElements();
 			}
+
+			// Apply selections
+			d3.selectAll(".selectable")
+				.classed("selected", false)
+				.filter(function(d) {
+					return SELECTED.find(function(selection) {
+						 return selection.row == d.row;
+					 });
+				})
+				.classed("selected", true)
+				.each(function() {
+					d3.select(this).moveToFront();
+				});
 		}
 
 		// Draw elements for first time and on resize event
@@ -241,8 +256,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.classed("selected", function(d) { return d.selected; })
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d) { selectElement(d, this); })
 			.merge(DATA_BARS)
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
@@ -284,8 +298,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.classed("selected", function(d) { return d.selected; })
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d) { selectElement(d, this); })
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
@@ -311,13 +324,15 @@ limitations under the License.
 
 		// Deselect all on svg click
 		function deselectAllElements() {
-			d3.selectAll(".selectable").each(function(d) { d.selected = false; });
+			// Deselect all elements
 			d3.selectAll(".selectable").classed("selected", false);
+
+			// Post message to VA
 			va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
 		}
 
 		// Handle selection on element
-		function selectElement(d, i, el) {
+		function selectElement(datum, el) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
 
@@ -326,24 +341,29 @@ limitations under the License.
 
 			// If control is held toggle selected on click preserving array, otherwise select only clicked element
 			if (d3.event.ctrlKey) {
-				d.selected = !d.selected;
-				d3.select(el).classed("selected", d.selected);
+				// Toggle selection on clicked element
+				d3.select(el).classed("selected", !d3.select(el).classed("selected"));
 
+				// Build array of selected elements
 				var selections = [];
-				d3.selectAll(".selectable").each(function(d, i){
-					if (d.selected) {
-						selections.push({row: i});
+				d3.selectAll(".selectable").each(function(d){
+					if (d3.select(this).classed("selected")) {
+						selections.push({row: d.row});
 					}
 				});
 
+				// Post message to VA
 				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
 			}
 			else {
-				d3.selectAll(".selectable").each(function(d) { d.selected = false; });
+				// Deselect all elements
 				d3.selectAll(".selectable").classed("selected", false);
-				d.selected = true;
+
+				// Select clicked element
 				d3.select(el).classed("selected", true);
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: i}]);
+
+				// Post message to VA
+				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: datum.row}]);
 			}
 		}
 
