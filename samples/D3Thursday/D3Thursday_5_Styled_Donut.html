@@ -181,6 +181,7 @@ limitations under the License.
 		var HEIGHT = window.innerHeight;													// Height of SVG element
 		var DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;							// Drawable width of SVG
 		var DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;							// Drawable height of SVG
+		var ARC_PADDING;																	// Padding in radians between arc segments
 		var RADIUS = Math.min(DRAWABLE_WIDTH, DRAWABLE_HEIGHT-LEG_MIN_HEIGHT) / 2;			// Radius of pie/donut
 		var LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT, DRAWABLE_HEIGHT-2*RADIUS);				// Height allocated for legend
 		var LEG_EL_POS = [];																// Positions of legend text elements
@@ -232,23 +233,33 @@ limitations under the License.
 
 			// Parse data from 2d array to array of objects
 			var total = d3.sum(VA_MESSAGE.data, function(d) { return d[1]; });
+			var label, measure, currentData, finalStartAngle, finalEndAngle, startAngle, endAngle;
 			DATA = [];
 			for (var i=0, length=VA_MESSAGE.data.length; i<length; i++) {
-				var currentData = d3.select("#" + VA_MESSAGE.data[i][0]);
+				label = VA_MESSAGE.data[i][0];
+			 	measure = VA_MESSAGE.data[i][1];
+
+				currentData = d3.select("#" + label);
+
+				finalStartAngle =  i==0 ? 0 : DATA[i-1].finalEndAngle;
+				finalEndAngle = i==0 ? ((measure/total)*2*Math.PI) : (DATA[i-1].finalEndAngle + (measure/total)*2*Math.PI);
+
+				startAngle = currentData.empty() ? finalStartAngle : JSON.parse(currentData.attr("data-d")).startAngle;
+				endAngle =  currentData.empty() ? finalEndAngle : JSON.parse(currentData.attr("data-d")).endAngle;
 
 				DATA.push({
-					row: i,
-					label: VA_MESSAGE.data[i][0],
-					measure: VA_MESSAGE.data[i][1],
-					startAngle: currentData.empty() ?  (i==0 ? 0 : DATA[i-1].finalEndAngle) : JSON.parse(currentData.attr("data-d")).startAngle,
-					endAngle:   currentData.empty() ? ( i==0 ? ((VA_MESSAGE.data[i][1]/total)*2*Math.PI) : (DATA[i-1].finalEndAngle + (VA_MESSAGE.data[i][1]/total)*2*Math.PI)) : JSON.parse(currentData.attr("data-d")).endAngle,
-					finalStartAngle: i==0 ? 0 : DATA[i-1].finalEndAngle,
-					finalEndAngle: i==0 ? ((VA_MESSAGE.data[i][1]/total)*2*Math.PI) : (DATA[i-1].finalEndAngle + (VA_MESSAGE.data[i][1]/total)*2*Math.PI),
+					label: label,
+					measure: measure,
+					finalStartAngle: finalStartAngle,
+					finalEndAngle: finalEndAngle,
+					startAngle: startAngle,
+					endAngle: endAngle
 				});
 			}
 
 			// Initialize chart if first draw, otherwise process data and update elements accordingly
 			if (d3.select("#" + SVG_ID).empty()) {
+				ARC_PADDING = Math.min((d3.min(VA_MESSAGE.data, function(d) { return d[1]; })/(4*total))*2*Math.PI, .03);
 				drawElements();
 			}
 			else {
@@ -258,15 +269,12 @@ limitations under the License.
 			// Apply selections
 			d3.selectAll(".selectable")
 				.classed("selected", false)
-				.filter(function(d) {
+				.filter(function(d, i) {
 					return SELECTED.find(function(selection) {
-						 return selection.row == d.row;
+						 return selection.row == i;
 					 });
 				})
-				.classed("selected", true)
-				.each(function() {
-					d3.select(this).moveToFront();
-				});
+				.classed("selected", true);
 		}
 
 		// Draw elements for first time and on resize event
@@ -358,12 +366,15 @@ limitations under the License.
 				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
 				.attr("stroke-width", 1)
 				.attr("stroke", function(d) { return STROKE[d.label]; })
-				.on("click", function(d) { selectElement(d, this); })
+				.on("click", function(d, i) { selectElement(d, i, this); })
 		    	.on("mouseover", TIP.show)
 		    	.on("mouseout", TIP.hide)
 			.merge(DATA_ARCS)
 				.attr("d", function(d) {
-					return PATH({startAngle: d.finalStartAngle, endAngle: d.finalEndAngle});
+					console.log(d.finalStartAngle);
+					console.log(ARC_PADDING);
+					console.log(d.finalStartAngle + ARC_PADDING);
+					return PATH({startAngle: d.finalStartAngle + ARC_PADDING, endAngle: d.finalEndAngle - ARC_PADDING});
 				});
 
 			// Create legend title
@@ -441,7 +452,7 @@ limitations under the License.
 		    	.attrTween("d", function(d) {
 		    		d3.select("#"+d.label).attr("data-d", JSON.stringify(d));
 
-		    		return arcTween(d, d.startAngle, d.finalStartAngle, d.endAngle, d.finalEndAngle);
+		    		return arcTween(d, d.startAngle, d.finalStartAngle + ARC_PADDING, d.endAngle, d.finalEndAngle - ARC_PADDING);
 		    	});
 
 		    DATA_ARCS.enter().append("path")
@@ -457,16 +468,18 @@ limitations under the License.
 					var prev = d3.select(this.previousElementSibling);
 					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
 
-					return PATH({startAngle: prevD.endAngle, endAngle: prevD.endAngle});
+					return PATH({startAngle: prevD.endAngle + ARC_PADDING, endAngle: prevD.endAngle - ARC_PADDING});
 				})
-				.on("click", function(d) { selectElement(d, this); })
+				.on("click", function(d, i) { selectElement(d, i, this); })
+		    	.on("mouseover", TIP.show)
+		    	.on("mouseout", TIP.hide)
 			.transition().duration(TRANS_TIME)
 				.attr("stroke-width", 1)
 		    	.attrTween("d", function(d) {
 					var prev = d3.select(this.previousElementSibling);
 					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {endAngle: 0};
 
-		    		return arcTween(d, prevD.endAngle, d.finalStartAngle, prevD.endAngle, d.finalEndAngle);
+		    		return arcTween(d, prevD.endAngle, d.finalStartAngle + ARC_PADDING, prevD.endAngle, d.finalEndAngle - ARC_PADDING);
 		    	});
 
 		    DATA_ARCS.exit()
@@ -480,7 +493,7 @@ limitations under the License.
 					}
 					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: 0};
 
-		    		return arcTween(d, d.startAngle, prevD.finalEndAngle, d.endAngle, prevD.finalEndAngle);
+		    		return arcTween(d, d.startAngle, prevD.finalEndAngle + ARC_PADDING, d.endAngle, prevD.finalEndAngle - ARC_PADDING);
 		    	})
 		    	.remove();
 
@@ -549,12 +562,9 @@ limitations under the License.
 		}
 
 		// Handle selection on element
-		function selectElement(datum, el) {
+		function selectElement(datum, index, el) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
-
-			// Bring element to front in case there is overlap with other elements
-			d3.select(el).moveToFront();
 
 			// If control is held toggle selected on click preserving array, otherwise select only clicked element
 			if (d3.event.ctrlKey) {
@@ -563,9 +573,9 @@ limitations under the License.
 
 				// Build array of selected elements
 				var selections = [];
-				d3.selectAll(".selectable").each(function(d){
+				d3.selectAll(".selectable").each(function(d, i){
 					if (d3.select(this).classed("selected")) {
-						selections.push({row: d.row});
+						selections.push({row: i});
 					}
 				});
 
@@ -580,17 +590,11 @@ limitations under the License.
 				d3.select(el).classed("selected", true);
 
 				// Post message to VA
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: datum.row}]);
+				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: index}]);
 			}
 		}
 
 		// Helper function to bring element to front of SVG (from https://github.com/wbkd/d3-extended)
-		d3.selection.prototype.moveToFront = function() {
-	    	return this.each(function(){
-	    		this.parentNode.appendChild(this);
-	    	});
-		};
-
 		function calculateLegendDimensions() {
 			// Get height of legend title to determine vertical offset of legend elements
 			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
@@ -632,18 +636,19 @@ limitations under the License.
 			}
 		}
 
+		// Tween function to create interpolators for arc segments
 		function arcTween(d, origStart, finalStart, origEnd, finalEnd) {
-				var interpolateStart = d3.interpolate(origStart, finalStart);
-				var interpolateEnd = d3.interpolate(origEnd, finalEnd);
-				return function(t) {
-					d.startAngle = interpolateStart(t);
-					d.finalStartAngle = finalStart;
-					d.endAngle = interpolateEnd(t);
-					d.finalEndAngle = finalEnd;
-					d3.select("#" + d.label).attr("data-d", JSON.stringify(d));
-					return PATH(d);
-				};
-			}
+			var interpolateStart = d3.interpolate(origStart, finalStart);
+			var interpolateEnd = d3.interpolate(origEnd, finalEnd);
+			return function(t) {
+				d.startAngle = interpolateStart(t);
+				d.finalStartAngle = finalStart;
+				d.endAngle = interpolateEnd(t);
+				d.finalEndAngle = finalEnd;
+				d3.select("#" + d.label).attr("data-d", JSON.stringify(d));
+				return PATH(d);
+			};
+		}
 	});
 </script>
 </body>

@@ -160,7 +160,6 @@ limitations under the License.
 			DATA = [];
 			for (var i=0, length=VA_MESSAGE.data.length; i<length; i++) {
 				DATA.push({
-					row: i,
 					x: VA_MESSAGE.data[i][0],
 					y: VA_MESSAGE.data[i][1]
 				});
@@ -177,15 +176,12 @@ limitations under the License.
 			// Apply selections
 			d3.selectAll(".selectable")
 				.classed("selected", false)
-				.filter(function(d) {
+				.filter(function(d, i) {
 					return SELECTED.find(function(selection) {
-						 return selection.row == d.row;
+						 return selection.row == i;
 					 });
 				})
-				.classed("selected", true)
-				.each(function() {
-					d3.select(this).moveToFront();
-				});
+				.classed("selected", true);
 		}
 
 		// Draw elements for first time and on resize event
@@ -256,7 +252,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.on("click", function(d) { selectElement(d, this); })
+				.on("click", function(d, i) { selectElement(d, i, this); })
 			.merge(DATA_BARS)
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
@@ -298,7 +294,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.on("click", function(d) { selectElement(d, this); })
+				.on("click", function(d, i) { selectElement(d, i, this); })
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
@@ -332,12 +328,9 @@ limitations under the License.
 		}
 
 		// Handle selection on element
-		function selectElement(datum, el) {
+		function selectElement(datum, index, el) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
-
-			// Bring element to front in case there is overlap with other elements
-			d3.select(el).moveToFront();
 
 			// If control is held toggle selected on click preserving array, otherwise select only clicked element
 			if (d3.event.ctrlKey) {
@@ -346,9 +339,9 @@ limitations under the License.
 
 				// Build array of selected elements
 				var selections = [];
-				d3.selectAll(".selectable").each(function(d){
+				d3.selectAll(".selectable").each(function(d, i){
 					if (d3.select(this).classed("selected")) {
-						selections.push({row: d.row});
+						selections.push({row: i});
 					}
 				});
 
@@ -363,16 +356,9 @@ limitations under the License.
 				d3.select(el).classed("selected", true);
 
 				// Post message to VA
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: datum.row}]);
+				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: index}]);
 			}
 		}
-
-		// Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
-		d3.selection.prototype.moveToFront = function() {
-	    	return this.each(function(){
-	    		this.parentNode.appendChild(this);
-	    	});
-		};
 	});
 </script>
 </body>
