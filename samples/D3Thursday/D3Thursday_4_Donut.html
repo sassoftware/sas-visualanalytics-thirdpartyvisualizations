@@ -368,7 +368,7 @@ limitations under the License.
 				.style("opacity", 1);
 
 			LEGEND_RECTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", function(d) { return 0; })
+				.style("opacity", 0)
 				.remove();
 
 		    // Update legend text
@@ -389,7 +389,7 @@ limitations under the License.
 				.style("opacity", 1);
 
 			LEGEND_TEXTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", function(d) { return 0; })
+				.style("opacity", 0)
 				.remove();
 		}
 
