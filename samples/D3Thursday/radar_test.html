@@ -504,7 +504,9 @@ limitations under the License.
 
 		// Static dimension variables
 		var MARGIN = {top: 70, right: 50, bottom: 10, left: 50};							// Margin on interior edge of SVG
-		var TRANS_TIME = 5000;																// Duration of transitions
+		var TRANS_TIME = 500;																// Duration of major transitions
+		var HOVER_TRANS_TIME = 100;															// Duration of hover transitions
+		var ENTER_REMOVE_TRANS_TIME = 200;													// Duration of enter and exit transitions for data points and grid lines
 		var MEASURE_LABEL_PADDING = 10;														// Padding between edge of radar chart and measure labels
 		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
 		var LEG_PADDING = 50;																// Space between legend and chart area
@@ -805,14 +807,14 @@ limitations under the License.
 				.on("mouseover", function() {
 					d3.select(this).moveToFront();
 
-					d3.selectAll(".data-path").transition().duration(TRANS_TIME/2)
+					d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
 						.attr("fill-opacity", UNHOVER_OPACITY);
 
-					d3.select(this).transition().duration(TRANS_TIME/2)
+					d3.select(this).transition().duration(HOVER_TRANS_TIME)
 						.attr("fill-opacity", HOVER_OPACITY);
 				})
 				.on("mouseout", function() {
-					d3.selectAll(".data-path").transition().duration(TRANS_TIME/2)
+					d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
 						.attr("fill-opacity", DEFAULT_OPACITY);
 				})
 			.merge(DATA_PATHS)
@@ -911,10 +913,10 @@ limitations under the License.
 				.attr("x2", function(d, i) { return RADIUS*Math.sin(d.angle); })
 				.attr("y2", function(d, i) { return -RADIUS*Math.cos(d.angle); })
 				.style("opacity", 0)
-			.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+			.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
 				.style("opacity", 1);
 
-			GRID_LINES.exit().transition().duration(TRANS_TIME/2)
+			GRID_LINES.exit().transition().duration(ENTER_REMOVE_TRANS_TIME)
 				.style("opacity", 0)
 				.remove();
 
@@ -961,10 +963,10 @@ limitations under the License.
 				.attr("x", function(d) { return (RADIUS + MEASURE_LABEL_PADDING)*Math.sin(d.angle); })
 				.attr("y", function(d) { return -(RADIUS + MEASURE_LABEL_PADDING)*Math.cos(d.angle); })
 				.style("opacity", 0)
-			.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+			.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
 				.style("opacity", 1);
 
-			MEASURE_LABELS.exit().transition().duration(TRANS_TIME/2)
+			MEASURE_LABELS.exit().transition().duration(ENTER_REMOVE_TRANS_TIME)
 				.style("opacity", 0)
 				.remove();
 
@@ -1046,10 +1048,10 @@ limitations under the License.
 						.attr("cy", function(d) { return d.y; })
 						.attr("r", 4)
 						.style("opacity", 0)
-					.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+					.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
 						.style("opacity", 1);
 
-					DATA_POINTS.exit().transition().duration(TRANS_TIME/2)
+					DATA_POINTS.exit().transition().duration(ENTER_REMOVE_TRANS_TIME)
 						.style("opacity", 0)
 						.remove();
 
