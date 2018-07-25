@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+	<!-- Import D3.js -->
+	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+	<!-- Import utilities  -->
+	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+	html, body, svg {
+		overflow: hidden;
+		margin: 0px;
+		width: 100%;
+		height: 100%;
+	}
+
+	text {
+		font-family: Verdana, sans-serif;
+	}
+
+	.axis path {
+		opacity: 0;
+	}
+
+	.axis text {
+		fill: #C4C4C4;
+	}
+
+	.data-arc.selected {
+		stroke-width: 2px;
+		stroke: black;
+	}
+
+	.legend-title {
+		font-size: 1.0em;
+		text-anchor: middle;
+		alignment-baseline: hanging;
+	}
+
+	.legend-text {
+		font-size: .8em;
+		alignment-baseline: hanging;
+	}
+
+	.measure-label {
+		font-size: .8em;
+		text-anchor: start;
+		alignment-baseline: hanging;
+	}
+</style>
+
+<script>
+	"use strict";
+
+	document.addEventListener("DOMContentLoaded", function(e) {
+		/*************************************************** Declare global variables ***************************************************/
+		// Data variables
+		var SVG_ID = "radar";																// ID of SVG element
+		var SAMPLE_MESSAGE = {
+		    "version": "1",
+		    "resultName": "dd115",
+		    "rowCount": 18,
+		    "availableRowCount": 18,
+		    "data": [
+		        [
+		            "Hybrid",
+		            "Cylinders",
+		            3.6666666666666665,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Hybrid",
+		            "EngineSize",
+		            ".",
+		            1.6333333333333335,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Hybrid",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            92,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sedan",
+		            "Cylinders",
+		            5.580152671755725,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sedan",
+		            "EngineSize",
+		            ".",
+		            2.970992366412214,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sedan",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            201.65648854961833,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sports",
+		            "Cylinders",
+		            6.340425531914893,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sports",
+		            "EngineSize",
+		            ".",
+		            3.442857142857142,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Sports",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            284.16326530612247,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "SUV",
+		            "Cylinders",
+		            6.566666666666666,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "SUV",
+		            "EngineSize",
+		            ".",
+		            3.9200000000000004,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "SUV",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            235.81666666666666,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Truck",
+		            "Cylinders",
+		            6.25,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Truck",
+		            "EngineSize",
+		            ".",
+		            4.079166666666667,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Truck",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            224.83333333333334,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Wagon",
+		            "Cylinders",
+		            5.3,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Wagon",
+		            "EngineSize",
+		            ".",
+		            2.77,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ],
+		        [
+		            "Wagon",
+		            "Horsepower",
+		            ".",
+		            ".",
+		            194,
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            ".",
+		            "."
+		        ]
+		    ],
+		    "columns": [
+		        {
+		            "name": "bi116",
+		            "label": "Type",
+		            "type": "string"
+		        },
+		        {
+		            "name": "bi117",
+		            "label": "Metric",
+		            "type": "string"
+		        },
+		        {
+		            "name": "bi118",
+		            "label": "Cylinders",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi119",
+		            "label": "Engine Size (L)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi120",
+		            "label": "Horsepower",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi121",
+		            "label": "Invoice",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "DOLLAR",
+		                "width": 8,
+		                "precision": 0,
+		                "formatString": "DOLLAR8."
+		            }
+		        },
+		        {
+		            "name": "bi122",
+		            "label": "Length (IN)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi123",
+		            "label": "MPG (City)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi124",
+		            "label": "MPG (Highway)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi125",
+		            "label": "MSRP",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "DOLLAR",
+		                "width": 8,
+		                "precision": 0,
+		                "formatString": "DOLLAR8."
+		            }
+		        },
+		        {
+		            "name": "bi126",
+		            "label": "Weight (LBS)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        },
+		        {
+		            "name": "bi127",
+		            "label": "Wheelbase (IN)",
+		            "type": "number",
+		            "usage": "quantitative",
+		            "aggregation": "average",
+		            "format": {
+		                "name": "BEST",
+		                "width": 12,
+		                "precision": 0,
+		                "formatString": "BEST12."
+		            }
+		        }
+		    ]
+		};																					// Sample data message to render graph outside of VA for debugging
+		var VA_MESSAGE;																		// Data message to be received from VA
+		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
+		var SELECTED = [];																	// Selected rows passed in from VA
+		var DATA = [];																		// Data to be parsed from VA data message
+		var METADATA = [];																	// Metadata to be parsed from VA data message
+		var NUM_OPTIONAL_COL = 20;															// Number of optional numerical variables radar chart will accept
+		var DEFAULT_OPACITY = .2;
+		var HOVER_OPACITY = .6;
+		var UNHOVER_OPACITY = .1;
+		var FILL = {
+			"Hybrid": "#21b9b7",
+			"Sedan": "#4141e0",
+			"Sports":  "#7db71a",
+			"SUV": "#8e2f8a",
+			"Truck": "#d38506",
+			"Wagon": "#0abf85"
+		};																					// Fill colors keyed to labels
+		var STROKE = {
+			"Hybrid": "#1d9992",
+			"Sedan": "#2222bc",
+			"Sports": "#6a9617",
+			"SUV": "#6d256d",
+			"Truck": "#ba7006",
+			"Wagon": "#0a9e69"
+		};																					// Stroke colors keyed to labels
+
+		// Static dimension variables
+		var MARGIN = {top: 70, right: 50, bottom: 10, left: 50};							// Margin on interior edge of SVG
+		var TRANS_TIME = 5000;																// Duration of transitions
+		var MEASURE_LABEL_PADDING = 10;														// Padding between edge of radar chart and measure labels
+		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
+		var LEG_PADDING = 50;																// Space between legend and chart area
+		var LEG_ROW_HEIGHT = 15;															// Height allocated for each row of legend
+		var LEG_RECT_WIDTH = 12;															// Width of legend rects
+		var LEG_TITLE_TOP_PAD = 5;															// Padding between chart and legend title
+		var LEG_TITLE_HEIGHT;																// Height of legend title element
+		var LEG_TITLE_BOT_PAD = 5;															// Padding between legend title bottom and
+		var LEG_RECT_PAD = 5;																// Padding between legend rect and legend text
+		var LEG_TEXT_PAD = 5;																// Padding after legend text
+
+		// Dynamic dimension variables
+		var WIDTH = window.innerWidth;														// Width of SVG element
+		var HEIGHT = window.innerHeight;													// Height of SVG element
+		var DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;							// Drawable width of SVG
+		var DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;							// Drawable height of SVG
+		var RADIUS = Math.min(DRAWABLE_WIDTH,
+			DRAWABLE_HEIGHT - LEG_MIN_HEIGHT - LEG_PADDING) / 2;							// Radius of radar chart
+		var LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT,
+			DRAWABLE_HEIGHT - LEG_PADDING - 2*RADIUS);										// Height allocated for legend
+		var LEG_EL_POS = [];																// Positions of legend text elements
+		var DELTA_ANGLE;																	// Angle in radians between each measure on circle
+
+		// Selection and d3 variables
+		var SVG;																			// SVG selection
+		var DEFS;																			// Defs element selection
+		var G_CHART_AREA;																	// Chart area group selection
+		var G_GRID;																			// Grid lines group selection
+		var G_LEGEND;																		// Legend group selection
+		var SCALE;																			// Scale for radial percentiles
+		var AXIS;																			// Axis for radial percentiles data-join
+		var AXIS_LABEL;																		// Axis label data-join
+		var GRADIENTS;																		// Gradients data-join
+		var GRID_LINES;																		// Grid lines data-join
+		var GRID_CIRCLES;																	// Grid circles data-join
+		var MEASURE_LABELS;																	// Measure labels data-join
+		var DATA_GROUPS;																	// Data groups data-join
+		var DATA_PATHS;																		// Data paths data-join
+		var DATA_POINTS;																	// Data points data-join
+		var LEGEND_TITLE;																	// Legend title data-join
+		var LEGEND_RECTS;																	// Legend rects data-join
+		var LEGEND_TEXTS;																	// Legend texts data-join
+
+		// Attach event for data message from VA
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+		// If not being rendered in iFrame (outside VA), render with sample data
+		if (!inIframe()) { onDataReceived(SAMPLE_MESSAGE); }
+
+		// Listen for resize event
+		va.contentUtil.setupResizeListener(drawElements);
+
+		// Take action on received data
+		function onDataReceived(messageFromVA) {
+			// Initialize global data variables
+			VA_MESSAGE = messageFromVA;
+			VA_RESULT_NAME = messageFromVA.resultName;
+			SELECTED = va.contentUtil.initializeSelections(messageFromVA);
+
+			// Create array of optional roles for validation
+			var optionalCol = [];
+			for (var i=0; i<NUM_OPTIONAL_COL; i++) {
+				optionalCol.push("number");
+			}
+
+			// Validate data roles
+			if (!va.contentUtil.validateRoles(messageFromVA, ["string", "string", "number", "number", "number"], optionalCol)) {
+				va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME,
+					"D3 Radar Chart expects columns to be assigned in this order:\n" +
+					" 1. Category (string)\n" +
+					" 2. Metric (string)\n" +
+					" 3-5. Measure (number)\n" +
+					" 6-" + (NUM_OPTIONAL_COL+5) + ". Optional Measure (number)");
+				return;
+			}
+
+			// Create nest to help process tall data structure
+			var nestedData = d3.nest().key(function(d) { return d[1]; }).entries(VA_MESSAGE.data);
+			var numMeasures = nestedData.length;
+
+			// Parse metadata from data message
+			DELTA_ANGLE = 2*Math.PI / (numMeasures);
+
+			METADATA = {
+				category: VA_MESSAGE.columns[0].label,
+				metrics: []
+			};
+
+			for (var i=0; i<numMeasures; i++) {
+				METADATA.metrics.push({label: nestedData[i].key, angle: i*DELTA_ANGLE});
+			}
+
+			// Create maximums array for use in calculating percentiles
+			var maximums = ["category", "metric"];
+			for (var i=2; i<VA_MESSAGE.data[0].length; i++) {
+				maximums.push(d3.max(VA_MESSAGE.data, function(d) {
+					if (d[i] == ".") {
+						return Number.MIN_VALUE;
+					}
+					else {
+						return d[i];
+					}
+				}));
+			}
+
+			// Parse data from 2d array to array of objects
+			var datum;
+			DATA = [];
+			for (var i=0; i<VA_MESSAGE.data.length/numMeasures; i++) { // Iterate over each category
+				datum = {
+					label: VA_MESSAGE.data[i*numMeasures][0],
+					measures: [],
+					percentiles: []
+				};
+
+				for (var j=0; j<numMeasures; j++) { // Iterate over present metrics
+					for (var k=0; k<VA_MESSAGE.data[0].length; k++) {
+						if (typeof VA_MESSAGE.data[i*numMeasures + j][k] != "string") {
+							datum.measures.push(VA_MESSAGE.data[i*numMeasures + j][k]);
+							datum.percentiles.push(VA_MESSAGE.data[i*numMeasures + j][k]/maximums[k]);
+						}
+					}
+				}
+
+				DATA.push(datum);
+			}
+
+			// Initialize chart if first draw, otherwise process data and update elements accordingly
+			if (d3.select("#" + SVG_ID).empty()) {
+				drawElements();
+			}
+			else {
+				updateElements();
+			}
+
+			// Apply selections
+			// d3.selectAll(".selectable")
+			// 	.classed("selected", false)
+			// 	.filter(function(d, i) {
+			// 		return SELECTED.find(function(selection) {
+			// 			 return selection.row == i;
+			// 		 });
+			// 	})
+			// 	.classed("selected", true);
+		}
+
+		// Draw elements for first time and on resize event
+		function drawElements() {
+			// Calculate dimensions for graph based on container dimensions
+			WIDTH = window.innerWidth;
+			HEIGHT = window.innerHeight;
+			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
+			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
+			RADIUS = Math.min(DRAWABLE_WIDTH, DRAWABLE_HEIGHT - LEG_MIN_HEIGHT - LEG_PADDING) / 2;
+			LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT, DRAWABLE_HEIGHT - LEG_PADDING - 2*RADIUS);
+
+			// Append svg and save reference
+			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
+				.attr("id", SVG_ID);
+				// .on("click", deselectAllElements);
+
+			SVG = d3.select("#" + SVG_ID)
+				.attr("width", WIDTH)
+				.attr("height", HEIGHT);
+
+			// Append defs and save reference
+			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
+				.classed("gradient-defs", true);
+
+			DEFS = SVG.select(".gradient-defs");
+
+			// Append/update chart-area group and save reference
+			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
+				.classed("g-chart-area", true);
+
+			G_CHART_AREA = SVG.select(".g-chart-area")
+				.attr("transform", "translate(" + (WIDTH/2) + "," + (MARGIN.top + (DRAWABLE_HEIGHT-LEG_HEIGHT-LEG_PADDING)/2) + ")");
+
+			// Append/update grid group and save reference
+			G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter().append("g")
+				.classed("g-grid", true);
+
+			G_GRID = SVG.select(".g-grid");
+
+			// Append/update legend group and save reference
+			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
+				.classed("g-legend", true);
+
+			G_LEGEND = SVG.select(".g-legend")
+				.attr("transform", "translate(" + (MARGIN.left) + "," + (HEIGHT-MARGIN.bottom-LEG_HEIGHT) + ")");
+
+			// Create scale
+			SCALE = d3.scaleLinear()
+				.rangeRound([RADIUS, 0])
+				.domain([0, 1]);
+
+			// Create axis
+			AXIS = G_GRID.selectAll(".axis").data([DATA]);
+
+			AXIS.enter().append("g")
+				.classed("axis", true)
+			.merge(AXIS)
+				.call(d3.axisRight(SCALE)
+						.ticks(5)
+						.tickFormat(d3.format(".0%"))
+						.tickSize(0))
+				.attr("transform", "translate(" + (0) + "," + (-RADIUS) + ")");
+
+			// Create gradients
+			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.label; });
+
+			GRADIENTS.enter().append("linearGradient")
+				.classed("gradient", true)
+				.attr("id", function(d) { return d.label + "-gradient"; })
+				.attr("x1", "0%")
+				.attr("x2", "100%")
+				.attr("y1", "50%")
+				.attr("y2", "50%")
+				.each(function() {
+					// Append color stops
+					d3.select(this).append("stop")
+					   .attr('class', 'start')
+					   .attr("offset", "0%")
+					   .attr("stop-color", function(d) { return FILL[d.label]; })
+					   .attr("stop-opacity", 1);
+
+					d3.select(this).append("stop")
+					   .attr('class', 'end')
+					   .attr("offset", "100%")
+					   .attr("stop-color", function(d) { return FILL[d.label]; })
+					   .attr("stop-opacity", .7);
+			});
+
+			// Create grid lines
+			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.label; });
+
+			GRID_LINES.enter().append("line")
+				.classed("grid-line", true)
+				.attr("stroke", "#C4C4C4")
+				.attr("data-angle", function(d) { return d.angle; })
+			.merge(GRID_LINES)
+				.attr("x1", 0)
+				.attr("y1", 0)
+				.attr("x2", function(d, i) { return RADIUS*Math.sin(d.angle); })
+				.attr("y2", function(d, i) { return -RADIUS*Math.cos(d.angle); });
+
+			// Create grid circles
+			GRID_CIRCLES = G_GRID.selectAll(".grid-circle").data([.2, .4, .6, .8, 1]);
+
+			GRID_CIRCLES.enter().append("circle")
+				.classed("grid-circle", true)
+				.attr("fill", "none")
+				.attr("stroke", "#E4E4E4")
+			.merge(GRID_CIRCLES)
+				.attr("cx", 0)
+				.attr("cy", 0)
+				.attr("r", function(d) { return d*RADIUS; });
+
+			// Create measure labels
+			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.label; });
+
+			MEASURE_LABELS.enter().append("text")
+				.classed("measure-label", true)
+				.text(function(d) { return d.label; })
+				.attr("data-angle", function(d) { return d.angle; })
+				.attr("dx", function(d) {
+					return (d.angle == 0 || d.angle == Math.PI) ? (-this.getBBox().width/2 + "px") :
+						   ((d.angle > 0 && d.angle < Math.PI) ? (0 + "px") :
+						   (-this.getBBox().width + "px"));
+				})
+				.attr("dy", function(d) {
+					return (d.angle == Math.PI/2 || d.angle == 3*Math.PI/2) ? (-this.getBBox().height/2 + "px") :
+						   ((d.angle > Math.PI/2 && d.angle < 3*Math.PI/2) ? (0 + "px") :
+						   (-this.getBBox().height + "px"));
+				})
+			.merge(MEASURE_LABELS)
+				.attr("x", function(d) { return (RADIUS + MEASURE_LABEL_PADDING)*Math.sin(d.angle); })
+				.attr("y", function(d) { return -(RADIUS + MEASURE_LABEL_PADDING)*Math.cos(d.angle); });
+
+			// Create data groups
+			DATA_GROUPS = G_CHART_AREA.selectAll(".g-data").data(DATA);
+
+			DATA_GROUPS.enter().append("g")
+				.classed("g-data", true)
+				.attr("id", function(d) { return "g-data-" + d.label; });
+
+			// Create data paths + data points
+			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.label; });
+
+			DATA_PATHS.enter().append("path")
+				.classed("data-path", true)
+				.attr("data-angle", DELTA_ANGLE)
+				.attr("data-percentiles", function(d) { return JSON.stringify(d.percentiles); })
+				.attr("fill", function(d) { return FILL[d.label]; })
+				.attr("fill-opacity", DEFAULT_OPACITY)
+				.attr("stroke-width", 2)
+				.attr("stroke", function(d) { return STROKE[d.label]; })
+				.on("mouseover", function() {
+					d3.select(this).moveToFront();
+
+					d3.selectAll(".data-path").transition().duration(TRANS_TIME/2)
+						.attr("fill-opacity", UNHOVER_OPACITY);
+
+					d3.select(this).transition().duration(TRANS_TIME/2)
+						.attr("fill-opacity", HOVER_OPACITY);
+				})
+				.on("mouseout", function() {
+					d3.selectAll(".data-path").transition().duration(TRANS_TIME/2)
+						.attr("fill-opacity", DEFAULT_OPACITY);
+				})
+			.merge(DATA_PATHS)
+				.attr("d", function(d) {
+					var path = "M ";
+					var points = [];
+					var x, y;
+					for (var j=0; j<d.percentiles.length; j++) {
+						x = RADIUS*d.percentiles[j]*Math.sin(j*DELTA_ANGLE);
+						y = -RADIUS*d.percentiles[j]*Math.cos(j*DELTA_ANGLE);
+						points.push({
+							metric: METADATA.metrics[j].label,
+							x: x,
+							y: y
+						});
+
+						path += x + "," + y + ((j == d.percentiles.length-1) ? (" Z") : ( " L "));
+					}
+
+					DATA_POINTS = G_CHART_AREA.select("#g-data-" + d.label).selectAll(".data-point").data(points, function(d) { return d.metric; });
+
+					DATA_POINTS.enter().append("circle")
+						.classed("data-point", true)
+						.attr("id", function(d) { return d.metric; })
+						.attr("fill", FILL[d.label])
+					.merge(DATA_POINTS)
+						.attr("cx", function(d) { return d.x; })
+						.attr("cy", function(d) { return d.y; })
+						.attr("r", 4);
+
+					return path;
+				});
+
+			// Create legend title
+			LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+			LEGEND_TITLE.enter().append("text")
+				.classed("legend-title", true)
+				.text(METADATA.category)
+			.merge(LEGEND_TITLE)
+				.attr("x", DRAWABLE_WIDTH/2)
+				.attr("y", LEG_TITLE_TOP_PAD);
+
+			// Compute the x y locations for legend elements
+			calculateLegendDimensions();
+
+			// Create legend rects
+			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.label; });
+
+			LEGEND_RECTS.enter().append("rect")
+				.classed("legend-rect", true)
+				.attr("width", LEG_RECT_WIDTH)
+				.attr("height", LEG_RECT_WIDTH)
+				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
+				.attr("stroke-width", 1)
+				.attr("stroke", function(d) { return STROKE[d.label]; })
+			.merge(LEGEND_RECTS)
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
+
+			// Create legend text
+			LEGEND_TEXTS= G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.label; });
+
+			LEGEND_TEXTS.enter().append("text")
+				.classed("legend-text", true)
+				.text(function(d) { return d.label; })
+			.merge(LEGEND_TEXTS)
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
+		}
+
+		// Redraw data dependent elements on data change
+		function updateElements() {
+			// Update grid lines
+			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.label; });
+
+			GRID_LINES.transition().duration(TRANS_TIME)
+				.attrTween("x2", function(d) {
+					var startAngle = parseFloat(d3.select(this).attr("data-angle"));
+					return xTween(RADIUS, startAngle, d.angle);
+				})
+				.attrTween("y2", function(d) {
+					var startAngle = parseFloat(d3.select(this).attr("data-angle"));
+					return yTween(RADIUS, startAngle, d.angle);
+				})
+				.on("end", function() {
+					d3.select(this).attr("data-angle", function(d) { return d.angle; })
+				});
+
+			GRID_LINES.enter().append("line")
+				.classed("grid-line", true)
+				.attr("stroke", "#C4C4C4")
+				.attr("data-angle", function(d) { return d.angle; })
+				.attr("x1", 0)
+				.attr("y1", 0)
+				.attr("x2", function(d, i) { return RADIUS*Math.sin(d.angle); })
+				.attr("y2", function(d, i) { return -RADIUS*Math.cos(d.angle); })
+				.style("opacity", 0)
+			.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+				.style("opacity", 1);
+
+			GRID_LINES.exit().transition().duration(TRANS_TIME/2)
+				.style("opacity", 0)
+				.remove();
+
+		    // Update measure labels
+			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.label; });
+
+			MEASURE_LABELS.transition().duration(TRANS_TIME)
+				.attr("dx", function(d) {
+					return (d.angle == 0 || d.angle == Math.PI) ? (-this.getBBox().width/2 + "px") :
+						   ((d.angle > 0 && d.angle < Math.PI) ? (0 + "px") :
+						   (-this.getBBox().width + "px"));
+				})
+				.attr("dy", function(d) {
+					return (d.angle == Math.PI/2 || d.angle == 3*Math.PI/2) ? (-this.getBBox().height/2 + "px") :
+						   ((d.angle > Math.PI/2 && d.angle < 3*Math.PI/2) ? (0 + "px") :
+						   (-this.getBBox().height + "px"));
+				})
+				.attrTween("x", function(d) {
+					var startAngle = parseFloat(d3.select(this).attr("data-angle"));
+					return xTween(RADIUS + MEASURE_LABEL_PADDING, startAngle, d.angle);
+				})
+				.attrTween("y", function(d) {
+					var startAngle = parseFloat(d3.select(this).attr("data-angle"));
+					return yTween(RADIUS + MEASURE_LABEL_PADDING, startAngle, d.angle);
+				})
+				.on("end", function() {
+					d3.select(this).attr("data-angle", function(d) { return d.angle; })
+				});
+
+			MEASURE_LABELS.enter().append("text")
+				.classed("measure-label", true)
+				.text(function(d) { return d.label; })
+				.attr("data-angle", function(d) { return d.angle; })
+				.attr("dx", function(d) {
+					return (d.angle == 0 || d.angle == Math.PI) ? (-this.getBBox().width/2 + "px") :
+						   ((d.angle > 0 && d.angle < Math.PI) ? (0 + "px") :
+						   (-this.getBBox().width + "px"));
+				})
+				.attr("dy", function(d) {
+					return (d.angle == Math.PI/2 || d.angle == 3*Math.PI/2) ? (-this.getBBox().height/2 + "px") :
+						   ((d.angle > Math.PI/2 && d.angle < 3*Math.PI/2) ? (0 + "px") :
+						   (-this.getBBox().height + "px"));
+				})
+				.attr("x", function(d) { return (RADIUS + MEASURE_LABEL_PADDING)*Math.sin(d.angle); })
+				.attr("y", function(d) { return -(RADIUS + MEASURE_LABEL_PADDING)*Math.cos(d.angle); })
+				.style("opacity", 0)
+			.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+				.style("opacity", 1);
+
+			MEASURE_LABELS.exit().transition().duration(TRANS_TIME/2)
+				.style("opacity", 0)
+				.remove();
+
+			// Update data paths + data points
+			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.label; });
+
+
+			 DATA_PATHS.each(function(d) {		// Find where point was entered/removed and add pseudo point for entered point
+					var oldDelta = parseFloat(d3.select(this).attr("data-angle"));
+					var oldPercentiles = JSON.parse(d3.select(this).attr("data-percentiles"));
+					var length = Math.max(oldPercentiles.length, d.percentiles.length);
+					d.entered = oldPercentiles.length < d.percentiles.length;
+					for (var i=0; i<length; i++) {
+						if (oldPercentiles[i] != d.percentiles[i]) {
+							d.changedIndex = i;
+							break;
+						}
+					}
+
+					if (d.entered) {
+						d3.select(this)
+							.attr("d", function(d) {
+								console.log(d.changedIndex)
+								var path = d.changedIndex==0 ? "M " + "0," + -RADIUS*oldPercentiles[0] + " L " : "M ";
+								var x, y;
+								for (var j=0; j<oldPercentiles.length; j++) {
+									if (d.changedIndex == j+1) {
+										x = RADIUS*oldPercentiles[j]*Math.sin(j*oldDelta);
+										y = -RADIUS*oldPercentiles[j]*Math.cos(j*oldDelta);
+
+										path += x + "," + y + " L ";
+									}
+
+									x = RADIUS*oldPercentiles[j]*Math.sin(j*oldDelta);
+									y = -RADIUS*oldPercentiles[j]*Math.cos(j*oldDelta);
+
+									path += x + "," + y + ((j == oldPercentiles.length-1) ? (" Z") : ( " L "));
+								}
+								return path;
+							});
+					}
+				})
+			 .transition().duration(TRANS_TIME)
+ 				.attr("d", function(d) {	// Transition data path using pseudo points and data points
+					var path = "M ";
+					var points = [];
+					var x, y;
+					for (var j=0; j<d.percentiles.length; j++) {
+						if (!d.entered && d.changedIndex==j || j==d.percentiles.length-1 && d.changedIndex==d.percentiles.length) {
+							x = RADIUS*d.percentiles[j%d.percentiles.length]*Math.sin((j%d.percentiles.length)*DELTA_ANGLE);
+							y = -RADIUS*d.percentiles[j%d.percentiles.length]*Math.cos((j%d.percentiles.length)*DELTA_ANGLE);
+
+							path += x + "," + y + " L ";
+						}
+
+						x = RADIUS*d.percentiles[j]*Math.sin(j*DELTA_ANGLE);
+						y = -RADIUS*d.percentiles[j]*Math.cos(j*DELTA_ANGLE);
+						points.push({
+							metric: METADATA.metrics[j].label,
+							x: x,
+							y: y
+						});
+
+						path += x + "," + y + ((j == d.percentiles.length-1) ? (" Z") : ( " L "))
+					}
+
+					DATA_POINTS = G_CHART_AREA.select("#g-data-" + d.label).selectAll(".data-point").data(points, function(d) { return d.metric; });
+
+					DATA_POINTS.transition().duration(TRANS_TIME)
+						.attr("cx", function(d) { return d.x; })
+						.attr("cy", function(d) { return d.y; });
+
+
+					DATA_POINTS.enter().append("circle")
+						.classed("data-point", true)
+						.attr("id", function(d) { return d.metric; })
+						.attr("fill", FILL[d.label])
+						.attr("cx", function(d) { return d.x; })
+						.attr("cy", function(d) { return d.y; })
+						.attr("r", 4)
+						.style("opacity", 0)
+					.transition().delay(TRANS_TIME/2).duration(TRANS_TIME/2)
+						.style("opacity", 1);
+
+					DATA_POINTS.exit().transition().duration(TRANS_TIME/2)
+						.style("opacity", 0)
+						.remove();
+
+					return path;
+ 				})
+				.on("end", function(d) {		// Update data attributes and remove pseudo point if point was removed
+					d3.select(this)
+						.attr("data-angle", DELTA_ANGLE)
+						.attr("data-percentiles", function(d) { return JSON.stringify(d.percentiles); });
+
+					if (!d.entered) {
+						d3.select(this)
+							.attr("d", function(d) {
+								var path = "M ";
+								var x, y;
+								for (var j=0; j<d.percentiles.length; j++) {
+									x = RADIUS*d.percentiles[j]*Math.sin(j*DELTA_ANGLE);
+									y = -RADIUS*d.percentiles[j]*Math.cos(j*DELTA_ANGLE);
+
+									path += x + "," + y + ((j == d.percentiles.length-1) ? (" Z") : ( " L "))
+								}
+								return path;
+							});
+					}
+				});
+		}
+
+		/******************************************************* Helper Functions *******************************************************/
+
+		// Determine whether or not page is being rendered in iFrame
+		function inIframe () {
+			try {
+				return window.self !== window.top;
+			} catch (e) {
+				return true;
+			}
+		}
+
+		// // Deselect all on svg click
+		// function deselectAllElements() {
+		// 	// Deselect all elements
+		// 	d3.selectAll(".selectable").classed("selected", false);
+		//
+		// 	// Post message to VA
+		// 	va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
+		// }
+		//
+		// // Handle selection on element
+		// function selectElement(datum, index, el) {
+		// 	// Prevent event from falling through to underlying elements
+		// 	d3.event.stopPropagation();
+		//
+		// 	// If control is held toggle selected on click preserving array, otherwise select only clicked element
+		// 	if (d3.event.ctrlKey) {
+		// 		// Toggle selection on clicked element
+		// 		d3.select(el).classed("selected", !d3.select(el).classed("selected"));
+		//
+		// 		// Build array of selected elements
+		// 		var selections = [];
+		// 		d3.selectAll(".selectable").each(function(d, i){
+		// 			if (d3.select(this).classed("selected")) {
+		// 				selections.push({row: i});
+		// 			}
+		// 		});
+		//
+		// 		// Post message to VA
+		// 		va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+		// 	}
+		// 	else {
+		// 		// Deselect all elements
+		// 		d3.selectAll(".selectable").classed("selected", false);
+		//
+		// 		// Select clicked element
+		// 		d3.select(el).classed("selected", true);
+		//
+		// 		// Post message to VA
+		// 		va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: index}]);
+		// 	}
+		// }
+
+		// Helper function to bring element to front of SVG (from https://github.com/wbkd/d3-extended)
+		d3.selection.prototype.moveToFront = function() {
+	    	return this.each(function(){
+	    		this.parentNode.appendChild(this);
+	    	});
+		};
+
+		//
+		function calculateLegendDimensions() {
+			// Get height of legend title to determine vertical offset of legend elements
+			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
+
+			// Create dummy text variables to caculate widths for legend text elements
+			var textWidths = []
+			d3.select("#" + SVG_ID).selectAll('.dummyText').data(DATA).enter().append("text")
+				.classed("legend-text", true)
+			    .text(function(d) { return d.label})
+			    .each(function(d, i) {
+			        textWidths.push(this.getComputedTextLength());
+			        this.remove();
+			    });
+
+			// Determine which row each element will sit in and how long each row is
+			var rows = [];
+			var rowSums = [];
+			var rowSum;
+			var row = 0;
+			for (var i=0, length=textWidths.length; i<length; i++) {
+				rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+				rows.push(row);
+				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=DRAWABLE_WIDTH && i+1<length) {
+					i++;
+					rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+					rows.push(row);
+				}
+				rowSums.push(rowSum);
+				row++;
+			}
+
+			// Calculate x and y coordinates for legend elements
+			LEG_EL_POS = [];
+			for (var i=0, length=textWidths.length; i<length; i++) {
+				LEG_EL_POS.push({
+					x: (i==0 || rows[i-1]!=rows[i]) ? DRAWABLE_WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
+					y: rows[i]*LEG_ROW_HEIGHT + LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD
+				});
+			}
+		}
+
+		// Tween function for x coordinates on circle
+		function xTween(radius, startAngle, endAngle) {
+			var interpolateAngle = d3.interpolate(startAngle, endAngle);
+			return function(t) {
+				var interpolatedAngle = interpolateAngle(t);
+				// d3.select("#" + d.label).attr("data-d", JSON.stringify(d));
+				return radius*Math.sin(interpolatedAngle);
+			};
+		}
+
+		// Tween functions for y coordinates on circle
+		function yTween(radius, startAngle, endAngle) {
+			var interpolateAngle = d3.interpolate(startAngle, endAngle);
+			return function(t) {
+				var interpolatedAngle = interpolateAngle(t);
+				return -radius*Math.cos(interpolatedAngle);
+			};
+		}
+	});
+</script>
+</body>
+</html>
