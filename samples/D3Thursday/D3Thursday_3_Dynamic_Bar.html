@@ -51,6 +51,7 @@ limitations under the License.
 
 	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
+
 		// Data variables
 		var SVG_ID = "dynamic-bar";											// ID of SVG element
 		var SAMPLE_MESSAGE = {
@@ -131,6 +132,8 @@ limitations under the License.
 		var Y_AXIS;															// Y Axis data-join
 		var DATA_BARS;														// Data Bars data-join
 
+		/*************************************************** Setup Callback Functions ***************************************************/
+
 		// Attach event for data message from VA
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
@@ -139,6 +142,8 @@ limitations under the License.
 
 		// Listen for resize event
 		va.contentUtil.setupResizeListener(drawElements);
+
+		/****************************************************** Callback Functions ******************************************************/
 
 		// Take action on received data
 		function onDataReceived(messageFromVA) {
@@ -158,7 +163,7 @@ limitations under the License.
 
 			// Parse data from 2d array to array of objects
 			DATA = [];
-			for (var i=0, length=VA_MESSAGE.data.length; i<length; i++) {
+			for (var i=0; i<VA_MESSAGE.data.length; i++) {
 				DATA.push({
 					x: VA_MESSAGE.data[i][0],
 					y: VA_MESSAGE.data[i][1]
@@ -252,7 +257,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d, i) { selectElement(i, this); })
 			.merge(DATA_BARS)
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
@@ -294,7 +299,7 @@ limitations under the License.
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
 				.classed("selectable", true)
-				.on("click", function(d, i) { selectElement(d, i, this); })
+				.on("click", function(d, i) { selectElement(i, this); })
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
@@ -304,11 +309,12 @@ limitations under the License.
 				.style("opacity", 1);
 
 			DATA_BARS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", 0)
+				.style("opacity", 0.000001)
 				.remove();
 		}
 
 		/******************************************************* Helper Functions *******************************************************/
+
 		// Determine whether or not page is being rendered in iFrame
 		function inIframe () {
 			try {
@@ -328,7 +334,7 @@ limitations under the License.
 		}
 
 		// Handle selection on element
-		function selectElement(datum, index, el) {
+		function selectElement(index, el) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
 
