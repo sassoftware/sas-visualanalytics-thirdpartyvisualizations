@@ -72,6 +72,7 @@ limitations under the License.
 
 
 		/**************************************************** Create Static Elements ****************************************************/
+
 		// Append svg and save reference
 		d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
 			.attr("id", SVG_ID);
@@ -101,8 +102,8 @@ limitations under the License.
 
 		G_CHART_AREA = SVG.select(".g-chart-area");
 
-
 		/************************************************ Create Data Dependent Elements ************************************************/
+
 		// Create x scale
 		X_SCALE = d3.scaleBand()
 			.rangeRound([0, DRAWABLE_WIDTH])
