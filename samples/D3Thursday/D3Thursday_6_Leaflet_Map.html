@@ -123,6 +123,7 @@ limitations under the License.
 
 	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
+
 		// Data variables
 		var MAP_ID = "map";													// ID of map div
 		var ACCESS_TOKEN = "pk.eyJ1Ijoicnlid2VzIiwiYSI6ImNqajhsbXFyazJ4bW0zdmxmZ3E2cHNmOGUifQ.nigRtPYSdcQK_XaoquVSiQ";
@@ -270,8 +271,6 @@ limitations under the License.
 		var G_LEG;															// Legend group selection
 		var LEG_TITLE;														// Legend title data-join
 		var G_LEG_ENTRIES;													// Legend entry groups selection
-		var LEG_RECTS;														// Legend rects data-join
-		var LEG_TEXTS;														// Legend texts data-join
 
 		var KV_SVG;
 		var G_KV;															// Key value group selection
@@ -282,6 +281,8 @@ limitations under the License.
 		var KV_COST;														// Key value cost text
 		var COST_FORMAT = d3.format("$.2f");								// Formatter for key value cost text
 
+		/*************************************************** Setup Callback Functions ***************************************************/
+
 		// Attach event for data message from VA
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
@@ -290,6 +291,8 @@ limitations under the License.
 
 		// Listen for resize event
 		va.contentUtil.setupResizeListener(drawKeyValue);
+
+		/****************************************************** Callback Functions ******************************************************/
 
 		// Take action on received data
 		function onDataReceived(messageFromVA) {
@@ -370,7 +373,7 @@ limitations under the License.
 			MAP.openPopup(POPUPS[0]);
 
 			// Bind key value select event to map circles
-			d3.selectAll(".leaflet-interactive").on("click", function(d, i) { keyValSelect(d, i); });
+			d3.selectAll(".leaflet-interactive").on("click", function(d, i) { keyValSelect(i); });
 		}
 
 		// Draw legend on map
@@ -437,7 +440,7 @@ limitations under the License.
 				.attr("transform", function(d, i) {
 					return "translate(" + (0) + "," + (LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD + LEG_ROW_V_PAD + i*(LEG_ROW_HEIGHT + LEG_ROW_V_PAD)) + ")";
 				})
-				.on("click", function(d, i) { keyValSelect(d, i); });
+				.on("click", function(d, i) { keyValSelect(i); });
 
 			// Append legend rects
 			G_LEG_ENTRIES.append("rect")
@@ -545,7 +548,7 @@ limitations under the License.
 		}
 
 		// Transition necessary elements on selection
-		function keyValSelect(datum, index) {
+		function keyValSelect(index) {
 			// Prevent event from falling through to underlying elements
 			d3.event.stopPropagation();
 
@@ -598,6 +601,7 @@ limitations under the License.
 		}
 
 		/******************************************************* Helper Functions *******************************************************/
+
 		// Determine whether or not page is being rendered in iFrame
 		function inIframe () {
 			try {
