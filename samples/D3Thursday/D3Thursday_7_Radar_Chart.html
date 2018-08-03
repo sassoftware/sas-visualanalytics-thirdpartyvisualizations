@@ -55,15 +55,21 @@ limitations under the License.
 		alignment-baseline: hanging;
 	}
 
-	.legend-text {
+	.g-legend-entry {
+		cursor: pointer;
+	}
+
+	.legend-text, .measure-label {
 		font-size: .8em;
 		alignment-baseline: hanging;
 	}
 
-	.measure-label {
-		font-size: .8em;
-		text-anchor: start;
-		alignment-baseline: hanging;
+	.g-legend-entry.selected .legend-text {
+		font-weight: bold;
+	}
+
+	.g-legend-entry.selected .legend-rect {
+		stroke-width: 2px;
 	}
 </style>
 
@@ -72,6 +78,7 @@ limitations under the License.
 
 	document.addEventListener("DOMContentLoaded", function(e) {
 		/*************************************************** Declare global variables ***************************************************/
+
 		// Data variables
 		var SVG_ID = "radar";																// ID of SVG element
 		var SAMPLE_MESSAGE = {
@@ -478,13 +485,21 @@ limitations under the License.
 		};																					// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;																		// Data message to be received from VA
 		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
-		var SELECTED = [];																	// Selected rows passed in from VA
 		var DATA = [];																		// Data to be parsed from VA data message
 		var METADATA = [];																	// Metadata to be parsed from VA data message
 		var NUM_OPTIONAL_COL = 20;															// Number of optional numerical variables radar chart will accept
-		var DEFAULT_OPACITY = .2;
-		var HOVER_OPACITY = .6;
-		var UNHOVER_OPACITY = .1;
+		var OPACITY = {
+			fill: {
+				focus: .6,
+				default: .2,
+				unfocus: .1
+			},
+			stroke: {
+				focus: 1,
+				default: .6,
+				unfocus: .2
+			}
+		};
 		var FILL = {
 			"Hybrid": "#21b9b7",
 			"Sedan": "#4141e0",
@@ -504,9 +519,9 @@ limitations under the License.
 
 		// Static dimension variables
 		var MARGIN = {top: 70, right: 50, bottom: 10, left: 50};							// Margin on interior edge of SVG
-		var TRANS_TIME = 5000;																// Duration of major transitions
-		var HOVER_TRANS_TIME = 100;															// Duration of hover transitions
-		var ENTER_REMOVE_TRANS_TIME = 2000;													// Duration of enter and exit transitions for data points and grid lines
+		var TRANS_TIME = 500;																// Duration of major transitions
+		var HOVER_TRANS_TIME = 100;															// Duration of focus transitions
+		var ENTER_REMOVE_TRANS_TIME = 200;													// Duration of enter and exit transitions for data points and grid lines
 		var MEASURE_LABEL_PADDING = 10;														// Padding between edge of radar chart and measure labels
 		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
 		var LEG_PADDING = 50;																// Space between legend and chart area
@@ -547,8 +562,9 @@ limitations under the License.
 		var DATA_PATHS;																		// Data paths data-join
 		var DATA_POINTS;																	// Data points data-join
 		var LEGEND_TITLE;																	// Legend title data-join
-		var LEGEND_RECTS;																	// Legend rects data-join
-		var LEGEND_TEXTS;																	// Legend texts data-join
+		var LEGEND_GROUPS;																	// Legend groups data-join
+
+		/*************************************************** Setup Callback Functions ***************************************************/
 
 		// Attach event for data message from VA
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
@@ -559,12 +575,13 @@ limitations under the License.
 		// Listen for resize event
 		va.contentUtil.setupResizeListener(drawElements);
 
+		/****************************************************** Callback Functions ******************************************************/
+
 		// Take action on received data
 		function onDataReceived(messageFromVA) {
 			// Initialize global data variables
 			VA_MESSAGE = messageFromVA;
 			VA_RESULT_NAME = messageFromVA.resultName;
-			SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
 			// Create array of optional roles for validation
 			var optionalCol = [];
@@ -596,20 +613,7 @@ limitations under the License.
 			};
 
 			for (var i=0; i<numMeasures; i++) {
-				METADATA.metrics.push({label: nestedData[i].key, angle: i*DELTA_ANGLE});
-			}
-
-			// Create maximums array for use in calculating percentiles
-			var maximums = ["category", "metric"];
-			for (var i=2; i<VA_MESSAGE.data[0].length; i++) {
-				maximums.push(d3.max(VA_MESSAGE.data, function(d) {
-					if (d[i] == ".") {
-						return Number.MIN_VALUE;
-					}
-					else {
-						return d[i];
-					}
-				}));
+				METADATA.metrics.push({metric: nestedData[i].key, angle: i*DELTA_ANGLE});
 			}
 
 			// Parse data from 2d array to array of objects
@@ -617,16 +621,14 @@ limitations under the License.
 			DATA = [];
 			for (var i=0; i<VA_MESSAGE.data.length/numMeasures; i++) { // Iterate over each category
 				datum = {
-					label: VA_MESSAGE.data[i*numMeasures][0],
-					measures: [],
+					category: VA_MESSAGE.data[i*numMeasures][0],
 					percentiles: []
 				};
 
 				for (var j=0; j<numMeasures; j++) { // Iterate over present metrics
 					for (var k=0; k<VA_MESSAGE.data[0].length; k++) {
 						if (typeof VA_MESSAGE.data[i*numMeasures + j][k] != "string") {
-							datum.measures.push(VA_MESSAGE.data[i*numMeasures + j][k]);
-							datum.percentiles.push(VA_MESSAGE.data[i*numMeasures + j][k]/maximums[k]);
+							datum.percentiles.push(VA_MESSAGE.data[i*numMeasures + j][k]);
 						}
 					}
 				}
@@ -637,20 +639,13 @@ limitations under the License.
 			// Initialize chart if first draw, otherwise process data and update elements accordingly
 			if (d3.select("#" + SVG_ID).empty()) {
 				drawElements();
+
+				// Bring initially selected path to front
+				d3.select(".data-path").moveToFront();
 			}
 			else {
 				updateElements();
 			}
-
-			// Apply selections
-			// d3.selectAll(".selectable")
-			// 	.classed("selected", false)
-			// 	.filter(function(d, i) {
-			// 		return SELECTED.find(function(selection) {
-			// 			 return selection.row == i;
-			// 		 });
-			// 	})
-			// 	.classed("selected", true);
 		}
 
 		// Draw elements for first time and on resize event
@@ -665,8 +660,8 @@ limitations under the License.
 
 			// Append svg and save reference
 			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
-				.attr("id", SVG_ID);
-				// .on("click", deselectAllElements);
+				.attr("id", SVG_ID)
+				.on("click", legendDeselectAll);
 
 			SVG = d3.select("#" + SVG_ID)
 				.attr("width", WIDTH)
@@ -716,11 +711,11 @@ limitations under the License.
 				.attr("transform", "translate(" + (0) + "," + (-RADIUS) + ")");
 
 			// Create gradients
-			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.label; });
+			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
 
 			GRADIENTS.enter().append("linearGradient")
 				.classed("gradient", true)
-				.attr("id", function(d) { return d.label + "-gradient"; })
+				.attr("id", function(d) { return d.category + "-gradient"; })
 				.attr("x1", "0%")
 				.attr("x2", "100%")
 				.attr("y1", "50%")
@@ -730,26 +725,26 @@ limitations under the License.
 					d3.select(this).append("stop")
 					   .attr('class', 'start')
 					   .attr("offset", "0%")
-					   .attr("stop-color", function(d) { return FILL[d.label]; })
+					   .attr("stop-color", function(d) { return FILL[d.category]; })
 					   .attr("stop-opacity", 1);
 
 					d3.select(this).append("stop")
 					   .attr('class', 'end')
 					   .attr("offset", "100%")
-					   .attr("stop-color", function(d) { return FILL[d.label]; })
+					   .attr("stop-color", function(d) { return FILL[d.category]; })
 					   .attr("stop-opacity", .7);
 			});
 
 			// Create grid lines
-			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.label; });
+			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.category; });
 
 			GRID_LINES.enter().append("line")
 				.classed("grid-line", true)
 				.attr("stroke", "#C4C4C4")
 				.attr("data-angle", function(d) { return d.angle; })
-			.merge(GRID_LINES)
 				.attr("x1", 0)
 				.attr("y1", 0)
+			.merge(GRID_LINES)
 				.attr("x2", function(d, i) { return RADIUS*Math.sin(d.angle); })
 				.attr("y2", function(d, i) { return -RADIUS*Math.cos(d.angle); });
 
@@ -760,17 +755,17 @@ limitations under the License.
 				.classed("grid-circle", true)
 				.attr("fill", "none")
 				.attr("stroke", "#E4E4E4")
-			.merge(GRID_CIRCLES)
 				.attr("cx", 0)
 				.attr("cy", 0)
+			.merge(GRID_CIRCLES)
 				.attr("r", function(d) { return d*RADIUS; });
 
 			// Create measure labels
-			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.label; });
+			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.metric; });
 
 			MEASURE_LABELS.enter().append("text")
 				.classed("measure-label", true)
-				.text(function(d) { return d.label; })
+				.text(function(d) { return d.metric; })
 				.attr("data-angle", function(d) { return d.angle; })
 				.attr("dx", function(d) {
 					return (d.angle == 0 || d.angle == Math.PI) ? (-this.getBBox().width/2 + "px") :
@@ -791,55 +786,47 @@ limitations under the License.
 
 			DATA_GROUPS.enter().append("g")
 				.classed("g-data", true)
-				.attr("id", function(d) { return "g-data-" + d.label; });
+				.attr("id", function(d) { return "g-data-" + d.category; });
 
 			// Create data paths + data points
-			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.label; });
+			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.category; });
 
 			DATA_PATHS.enter().append("path")
 				.classed("data-path", true)
+				.attr("id", function(d) { return d.category + "-path"; })
 				.attr("data-angle", DELTA_ANGLE)
 				.attr("data-percentiles", function(d) { return JSON.stringify(d.percentiles); })
-				.attr("fill", function(d) { return FILL[d.label]; })
-				.attr("fill-opacity", DEFAULT_OPACITY)
+				.attr("fill", function(d) { return FILL[d.category]; })
+				.attr("fill-opacity", function(d, i) { return i==0 ? OPACITY.fill.focus : OPACITY.fill.unfocus; })
 				.attr("stroke-width", 2)
-				.attr("stroke", function(d) { return STROKE[d.label]; })
-				.on("mouseover", function() {
-					d3.select(this).moveToFront();
-
-					d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
-						.attr("fill-opacity", UNHOVER_OPACITY);
-
-					d3.select(this).transition().duration(HOVER_TRANS_TIME)
-						.attr("fill-opacity", HOVER_OPACITY);
-				})
-				.on("mouseout", function() {
-					d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
-						.attr("fill-opacity", DEFAULT_OPACITY);
-				})
+				.attr("stroke", function(d) { return STROKE[d.category]; })
+				.attr("stroke-opacity", function(d, i) { return i==0 ? OPACITY.stroke.focus : OPACITY.stroke.unfocus; })
 			.merge(DATA_PATHS)
-				.attr("d", function(d) {
+				.attr("d", function(d, i) {
+					var dPath = d;
+					var iPath = i;
 					var path = "M ";
 					var points = [];
 					var x, y;
-					for (var j=0; j<d.percentiles.length; j++) {
-						x = RADIUS*d.percentiles[j]*Math.sin(j*DELTA_ANGLE);
-						y = -RADIUS*d.percentiles[j]*Math.cos(j*DELTA_ANGLE);
+					for (var j=0; j<dPath.percentiles.length; j++) {
+						x = RADIUS*dPath.percentiles[j]*Math.sin(j*DELTA_ANGLE);
+						y = -RADIUS*dPath.percentiles[j]*Math.cos(j*DELTA_ANGLE);
 						points.push({
-							metric: METADATA.metrics[j].label,
+							category: dPath.category,
+							metric: METADATA.metrics[j].metric,
 							x: x,
 							y: y
 						});
 
-						path += x + "," + y + ((j == d.percentiles.length-1) ? (" Z") : ( " L "));
+						path += x + "," + y + ((j == dPath.percentiles.length-1) ? (" Z") : ( " L "));
 					}
 
-					DATA_POINTS = G_CHART_AREA.select("#g-data-" + d.label).selectAll(".data-point").data(points, function(d) { return d.metric; });
+					DATA_POINTS = G_CHART_AREA.select("#g-data-" + dPath.category).selectAll(".data-point").data(points, function(d) { return d.metric; });
 
 					DATA_POINTS.enter().append("circle")
 						.classed("data-point", true)
-						.attr("id", function(d) { return d.metric; })
-						.attr("fill", FILL[d.label])
+						.attr("fill", FILL[dPath.category])
+						.attr("fill-opacity", (iPath==0 ? OPACITY.stroke.focus : OPACITY.stroke.unfocus))
 					.merge(DATA_POINTS)
 						.attr("cx", function(d) { return d.x; })
 						.attr("cy", function(d) { return d.y; })
@@ -861,35 +848,36 @@ limitations under the License.
 			// Compute the x y locations for legend elements
 			calculateLegendDimensions();
 
-			// Create legend rects
-			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.label; });
+			// Create legend groups
+			LEGEND_GROUPS = G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; }).enter().append("g")
+				.classed("g-legend-entry", true)
+				.classed("selected", function(d, i) { return i==0; })
+				.attr("id", function(d) { return d.category + "-legend-entry"; })
+				.on("click", function(d, i) { legendSelect(d, i, this); });
 
-			LEGEND_RECTS.enter().append("rect")
+			G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; })
+				.attr("transform", function(d, i) { return "translate(" + (LEG_EL_POS[i].x) + ", " + (LEG_EL_POS[i].y) + ")"; });
+
+			// Append legend rects
+			LEGEND_GROUPS.append("rect")
 				.classed("legend-rect", true)
 				.attr("width", LEG_RECT_WIDTH)
 				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
 				.attr("stroke-width", 1)
-				.attr("stroke", function(d) { return STROKE[d.label]; })
-			.merge(LEGEND_RECTS)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
+				.attr("stroke", function(d) { return STROKE[d.category]; })
 
-			// Create legend text
-			LEGEND_TEXTS= G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.label; });
-
-			LEGEND_TEXTS.enter().append("text")
+			// Append legend texts
+			LEGEND_GROUPS.append("text")
 				.classed("legend-text", true)
-				.text(function(d) { return d.label; })
-			.merge(LEGEND_TEXTS)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
+				.text(function(d) { return d.category; })
+				.attr("x", (LEG_RECT_WIDTH + LEG_RECT_PAD));
 		}
 
 		// Redraw data dependent elements on data change
 		function updateElements() {
 			// Update grid lines
-			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.label; });
+			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.metric; });
 
 			GRID_LINES.transition().duration(TRANS_TIME)
 				.attrTween("x2", function(d) {
@@ -921,7 +909,7 @@ limitations under the License.
 				.remove();
 
 		    // Update measure labels
-			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.label; });
+			MEASURE_LABELS = G_CHART_AREA.selectAll(".measure-label").data(METADATA.metrics, function(d) { return d.metric; });
 
 			MEASURE_LABELS.transition().duration(TRANS_TIME)
 				.attr("dx", function(d) {
@@ -948,7 +936,7 @@ limitations under the License.
 
 			MEASURE_LABELS.enter().append("text")
 				.classed("measure-label", true)
-				.text(function(d) { return d.label; })
+				.text(function(d) { return d.metric; })
 				.attr("data-angle", function(d) { return d.angle; })
 				.attr("dx", function(d) {
 					return (d.angle == 0 || d.angle == Math.PI) ? (-this.getBBox().width/2 + "px") :
@@ -971,10 +959,9 @@ limitations under the License.
 				.remove();
 
 			// Update data paths + data points
-			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.label; });
+			DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(DATA, function(d) { return d.category; });
 
-
-			 DATA_PATHS.each(function(d) {		// Find where point was entered/removed and add pseudo point for entered point
+			DATA_PATHS.each(function(d) {		// Find where point was entered/removed and add pseudo point for entered point
 					var oldDelta = parseFloat(d3.select(this).attr("data-angle"));
 					var oldPercentiles = JSON.parse(d3.select(this).attr("data-percentiles"));
 					var length = Math.max(oldPercentiles.length, d.percentiles.length);
@@ -989,7 +976,6 @@ limitations under the License.
 					if (d.entered) {
 						d3.select(this)
 							.attr("d", function(d) {
-								console.log(d.changedIndex)
 								var path = d.changedIndex==0 ? "M " + "0," + -RADIUS*oldPercentiles[0] + " L " : "M ";
 								var x, y;
 								for (var j=0; j<oldPercentiles.length; j++) {
@@ -1011,29 +997,31 @@ limitations under the License.
 				})
 			 .transition().duration(TRANS_TIME)
  				.attr("d", function(d) {	// Transition data path using pseudo points and data points
+					var dPath = d;
 					var path = "M ";
 					var points = [];
 					var x, y;
-					for (var j=0; j<d.percentiles.length; j++) {
-						if (!d.entered && d.changedIndex==j || j==d.percentiles.length-1 && d.changedIndex==d.percentiles.length) {
-							x = RADIUS*d.percentiles[j%d.percentiles.length]*Math.sin((j%d.percentiles.length)*DELTA_ANGLE);
-							y = -RADIUS*d.percentiles[j%d.percentiles.length]*Math.cos((j%d.percentiles.length)*DELTA_ANGLE);
+					for (var j=0; j<dPath.percentiles.length; j++) {
+						if (!d.entered && d.changedIndex==j || j==dPath.percentiles.length-1 && d.changedIndex==dPath.percentiles.length) {
+							x = RADIUS*dPath.percentiles[j%dPath.percentiles.length]*Math.sin((j%dPath.percentiles.length)*DELTA_ANGLE);
+							y = -RADIUS*dPath.percentiles[j%dPath.percentiles.length]*Math.cos((j%dPath.percentiles.length)*DELTA_ANGLE);
 
 							path += x + "," + y + " L ";
 						}
 
-						x = RADIUS*d.percentiles[j]*Math.sin(j*DELTA_ANGLE);
-						y = -RADIUS*d.percentiles[j]*Math.cos(j*DELTA_ANGLE);
+						x = RADIUS*dPath.percentiles[j]*Math.sin(j*DELTA_ANGLE);
+						y = -RADIUS*dPath.percentiles[j]*Math.cos(j*DELTA_ANGLE);
 						points.push({
-							metric: METADATA.metrics[j].label,
+							category: dPath.category,
+							metric: METADATA.metrics[j].metric,
 							x: x,
 							y: y
 						});
 
-						path += x + "," + y + ((j == d.percentiles.length-1) ? (" Z") : ( " L "))
+						path += x + "," + y + ((j == dPath.percentiles.length-1) ? (" Z") : ( " L "))
 					}
 
-					DATA_POINTS = G_CHART_AREA.select("#g-data-" + d.label).selectAll(".data-point").data(points, function(d) { return d.metric; });
+					DATA_POINTS = G_CHART_AREA.select("#g-data-" + dPath.category).selectAll(".data-point").data(points, function(d) { return d.metric; });
 
 					DATA_POINTS.transition().duration(TRANS_TIME)
 						.attr("cx", function(d) { return d.x; })
@@ -1042,14 +1030,17 @@ limitations under the License.
 
 					DATA_POINTS.enter().append("circle")
 						.classed("data-point", true)
-						.attr("id", function(d) { return d.metric; })
-						.attr("fill", FILL[d.label])
+						.attr("fill", FILL[dPath.category])
 						.attr("cx", function(d) { return d.x; })
 						.attr("cy", function(d) { return d.y; })
 						.attr("r", 4)
 						.style("opacity", 0)
 					.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
-						.style("opacity", 1);
+						.style("opacity", function(d) {
+							return (d3.selectAll(".selected").empty()) ? (OPACITY.stroke.default) :
+								   ((d3.select("#" + d.category + "-legend-entry").classed("selected")) ? (OPACITY.stroke.focus) :
+								   (OPACITY.stroke.unfocus));
+						});
 
 					DATA_POINTS.exit().transition().duration(ENTER_REMOVE_TRANS_TIME)
 						.style("opacity", 0)
@@ -1090,47 +1081,56 @@ limitations under the License.
 			}
 		}
 
-		// // Deselect all on svg click
-		// function deselectAllElements() {
-		// 	// Deselect all elements
-		// 	d3.selectAll(".selectable").classed("selected", false);
-		//
-		// 	// Post message to VA
-		// 	va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
-		// }
-		//
-		// // Handle selection on element
-		// function selectElement(datum, index, el) {
-		// 	// Prevent event from falling through to underlying elements
-		// 	d3.event.stopPropagation();
-		//
-		// 	// If control is held toggle selected on click preserving array, otherwise select only clicked element
-		// 	if (d3.event.ctrlKey) {
-		// 		// Toggle selection on clicked element
-		// 		d3.select(el).classed("selected", !d3.select(el).classed("selected"));
-		//
-		// 		// Build array of selected elements
-		// 		var selections = [];
-		// 		d3.selectAll(".selectable").each(function(d, i){
-		// 			if (d3.select(this).classed("selected")) {
-		// 				selections.push({row: i});
-		// 			}
-		// 		});
-		//
-		// 		// Post message to VA
-		// 		va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
-		// 	}
-		// 	else {
-		// 		// Deselect all elements
-		// 		d3.selectAll(".selectable").classed("selected", false);
-		//
-		// 		// Select clicked element
-		// 		d3.select(el).classed("selected", true);
-		//
-		// 		// Post message to VA
-		// 		va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: index}]);
-		// 	}
-		// }
+		// Deselect all on svg click
+		function legendDeselectAll() {
+			// Deselect all legend groups
+			G_LEGEND.selectAll(".g-legend-entry")
+				.classed("selected", false);
+
+			// Transition all data paths to default opacity
+			d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
+				.attr("fill-opacity", OPACITY.fill.default)
+				.attr("stroke-opacity", OPACITY.stroke.default);
+
+			// Transition all data points to default opacity
+			d3.selectAll(".data-point").transition().duration(HOVER_TRANS_TIME)
+				.attr("fill-opacity", OPACITY.stroke.default);
+		}
+
+		// Handle selection on legend group
+		function legendSelect(datum, index, el) {
+			// Prevent event from falling through to underlying elements
+			d3.event.stopPropagation();
+
+			// Deselect all legend groups
+			G_LEGEND.selectAll(".g-legend-entry")
+				.classed("selected", false);
+
+			// Transition all other data paths to unfocus opacity
+			d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
+			.filter(function(d) { return datum.category != d.category; } )
+				.attr("fill-opacity", OPACITY.fill.unfocus)
+				.attr("stroke-opacity", OPACITY.stroke.unfocus);
+
+			// Transition all other data points to unfocus opacity
+			d3.selectAll(".data-point").transition().duration(HOVER_TRANS_TIME)
+			.filter(function(d) { return datum.category != d.category; } )
+				.attr("fill-opacity", OPACITY.stroke.unfocus);
+
+			// Select clicked legend group
+			d3.select(el).classed("selected", true);
+
+			// Bring selected data path to front and transition focus opacity
+			d3.select("#" + datum.category + "-path")
+				.moveToFront()
+			.transition().duration(HOVER_TRANS_TIME)
+				.attr("fill-opacity", OPACITY.fill.focus)
+				.attr("stroke-opacity", OPACITY.stroke.focus);
+
+			// Transition selected data points to focus opacity
+			d3.selectAll("#g-data-" + datum.category + " .data-point").transition().duration(HOVER_TRANS_TIME)
+				.attr("fill-opacity", OPACITY.stroke.focus);
+		}
 
 		// Helper function to bring element to front of SVG (from https://github.com/wbkd/d3-extended)
 		d3.selection.prototype.moveToFront = function() {
@@ -1139,7 +1139,7 @@ limitations under the License.
 	    	});
 		};
 
-		//
+		// Determine coordinates for dynamic legend
 		function calculateLegendDimensions() {
 			// Get height of legend title to determine vertical offset of legend elements
 			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
@@ -1148,7 +1148,8 @@ limitations under the License.
 			var textWidths = []
 			d3.select("#" + SVG_ID).selectAll('.dummyText').data(DATA).enter().append("text")
 				.classed("legend-text", true)
-			    .text(function(d) { return d.label})
+			    .text(function(d) { return d.category})
+				.style("font-weight", "bold")
 			    .each(function(d, i) {
 			        textWidths.push(this.getComputedTextLength());
 			        this.remove();
