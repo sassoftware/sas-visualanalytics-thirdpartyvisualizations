@@ -40,7 +40,7 @@ limitations under the License.
 		fill: lightsteelblue;
 	}
 
-	.data-bar.selected {
+	.selectable.selected {
 		stroke-width: 2px;
 		stroke: black;
 	}
@@ -108,29 +108,29 @@ limitations under the License.
 		};																	// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;														// Data message to be received from VA
 		var VA_RESULT_NAME;													// Result name required to send messages back to VA
-		var SELECTED = [];													// Selected rows passed in from VA
-		var DATA = [];														// Data to be parsed from VA data message
+		var SELECTED;														// Selected rows passed in from VA
+		var DATA;															// Data to be parsed from VA data message
 
 		// Static dimension variables
-		var MARGIN = {top: 20, right: 20, bottom: 40, left: 40};			// Margin on interior edge of SVG
 		var TRANS_TIME = 500;												// Duration of transitions
+		var EDGE_PADDING = 10;												// Padding between end of axes and edge of SVG
+		var Y_AXIS_WIDTH = 30;												// Width allocated for y-axis
+		var X_AXIS_HEIGHT = 30;												// Height allocated for x-axis
 
 		// Dynamic dimension variables
-		var WIDTH = window.innerWidth;										// Width of SVG element
-		var HEIGHT = window.innerHeight;									// Height of SVG element
-		var DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;			// Drawable width of SVG
-		var DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;			// Drawable height of SVG
+		var WIDTH;															// Width of SVG element
+		var HEIGHT;															// Height of SVG element
+		var CHART_WIDTH;													// Width of chart area for bars
+		var CHART_HEIGHT;													// Height of chart area for bars
 
 		// Selection and d3 variables
 		var SVG;															// SVG selection
-		var G_X_AXIS;														// X Axis Group selection
-		var G_Y_AXIS;														// Y Axis Group selection
-		var G_CHART_AREA;													// Chart Area Group selection
-		var X_SCALE;														// X Scale
-		var Y_SCALE;														// Y Scale
-		var X_AXIS;															// X Axis data-join
-		var Y_AXIS;															// Y Axis data-join
-		var DATA_BARS;														// Data Bars data-join
+		var G_CHART_AREA;													// Chart area group selection
+		var X_SCALE;														// Band scale for x categories
+		var Y_SCALE;														// Linear scale for bar heights
+		var X_AXIS;															// X axis group data-join
+		var Y_AXIS;															// Y axis group data join
+		var DATA_BARS;														// Data bars data-join
 
 		/*************************************************** Setup Callback Functions ***************************************************/
 
@@ -161,7 +161,7 @@ limitations under the License.
 				return;
 			}
 
-			// Parse data from 2d array to array of objects
+			// Restructure data from 2d array to array of objects
 			DATA = [];
 			for (var i=0; i<VA_MESSAGE.data.length; i++) {
 				DATA.push({
@@ -191,11 +191,16 @@ limitations under the License.
 
 		// Draw elements for first time and on resize event
 		function drawElements() {
+			// Return if data is not yet initialized
+			if (!DATA) {
+				return;
+			}
+
 			// Calculate dimensions for graph based on container dimensions
 			WIDTH = window.innerWidth;
 			HEIGHT = window.innerHeight;
-			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
-			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
+			CHART_WIDTH = WIDTH - Y_AXIS_WIDTH - EDGE_PADDING;
+			CHART_HEIGHT = HEIGHT - X_AXIS_HEIGHT - EDGE_PADDING;
 
 			// Append svg and save reference
 			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
@@ -206,49 +211,37 @@ limitations under the License.
 				.attr("width", WIDTH)
 				.attr("height", HEIGHT);
 
-			// Append/update x-axis group and save reference
-			SVG.selectAll(".g-x-axis").data([DATA]).enter().append("g")
-				.classed("g-x-axis", true);
-
-			G_X_AXIS = SVG.select(".g-x-axis")
-				.attr("transform", "translate(" + (MARGIN.left) + "," + (HEIGHT-MARGIN.bottom) + ")");
-
-			// Append/update y-axis group and save reference
-			SVG.selectAll(".g-y-axis").data([DATA]).enter().append("g")
-				.classed("g-y-axis", true)
-				.attr("transform", "translate(" + (MARGIN.left) + "," + (MARGIN.top) + ")");
-
-			G_Y_AXIS = SVG.select(".g-y-axis");
-
 			// Append/update chart-area group and save reference
 			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
 				.classed("g-chart-area", true)
-				.attr("transform", "translate(" + (MARGIN.left) + "," + (MARGIN.top) + ")");
+				.attr("transform", "translate(" + (Y_AXIS_WIDTH) + ", " + (EDGE_PADDING) + ")");
 
 			G_CHART_AREA = SVG.select(".g-chart-area");
 
 			// Create x scale
-			X_SCALE = d3.scaleBand().rangeRound([0, DRAWABLE_WIDTH]).padding(0.1)
+			X_SCALE = d3.scaleBand().rangeRound([0, CHART_WIDTH]).padding(0.1)
 				.domain(DATA.map(function(d) { return d.x; }));
 
 			// Create y scale
-			Y_SCALE = d3.scaleLinear().rangeRound([DRAWABLE_HEIGHT, 0])
+			Y_SCALE = d3.scaleLinear().rangeRound([CHART_HEIGHT, 0])
 				.domain([0, d3.max(DATA, function(d) { return d.y; })]);
 
 			// Create x axis
-			X_AXIS = G_X_AXIS.selectAll(".x-axis").data([DATA]);
+			X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
 
 			X_AXIS.enter().append("g")
 				.classed("x-axis", true)
 			.merge(X_AXIS)
+				.attr("transform", "translate(" + (Y_AXIS_WIDTH) + ", " + (HEIGHT-X_AXIS_HEIGHT) + ")")
 				.call(d3.axisBottom(X_SCALE));
 
 			// Create y axis
-			Y_AXIS = G_Y_AXIS.selectAll(".y-axis").data([DATA]);
+			Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
 
 			Y_AXIS.enter().append("g")
 				.classed("y-axis", true)
 			.merge(Y_AXIS)
+				.attr("transform", "translate(" + (Y_AXIS_WIDTH) + ", " + (EDGE_PADDING) + ")")
 				.call(d3.axisLeft(Y_SCALE));
 
 			// Create bars for each
@@ -262,27 +255,27 @@ limitations under the License.
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
-				.attr("height", function(d) { return DRAWABLE_HEIGHT - Y_SCALE(d.y); });
+				.attr("height", function(d) { return CHART_HEIGHT - Y_SCALE(d.y); });
 		}
 
 		// Redraw data dependent elements on data change
 		function updateElements() {
 			// Update x scale
-			X_SCALE = d3.scaleBand().rangeRound([0, DRAWABLE_WIDTH]).padding(0.1)
+			X_SCALE = d3.scaleBand().rangeRound([0, CHART_WIDTH]).padding(0.1)
 				.domain(DATA.map(function(d) { return d.x; }));
 
 			// Update y scale
-			Y_SCALE = d3.scaleLinear().rangeRound([DRAWABLE_HEIGHT, 0])
+			Y_SCALE = d3.scaleLinear().rangeRound([CHART_HEIGHT, 0])
 				.domain([0, d3.max(DATA, function(d) { return d.y; })]);
 
 			// Update x axis
-			X_AXIS = G_X_AXIS.selectAll(".x-axis").data([DATA])
+			X_AXIS = SVG.selectAll(".x-axis").data([DATA])
 
 			X_AXIS.transition().duration(TRANS_TIME)
 				.call(d3.axisBottom(X_SCALE));
 
 			// Update x axis
-			Y_AXIS = G_Y_AXIS.selectAll(".y-axis").data([DATA])
+			Y_AXIS = SVG.selectAll(".y-axis").data([DATA])
 
 			Y_AXIS.transition().duration(TRANS_TIME)
 				.call(d3.axisLeft(Y_SCALE));
@@ -294,7 +287,8 @@ limitations under the License.
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
-				.attr("height", function(d) { return DRAWABLE_HEIGHT - Y_SCALE(d.y); });
+				.attr("height", function(d) { return CHART_HEIGHT - Y_SCALE(d.y); })
+				.style("opacity", 1);
 
 			DATA_BARS.enter().append("rect")
 				.classed("data-bar", true)
@@ -303,12 +297,13 @@ limitations under the License.
 				.attr("x", function(d) { return X_SCALE(d.x); })
 				.attr("y", function(d) { return Y_SCALE(d.y); })
 				.attr("width", function(d) { return X_SCALE.bandwidth(); })
-				.attr("height", function(d) { return DRAWABLE_HEIGHT - Y_SCALE(d.y); })
+				.attr("height", function(d) { return CHART_HEIGHT - Y_SCALE(d.y); })
 				.style("opacity", 0)
 			.transition().duration(TRANS_TIME)
 				.style("opacity", 1);
 
 			DATA_BARS.exit().transition().duration(TRANS_TIME)
+				.attr("data-test", function(d) { return 0; })
 				.style("opacity", 0.000001)
 				.remove();
 		}

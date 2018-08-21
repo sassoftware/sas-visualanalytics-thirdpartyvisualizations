@@ -39,30 +39,36 @@ limitations under the License.
 		font-family: Verdana, sans-serif;
 	}
 
-	.data-arc.selected {
+	.selectable.selected {
 		stroke-width: 2px;
 		stroke: black;
 	}
 
+	.data-arc, .legend-rect {
+		stroke-width: 1px;
+	}
+
 	.legend-title {
-		font-size: 1.0em;
+		font-size: .9em;
+		font-weight: bold;
 		text-anchor: middle;
 		alignment-baseline: hanging;
 	}
 
 	.legend-text {
-		font-size: .8em;
+		font-size: .9em;
 		alignment-baseline: hanging;
 	}
 
 	.d3-tip {
+		pointer-events: none !important;
 		background: white;
 		position: relative;
     	border: 1px solid #C4C4C4;
-		border-radius: 4px;
+		border-radius: 2px;
 	}
 
-	.d3-tip:before {
+	.d3-tip:before { /* Create arrow on tooltip */
 		content: "";
 		position: absolute;
 		top: 100%;
@@ -78,7 +84,8 @@ limitations under the License.
 	}
 
 	.d3-tip-content {
-		font-size: .8em;
+		font-family: Verdana, sans-serif;
+		font-size: .9em;
 		text-align: left;
 	}
 </style>
@@ -145,9 +152,9 @@ limitations under the License.
 		};																					// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;																		// Data message to be received from VA
 		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
-		var SELECTED = [];																	// Selected rows passed in from VA
-		var DATA = [];																		// Data to be parsed from VA data message
-		var METADATA = [];																	// Metadata to be parsed from VA data message
+		var SELECTED;																		// Selected rows passed in from VA
+		var DATA;																			// Data to be parsed from VA data message
+		var METADATA;																		// Metadata to be parsed from VA data message
 		var FILL = {
 			"Hybrid": "#21b9b7",
 			"Sedan": "#4141e0",
@@ -155,7 +162,7 @@ limitations under the License.
 			"SUV": "#8e2f8a",
 			"Truck": "#d38506",
 			"Wagon": "#0abf85"
-		};																					// Fill colors keyed to labels
+		};																					// Fill colors keyed to categories
 		var STROKE = {
 			"Hybrid": "#1d9992",
 			"Sedan": "#2222bc",
@@ -163,30 +170,27 @@ limitations under the License.
 			"SUV": "#6d256d",
 			"Truck": "#ba7006",
 			"Wagon": "#0a9e69"
-		};																					// Stroke colors keyed to labels
+		};																					// Stroke colors keyed to categories
 
 		// Static dimension variables
-		var MARGIN = {top: 70, right: 10, bottom: 10, left: 10};							// Margin on interior edge of SVG
-		var TRANS_TIME = 5000;																// Duration of transitions
+		var TRANS_TIME = 500;																// Duration of transitions
 		var MIN_ARC_PADDING = .03;															// Minimum padding between arc segments in radians
-		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
-		var LEG_ROW_HEIGHT = 15;															// Height allocated for each row of legend
+		var TOOLTIP_TOP_PAD = 60;															// Padding at top of donut to prevent tooltip spillover
+		var TOOLTIP_SIDE_PAD = 65;															// Padding around side of donut to prevent tooltip spillover
+		var LEG_TOP_PAD = 20;																// Padding between chart and legend title
+		var LEG_TITLE_PAD = 5;																// Padding between legend title bottom and first row of legend
+		var LEG_ROW_PAD = 3;																// Padding between legend rows
 		var LEG_RECT_WIDTH = 12;															// Width of legend rects
-		var LEG_TITLE_TOP_PAD = 5;															// Padding between chart and legend title
-		var LEG_TITLE_HEIGHT;																// Height of legend title element
-		var LEG_TITLE_BOT_PAD = 5;															// Padding between legend title bottom and
 		var LEG_RECT_PAD = 5;																// Padding between legend rect and legend text
 		var LEG_TEXT_PAD = 5;																// Padding after legend text
 
 		// Dynamic dimension variables
-		var WIDTH = window.innerWidth;														// Width of SVG element
-		var HEIGHT = window.innerHeight;													// Height of SVG element
-		var DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;							// Drawable width of SVG
-		var DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;							// Drawable height of SVG
+		var WIDTH;																			// Width of SVG element
+		var HEIGHT;																			// Height of SVG element
+		var LEG_EL_POS;																		// Positions of legend text elements
+		var LEG_HEIGHT;																		// Height allocated for legend
 		var ARC_PADDING;																	// Padding in radians between arc segments
-		var RADIUS = Math.min(DRAWABLE_WIDTH, DRAWABLE_HEIGHT-LEG_MIN_HEIGHT) / 2;			// Radius of pie/donut
-		var LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT, DRAWABLE_HEIGHT-2*RADIUS);				// Height allocated for legend
-		var LEG_EL_POS = [];																// Positions of legend text elements
+		var RADIUS;																			// Radius of pie/donut
 
 		// Selection and d3 variables
 		var SVG;																			// SVG selection
@@ -196,7 +200,7 @@ limitations under the License.
 		var G_LEGEND;																		// Legend Group selection
 		var COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2);									// Ordinal color scale to determine arc fill color scale
 		var PATH;																			// Path generator to create arc paths from arc data
-		var GRADIENTS;																		// Gradients data-
+		var GRADIENTS;																		// Gradients data-join
 		var DATA_ARCS;																		// Data Arcs data-join
 		var LEGEND_TITLE;																	// Legend title data-join
 		var LEGEND_RECTS;																	// Legend rects data-join
@@ -231,24 +235,24 @@ limitations under the License.
 				return;
 			}
 
-			// Parse metadata from data message
+			// Restructure metadata from data message
 			METADATA = {
 				category: VA_MESSAGE.columns[0].label,
 				measure: VA_MESSAGE.columns[1].label
 			};
 
-			// Parse data from 2d array to array of objects
+			// Restructure data from 2d array to array of objects
 			var total = d3.sum(VA_MESSAGE.data, function(d) { return d[1]; });
 			ARC_PADDING = ARC_PADDING ? ARC_PADDING : Math.min((d3.min(VA_MESSAGE.data, function(d) { return d[1]; })/(2*total))*2*Math.PI, MIN_ARC_PADDING);	// Define padding btw arcs on first draw
 			var availableAngle = 2*Math.PI - VA_MESSAGE.data.length*ARC_PADDING;
 
-			var label, measure, currentData, finalStartAngle, finalEndAngle, startAngle, endAngle;
+			var category, measure, currentData, finalStartAngle, finalEndAngle, startAngle, endAngle;
 			DATA = [];
 			for (var i=0; i<VA_MESSAGE.data.length; i++) {
-				label = VA_MESSAGE.data[i][0];
+				category = VA_MESSAGE.data[i][0];
 			 	measure = VA_MESSAGE.data[i][1];
 
-				currentData = d3.select("#" + label);
+				currentData = d3.select("#" + category);
 
 				finalStartAngle =  i==0 ? 0 : DATA[i-1].finalEndAngle + ARC_PADDING;
 				finalEndAngle = i==0 ? ((measure/total)*availableAngle) : (DATA[i-1].finalEndAngle + ARC_PADDING + (measure/total)*availableAngle);
@@ -257,7 +261,7 @@ limitations under the License.
 				endAngle =  currentData.empty() ? finalEndAngle : JSON.parse(currentData.attr("data-d")).endAngle;
 
 				DATA.push({
-					label: label,
+					category: category,
 					measure: measure,
 					finalStartAngle: finalStartAngle,
 					finalEndAngle: finalEndAngle,
@@ -287,100 +291,33 @@ limitations under the License.
 
 		// Draw elements for first time and on resize event
 		function drawElements() {
+			// Return if data is not yet initialized
+			if (!DATA) {
+				return;
+			}
+
 			// Calculate dimensions for graph based on container dimensions
 			WIDTH = window.innerWidth;
 			HEIGHT = window.innerHeight;
-			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
-			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
-			RADIUS = Math.min(DRAWABLE_WIDTH, DRAWABLE_HEIGHT - LEG_MIN_HEIGHT) / 2;
-			LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT, DRAWABLE_HEIGHT-2*RADIUS);
 
 			// Append svg and save reference
 			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
 				.attr("id", SVG_ID)
-				.on("click", deselectAllElements);
+				.on("click", deselectAllElements)
+				.each(initializeTips);
 
 			SVG = d3.select("#" + SVG_ID)
 				.attr("width", WIDTH)
 				.attr("height", HEIGHT);
 
-			// Initialize tooltip
-			TIP = d3.tip()
-		    	.attr("class", "d3-tip")
-		    	.offset([-8, 0])
-		    	.html(function(d) {
-					return "<table class='d3-tip-content'> <tr> <th> " + METADATA.category + "</th> <td>" + d.label + "</td> </tr>" +
-						   "<tr> <th> " + METADATA.measure + "</th> <td>" + d.measure + "</td> </tr> </table>";
-				});
-
-		    SVG.call(TIP);
-
-			// Append defs and save reference
-			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
-				.classed("gradient-defs", true);
-
-			DEFS = SVG.select(".gradient-defs");
-
-			// Append/update chart-area group and save reference
-			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
-				.classed("g-chart-area", true);
-
-			G_CHART_AREA = SVG.select(".g-chart-area")
-				.attr("transform", "translate(" + (WIDTH/2) + "," + (MARGIN.top + (DRAWABLE_HEIGHT-LEG_HEIGHT)/2) + ")");
+			// Compute the x y locations for legend elements
+			calculateLegendDimensions();
 
 			// Append/update legend group and save reference
 			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
 				.classed("g-legend", true);
 
-			G_LEGEND = SVG.select(".g-legend")
-				.attr("transform", "translate(" + (MARGIN.left) + "," + (HEIGHT-MARGIN.bottom-LEG_HEIGHT) + ")");
-
-			// Create path generator
-			PATH = d3.arc().outerRadius(RADIUS).innerRadius(.7*RADIUS);
-
-			// Create gradients
-			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.label; });
-
-			GRADIENTS.enter().append("linearGradient")
-				.classed("gradient", true)
-				.attr("id", function(d) { return d.label + "-gradient"; })
-				.attr("x1", "0%")
-				.attr("x2", "100%")
-				.attr("y1", "50%")
-				.attr("y2", "50%")
-				.each(function(d, i) {
-					// Append color stops
-					d3.select(this).append("stop")
-					   .attr('class', 'start')
-					   .attr("offset", "0%")
-					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", 1);
-
-					d3.select(this).append("stop")
-					   .attr('class', 'end')
-					   .attr("offset", "100%")
-					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", .7);
-			});
-
-			// Create data arcs
-			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
-
-			DATA_ARCS.enter().append("path")
-				.classed("data-arc", true)
-				.classed("selectable", true)
-				.attr("id", function(d) { return d.label; })
-				.attr("data-d", function(d) { return JSON.stringify(d); })
-				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
-				.attr("stroke-width", 1)
-				.attr("stroke", function(d, i) { return STROKE[d.label] ? STROKE[d.label] : COLOR_SCALE(i); })
-				.on("click", function(d, i) { selectElement(i, this); })
-		    	.on("mouseover", TIP.show)
-		    	.on("mouseout", TIP.hide)
-			.merge(DATA_ARCS)
-				.attr("d", function(d) {
-					return PATH({startAngle: d.finalStartAngle, endAngle: d.finalEndAngle});
-				});
+			G_LEGEND = SVG.select(".g-legend");
 
 			// Create legend title
 			LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
@@ -389,52 +326,51 @@ limitations under the License.
 				.classed("legend-title", true)
 				.text(METADATA.category)
 			.merge(LEGEND_TITLE)
-				.attr("x", DRAWABLE_WIDTH/2)
-				.attr("y", LEG_TITLE_TOP_PAD);
-
-			// Compute the x y locations for legend elements
-			calculateLegendDimensions();
+				.attr("transform", "translate(" + (WIDTH/2) + ", 0)");
 
 			// Create legend rects
-			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.label; });
+			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.category; });
 
 			LEGEND_RECTS.enter().append("rect")
 				.classed("legend-rect", true)
 				.attr("width", LEG_RECT_WIDTH)
 				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
-				.attr("stroke-width", 1)
-				.attr("stroke", function(d, i) { return STROKE[d.label] ? STROKE[d.label] : COLOR_SCALE(i); })
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
+				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
 			.merge(LEGEND_RECTS)
 				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
 				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
 
 			// Create legend text
-			LEGEND_TEXTS= G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.label; });
+			LEGEND_TEXTS= G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.category; });
 
 			LEGEND_TEXTS.enter().append("text")
 				.classed("legend-text", true)
-				.text(function(d) { return d.label; })
+				.text(function(d) { return d.category; })
 			.merge(LEGEND_TEXTS)
 				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
 				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
-		}
 
-		// Redraw data dependent elements on data change
-		function updateElements() {
-			calculateLegendDimensions();
+			// Use legend height to determine radius and move legend
+			G_LEGEND
+				.attr("transform", function() {
+					LEG_HEIGHT = this.getBBox().height;
+					RADIUS = Math.min(WIDTH-2*TOOLTIP_SIDE_PAD, HEIGHT-LEG_HEIGHT-LEG_TOP_PAD-TOOLTIP_TOP_PAD) / 2;
+					return "translate(0, " + (HEIGHT-LEG_HEIGHT) + ")";
+				});
 
-			// Update gradients
-			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.label; });
+			// Append defs and save reference
+			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
+				.classed("gradient-defs", true);
 
-			GRADIENTS.each(function(d, i) {
-				d3.select(this).selectAll("stop")
-					.attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); });
-			});
+			DEFS = SVG.select(".gradient-defs");
+
+			// Create gradients
+			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
 
 			GRADIENTS.enter().append("linearGradient")
 				.classed("gradient", true)
-				.attr("id", function(d) { return d.label + "-gradient"; })
+				.attr("id", function(d) { return d.category + "-gradient"; })
 				.attr("x1", "0%")
 				.attr("x2", "100%")
 				.attr("y1", "50%")
@@ -444,22 +380,150 @@ limitations under the License.
 					d3.select(this).append("stop")
 					   .attr('class', 'start')
 					   .attr("offset", "0%")
-					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
+					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
 					   .attr("stop-opacity", 1);
 
 					d3.select(this).append("stop")
 					   .attr('class', 'end')
 					   .attr("offset", "100%")
-					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
+					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
+					   .attr("stop-opacity", .7);
+			});
+
+			// Append/update chart-area group and save reference
+			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
+				.classed("g-chart-area", true);
+
+			G_CHART_AREA = SVG.select(".g-chart-area")
+				.attr("transform", "translate(" + (WIDTH/2) + ", " + (TOOLTIP_TOP_PAD + RADIUS) + ")");
+
+			// Create path generator
+			PATH = d3.arc().outerRadius(RADIUS).innerRadius(.7*RADIUS);
+
+			// Append circle to bind tooltip to
+			G_CHART_AREA.selectAll("#tooltip-tracker").data([DATA]).enter().append("circle")
+				.attr("id", "tooltip-tracker")
+				.attr("cx", 0)
+				.attr("cy", 0)
+				.attr("r", 1)
+				.style("opacity", 0);
+
+			// Create data arcs
+			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
+
+			DATA_ARCS.enter().append("path")
+				.classed("data-arc", true)
+				.classed("selectable", true)
+				.attr("id", function(d) { return d.category; })
+				.attr("data-d", function(d) { return JSON.stringify(d); })
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
+				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
+				.on("click", function(d, i) { selectElement(i, this); })
+		    	.on("mouseover", function(d) {
+					// Move tooltip tracker to midpoint of arc
+					d3.select("#tooltip-tracker")
+						.attr("cx", (+RADIUS*Math.sin((d.startAngle+d.endAngle)/2)))
+						.attr("cy", (-RADIUS*Math.cos((d.startAngle+d.endAngle)/2)));
+
+					// Show tooltip
+					TIP.show(d, d3.select("#tooltip-tracker").node());
+				})
+		    	.on("mouseout", TIP.hide)
+			.merge(DATA_ARCS)
+				.attr("d", function(d) {
+					return PATH({startAngle: d.finalStartAngle, endAngle: d.finalEndAngle});
+				});
+		}
+
+		// Redraw data dependent elements on data change
+		function updateElements() {
+			// Compute the x y locations for legend elements
+			calculateLegendDimensions();
+
+			// Update legend rects
+			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.category; });
+
+			LEGEND_RECTS.transition().duration(TRANS_TIME)
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
+				.style("opacity", 1);
+
+			LEGEND_RECTS.enter().append("rect")
+				.classed("legend-rect", true)
+				.attr("width", LEG_RECT_WIDTH)
+				.attr("height", LEG_RECT_WIDTH)
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
+				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
+				.style("opacity", 0)
+			.transition().duration(TRANS_TIME)
+				.style("opacity", 1);
+
+			LEGEND_RECTS.exit().transition().duration(TRANS_TIME)
+				.style("opacity", 0)
+				.remove();
+
+			// Update legend text
+			LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.category; });
+
+			LEGEND_TEXTS.transition().duration(TRANS_TIME)
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
+				.style("opacity", 1);
+
+			LEGEND_TEXTS.enter().append("text")
+				.classed("legend-text", true)
+				.text(function(d) { return d.category; })
+				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
+				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
+				.style("opacity", 0)
+			.transition().duration(TRANS_TIME)
+				.style("opacity", 1);
+
+			LEGEND_TEXTS.exit().transition().duration(TRANS_TIME)
+				.style("opacity", 0)
+				.remove();
+
+			// Update gradients
+			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
+
+			GRADIENTS.each(function(d, i) {
+				d3.select(this).selectAll("stop")
+					.attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); });
+			});
+
+			GRADIENTS.enter().append("linearGradient")
+				.classed("gradient", true)
+				.attr("id", function(d) { return d.category + "-gradient"; })
+				.attr("x1", "0%")
+				.attr("x2", "100%")
+				.attr("y1", "50%")
+				.attr("y2", "50%")
+				.each(function(d, i) {
+					// Append color stops
+					d3.select(this).append("stop")
+					   .attr('class', 'start')
+					   .attr("offset", "0%")
+					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
+					   .attr("stop-opacity", 1);
+
+					d3.select(this).append("stop")
+					   .attr('class', 'end')
+					   .attr("offset", "100%")
+					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
 					   .attr("stop-opacity", .7);
 			});
 
 			// Update data arcs
-			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) { return d.label; });
+			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) { return d.category; });
 
-			DATA_ARCS.transition().duration(TRANS_TIME)
+			DATA_ARCS
+				.classed("exiting", false)
+			.transition().duration(TRANS_TIME)
+				.attr("stroke-width", 1)
 		    	.attrTween("d", function(d) {
-		    		d3.select("#"+d.label).attr("data-d", JSON.stringify(d));
+		    		d3.select("#"+d.category).attr("data-d", JSON.stringify(d));
 
 		    		return arcTween(d, d.startAngle, d.finalStartAngle, d.endAngle, d.finalEndAngle);
 		    	});
@@ -467,19 +531,27 @@ limitations under the License.
 		    DATA_ARCS.enter().append("path")
 				.classed("data-arc", true)
 				.classed("selectable", true)
-				.attr("id", function(d) { return d.label; })
+				.attr("id", function(d) { return d.category; })
 				.attr("data-d", function(d) { return JSON.stringify(d); })
-				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
 				.attr("stroke-width", 0)
-				.attr("stroke", function(d, i) { return STROKE[d.label] ? STROKE[d.label] : COLOR_SCALE(i); })
+				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
 				.on("click", function(d, i) { selectElement(i, this); })
-		    	.on("mouseover", TIP.show)
+		    	.on("mouseover", function(d) {
+					// Move tooltip tracker to midpoint of arc
+					d3.select("#tooltip-tracker")
+						.attr("cx", (+RADIUS*Math.sin((d.startAngle+d.endAngle)/2)))
+						.attr("cy", (-RADIUS*Math.cos((d.startAngle+d.endAngle)/2)));
+
+					// Show tooltip
+					TIP.show(d, d3.select("#tooltip-tracker").node());
+				})
 		    	.on("mouseout", TIP.hide)
 			.transition().duration(TRANS_TIME)
 				.attr("stroke-width", 1)
 		    	.attrTween("d", function(d) {
 					var prev = d3.select(this.previousElementSibling);
-					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {endAngle: -ARC_PADDING};
+					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {endAngle: -ARC_PADDING};
 
 		    		return arcTween(d, prevD.endAngle + ARC_PADDING/2, d.finalStartAngle, prevD.endAngle + ARC_PADDING/2, d.finalEndAngle);
 		    	});
@@ -493,55 +565,11 @@ limitations under the License.
 					while (prev.node() && prev.classed("exiting")) {
 						prev = d3.select(prev.node().previousElementSibling);
 					}
-					var prevD = prev.node() ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: -ARC_PADDING};
+					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: -ARC_PADDING};
 
 		    		return arcTween(d, d.startAngle, prevD.finalEndAngle + ARC_PADDING/2, d.endAngle, prevD.finalEndAngle + ARC_PADDING/2);
 		    	})
 		    	.remove();
-
-		    // Update legend rects
-			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.label; });
-
-			LEGEND_RECTS.transition("update").duration(TRANS_TIME)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
-
-			LEGEND_RECTS.enter().append("rect")
-				.classed("legend-rect", true)
-				.attr("width", LEG_RECT_WIDTH)
-				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.label) + "-gradient)"; })
-				.attr("stroke-width", "1")
-				.attr("stroke", function(d, i) { return STROKE[d.label] ? STROKE[d.label] : COLOR_SCALE(i); })
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 0)
-			.transition().duration(TRANS_TIME)
-				.style("opacity", 1);
-
-			LEGEND_RECTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", 0)
-				.remove();
-
-		    // Update legend text
-			LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.label; });
-
-			LEGEND_TEXTS.transition("update").duration(TRANS_TIME)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
-
-			LEGEND_TEXTS.enter().append("text")
-				.classed("legend-text", true)
-				.text(function(d) { return d.label; })
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 0)
-			.transition().duration(TRANS_TIME)
-				.style("opacity", 1);
-
-			LEGEND_TEXTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", 0)
-				.remove();
 		}
 
 		/******************************************************* Helper Functions *******************************************************/
@@ -553,6 +581,19 @@ limitations under the License.
 			} catch (e) {
 				return true;
 			}
+		}
+
+		// Initialize tooltips
+		function initializeTips() {
+			TIP = d3.tip()
+		    	.attr("class", "d3-tip")
+				.offset([-8,0])
+		    	.html(function(d) {
+					return "<table class='d3-tip-content'> <tr> <td> " + METADATA.category + ":\t</td> <td>" + d.category + "</td> </tr>" +
+						   "<tr> <td> " + METADATA.measure + ":\t</td> <td>" + d.measure + "</td> </tr> </table>";
+				});
+
+		    d3.select(this).call(TIP);
 		}
 
 		// Deselect all on svg click
@@ -599,15 +640,24 @@ limitations under the License.
 
 		// Determine coordinates for dynamic legend
 		function calculateLegendDimensions() {
-			// Get height of legend title to determine vertical offset of legend elements
-			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
-
-			// Create dummy text variables to caculate widths for legend text elements
-			var textWidths = []
-			d3.select("#" + SVG_ID).selectAll('.dummyText').data(DATA).enter().append("text")
+			// Create dummy text variable to get legend title height
+			var titleHeight;
+			SVG.selectAll(".dummyText").data([DATA]).enter().append("text")
 				.classed("legend-text", true)
-			    .text(function(d) { return d.label})
-			    .each(function(d, i) {
+			    .text("TEST")
+				.each(function() {
+					titleHeight = this.getBBox().height;
+					this.remove();
+				});
+
+			// Create dummy text variables to get legend text height/widths
+			var textWidths = []
+			var textHeight;
+			SVG.selectAll(".dummyText").data(DATA).enter().append("text")
+				.classed("legend-text", true)
+			    .text(function(d) { return d.category})
+			    .each(function() {
+					textHeight = this.getBBox().height;
 			        textWidths.push(this.getComputedTextLength());
 			        this.remove();
 			    });
@@ -620,7 +670,7 @@ limitations under the License.
 			for (var i=0; i<textWidths.length; i++) {
 				rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
 				rows.push(row);
-				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=DRAWABLE_WIDTH && i+1<textWidths.length) {
+				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=WIDTH && i+1<textWidths.length) {
 					i++;
 					rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
 					rows.push(row);
@@ -633,8 +683,8 @@ limitations under the License.
 			LEG_EL_POS = [];
 			for (var i=0; i<textWidths.length; i++) {
 				LEG_EL_POS.push({
-					x: (i==0 || rows[i-1]!=rows[i]) ? DRAWABLE_WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
-					y: rows[i]*LEG_ROW_HEIGHT + LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD
+					x: (i==0 || rows[i-1]!=rows[i]) ? WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
+					y: titleHeight + LEG_TITLE_PAD + rows[i]*(textHeight + LEG_ROW_PAD)
 				});
 			}
 		}
@@ -648,7 +698,7 @@ limitations under the License.
 				d.finalStartAngle = finalStart;
 				d.endAngle = interpolateEnd(t);
 				d.finalEndAngle = finalEnd;
-				d3.select("#" + d.label).attr("data-d", JSON.stringify(d));
+				d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
 				return PATH(d);
 			};
 		}

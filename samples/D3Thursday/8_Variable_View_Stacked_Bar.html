@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+	<!-- Import D3.js -->
+	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+	<!-- Import utilities  -->
+	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../../util/contentUtil.js"></script>
+
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+</head>
+<body>
+<style type="text/css">
+	html, body, svg {
+		overflow: hidden;
+		margin: 0px;
+		padding: 0px;
+		height: 100%;
+		width: 100%;
+	}
+
+	text {
+		font-family: Verdana, sans-serif;
+	}
+
+	.title {
+		font-size: 1.2em;
+	}
+
+	.x-axis, .y-axis {
+		font-size: .8em;
+	}
+
+	.x-label {
+		font-size: 1.0em;
+		text-anchor: Middle;
+		alignment-baseline: hanging;
+	}
+
+	.y-label {
+		font-size: 1.0em;
+		alignment-baseline: hanging;
+	}
+
+	.legend-title {
+		font-size: 1.0em;
+		text-anchor: Middle;
+		alignment-baseline: hanging;
+	}
+
+	.legend-text {
+		font-size: .7em;
+		alignment-baseline: hanging;
+	}
+</style>
+
+<script>
+	"use strict";
+
+	document.addEventListener("DOMContentLoaded", function(e) {
+		/*************************************************** Declare global variables ***************************************************/
+
+		// Data variables
+		var SVG_ID = "vvs-donut";															// ID of SVG element
+		var VA_MESSAGE;																		// Data message to be received from VA
+		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
+		var DATA = [];
+		var CENTER_GUIDES = {};
+		var MAXSUM;
+		var CENTER;
+		var FILL = {
+			"Andorra": "#21b9b7",
+			"Bahrain": "#4141e0",
+			"Djibouti":  "#7db71a",
+			"Gambia": "#8e2f8a",
+			"Jordan": "#d38506",
+			"Kenya": "#0abf85",
+			"Niger": "#2f90ec",
+			"Oman": "#db3851",
+			"Qatar": "#21b9b7",
+			"Saudi Arabia": "#4141e0",
+			"Uganda": "#7db71a",
+			"United Arab Emirates": "#8e2f8a"
+		};
+		var STROKE = {
+			"Andorra": "#1d9992",
+			"Bahrain": "#2222bc",
+			"Djibouti": "#6a9617",
+			"Gambia": "#6d256d",
+			"Jordan": "#ba7006",
+			"Kenya": "#0a9e69",
+			"Niger": "#07689e",
+			"Oman": "#a50a2f",
+			"Qatar": "#1d9992",
+			"Saudi Arabia": "#2222bc",
+			"Uganda": "#6a9617",
+			"United Arab Emirates": "#6d256d"
+		};
+
+		// Static dimension variables
+		var MARGIN = {top: 5, right: 5, bottom: 5, left: 0};								// Margin on interior edge of SVG
+		var TRANS_TIME = 500;																// Duration of transitions
+		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
+		var LEG_ROW_HEIGHT = 15;															// Height allocated for each row of legend
+		var LEG_RECT_WIDTH = 10;															// Width of legend rects
+		var LEG_TITLE_TOP_PAD = 20;															// Padding between chart and legend title
+		var LEG_TITLE_BOT_PAD = 5;															// Padding between legend title bottom and
+		var LEG_RECT_PAD = 5;																// Padding between legend rect and legend text
+		var LEG_TEXT_PAD = 5;																// Padding after legend text
+		var VERT_PADDING;																	// Vertical padding between elements
+
+		// Dynamic dimension variables
+		var WIDTH;																			// Width of SVG element
+		var HEIGHT;																			// Height of SVG element
+		var DRAWABLE_WIDTH;																	// Drawable width of SVG
+		var DRAWABLE_HEIGHT;																// Drawable height of SVG
+		var Y_LABEL_HEIGHT;																	// Height of y-axis labels
+		var Y_AXIS_DIM;																		// Width/height of y-axis
+		var X_AXIS_DIM;																		// Width/Height of x-axis
+		var LEG_TITLE_HEIGHT;																// Height of legend title element
+
+		// Selection and d3 variables
+		var SVG;
+		var DEFS;
+		var GRADIENTS;
+		var X_SCALE = d3.scaleLinear();
+		var Y_SCALE = d3.scaleLinear();
+		var G_X_AXIS;
+		var G_Y_AXIS;
+		var G_CHART_AREA;
+		var G_LEGEND;
+		var X_AXIS;
+		var Y_AXIS;
+		var X_LABEL;
+		var Y_LABEL;
+		var LEGEND_RECTS;
+		var LEGEND_TEXTS;
+		var DATA_BARS;
+
+		/*************************************************** Setup Callback Functions ***************************************************/
+		// Attach event for data message from VA
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+		// If not being rendered in iFrame (outside VA), render with sample data
+		if (!inIframe()) { onDataReceived(SAMPLE_MESSAGE); }
+
+		// Listen for resize event
+		va.contentUtil.setupResizeListener(drawElements);
+
+		/****************************************************** Callback Functions ******************************************************/
+
+		function onDataReceived(messageFromVA) {
+			// Initialize global data variables
+			VA_MESSAGE = messageFromVA;
+			VA_RESULT_NAME = messageFromVA.resultName;
+
+			// Determine whether or not data should be centered based on selection
+			CENTER = ((VA_MESSAGE.data[0][3]=="Centered By Country" && VA_MESSAGE.data[0][4]==1) ||
+			 		  (VA_MESSAGE.data[0][3]=="Left Aligned" && VA_MESSAGE.data[0][4]==0));
+
+			// Parse data from 2d array format into associative array format
+			DATA = [];
+			var prevYear;
+			for (var i=0, length=VA_MESSAGE.data.length; i<length; i++) {
+				DATA.push({
+					"Year": parseInt(VA_MESSAGE.data[i][0]),
+					"Country": VA_MESSAGE.data[i][1],
+					"CountryNoSpace": VA_MESSAGE.data[i][1].replace(/ /g, "_"),
+					"Value": VA_MESSAGE.data[i][2],
+					"CumValue": (VA_MESSAGE.data[i][0]==prevYear ? DATA[i-1].CumValue + DATA[i-1].Value : 0)
+				});
+
+				prevYear = VA_MESSAGE.data[i][0];
+			}
+
+			// Get maximum value for each country
+			var maximums = {};
+			for (var i=0; i<DATA.length; i++) {
+				if ((maximums[DATA[i].Country] == null) || (maximums[DATA[i].Country] < DATA[i].Value)) {
+					maximums[DATA[i].Country] = DATA[i].Value;
+				}
+			}
+
+			// Sum maximums to determine domain of x scale
+			MAXSUM = 0;
+			for (var country in maximums) {
+				MAXSUM += maximums[country];
+			}
+
+			// // Create x scale, saving previous version for transitions
+			// X_SCALE = d3.scaleLinear()
+			// 	.domain([0, maxSum])
+			// 	.rangeRound([0, RECT_WIDTH]);
+			//
+			// // Create y scale
+			// Y_SCALE = d3.scaleLinear()
+			// 	.domain([d3.max(DATA, function(d) { return d.Year; })+1, d3.min(DATA, function(d) { return d.Year; })-1])
+			// 	.rangeRound([Y_AXIS_HEIGHT, 0]);
+			//
+			// // Use country maximums to determine center and right border for centered bars
+			// CENTER_GUIDES = {};
+			// var runningTotal = 0;
+			// for (var country in maximums) {
+			// 	CENTER_GUIDES[country] = {
+			// 		"Middle": X_SCALE(runningTotal + maximums[country]/2),
+			// 		"Right": X_SCALE(runningTotal + maximums[country])
+			// 	};
+			// 	runningTotal += maximums[country];
+			// }
+
+			// Initialize chart if first draw, otherwise process data and update elements accordingly
+			if (d3.select("#" + SVG_ID).empty()) {
+				drawElements();
+			}
+			else {
+				updateElements();
+			}
+		}
+
+		// Draw elements for first time and on resize event
+		function drawElements() {
+			// Return if data is not yet initialized
+			if (!DATA) {
+				return;
+			}
+
+			// Calculate dimensions for graph based on container dimensions
+			WIDTH = window.innerWidth;
+			HEIGHT = window.innerHeight;
+			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
+			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
+
+			// Append svg and save reference
+			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
+				.attr("id", SVG_ID);
+
+			SVG = d3.select("#" + SVG_ID)
+				.attr("width", WIDTH)
+				.attr("height", HEIGHT);
+
+			// Append defs and save reference
+			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
+				.classed("gradient-defs", true);
+
+			DEFS = SVG.select(".gradient-defs");
+
+			// Append gradients
+			GRADIENTS = DEFS.selectAll(".gradient").data(Object.keys(CENTER_GUIDES), function(d) { return d; });
+
+			GRADIENTS.enter().append("linearGradient")
+				.classed("gradient", true)
+				.attr("id", function(d) { return d.replace(/ /g, "_") + "-gradient"; })
+				.attr("x1", "0%")
+				.attr("x2", "100%")
+				.attr("y1", "50%")
+				.attr("y2", "50%")
+				.each(function() {
+
+					d3.select(this).append("stop")
+					   .attr('class', 'start')
+					   .attr("offset", "0%")
+					   .attr("stop-color", function(d) { return FILL[d]; })
+					   .attr("stop-opacity", 1);
+
+					d3.select(this).append("stop")
+					   .attr('class', 'end')
+					   .attr("offset", "100%")
+					   .attr("stop-color", function(d) { return FILL[d]; })
+					   .attr("stop-opacity", .7);
+			});
+
+			// Create y axis label
+			Y_LABEL = SVG.selectAll(".y-label").data([DATA]);
+
+			Y_LABEL.enter().append("text")
+				.classed("y-label", true)
+				.text("Survey Year")
+				.attr("transform", "translate(" + (MARGIN.left) + "," + (MARGIN.top) + ")")
+				.each(function() {
+					Y_LABEL_HEIGHT = d3.select(this).node().getBBox().height;
+				});
+
+			// Create y scale
+			Y_SCALE = d3.scaleLinear()
+				.domain([d3.max(DATA, function(d) { return d.Year; })+1, d3.min(DATA, function(d) { return d.Year; })-1])
+				.rangeRound([Y_AXIS_HEIGHT, 0]);
+
+			// Create y axis
+			Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
+
+			Y_AXIS.enter().append("g")
+				.classed("y-axis", true)
+				.attr("transform", "translate(" + (Y_LABEL_HEIGHT) + "," + (0) + ")")
+				.call(	d3.axisLeft(Y_SCALE)
+							.tickValues(d3.map(DATA, function(d){return d.Year;}).keys())
+							.tickFormat(d3.format("d"))
+							.tickSizeOuter(0));
+
+			// Append G_CHART_AREA and save references
+			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
+				.classed("g-chart-area", true);
+
+			G_CHART_AREA = SVG.select(".g-chart-area")
+				.attr("transform", "translate(" + (Y_AXIS_WIDTH + 2) + "," + (TITLE_HEIGHT + MARGIN_HEIGHT) + ")");
+
+			// Create x scale
+			X_SCALE = d3.scaleLinear()
+				.domain([0, MAXSUM])
+				.rangeRound([0, RECT_WIDTH]);
+
+			// Create x axis
+			X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
+
+			X_AXIS.enter().append("g")
+				.classed("x-axis", true)
+				.attr("transform", "translate(" + (0) + "," + (0) + ")")
+				.call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
+
+			// Create x axis label
+			X_LABEL = SVG.selectAll(".x-label").data([DATA]);
+
+			X_LABEL.enter().append("text")
+				.classed("x-label", true)
+				.attr("x", WIDTH/2)
+				.attr("y", TITLE_HEIGHT + MARGIN_HEIGHT + Y_AXIS_HEIGHT + X_AXIS_HEIGHT)
+				.text("Freshwater Available (Cubic Meters per Capita)");
+
+			// Append G_LEGEND and save references
+			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
+				.classed("g-legend", true);
+
+			G_LEGEND = SVG.select(".g-legend")
+				.attr("transform", "translate(" + (Y_AXIS_WIDTH) + "," + (TITLE_HEIGHT + MARGIN_HEIGHT + Y_AXIS_HEIGHT + X_AXIS_HEIGHT + MARGIN_HEIGHT) + ")");
+
+			// Create legend rects
+			LEGEND_RECTS = G_LEGEND.selectAll(".legend-color").data(Object.keys(CENTER_GUIDES), function(d) { return d; });
+
+			LEGEND_RECTS.enter().append("rect")
+				.classed("legend-color", true)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH;
+				})
+				.attr("y", function(d,i) {
+					return .40*LEGEND_HEIGHT + (Math.floor(i/8))*.35*LEGEND_HEIGHT;
+				})
+				.attr("width", 10)
+				.attr("height", 10)
+				.attr("fill", function(d) {	return "url(#" + (d.replace(/ /g, "_")) + "-gradient)"; })
+				.attr("stroke-width", 1)
+				.style("stroke", function(d) { return STROKE[d]; });
+
+			// Create legend text
+			LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(Object.keys(CENTER_GUIDES), function(d) { return d; });
+
+			LEGEND_TEXTS.enter().append("text")
+				.classed("legend-text", true)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH + 15;
+				})
+				.attr("y", function(d,i) {
+					return .40*LEGEND_HEIGHT + (Math.floor(i/8))*.35*LEGEND_HEIGHT;
+				})
+				.text(function (d) { return d; });
+
+			// Create bars for each country + year
+			DATA_BARS = G_CHART_AREA.selectAll(".data-bar").data(DATA, function(d) { return d.Country + "-" + d.Year; });
+
+			DATA_BARS.enter().append("rect")
+				.classed("data-bar", true)
+				.attr("id", function(d) { return d.CountryNoSpace + "-" + d.Year; })
+				.attr("data-country", function(d) { return d.CountryNoSpace; })
+				.attr("data-year", function(d) { return d.Year; })
+				.attr("data-value", function(d) { return d.Value; })
+				.attr("data-cum-value", function(d) { return d.CumValue; })
+				.attr("x", function(d, i) {
+					if (CENTER) {
+						 return CENTER_GUIDES[d.Country].Middle - X_SCALE(d.Value/2);
+					}
+					else {
+						return X_SCALE(d.CumValue);
+					}
+				})
+				.attr("y", function(d) { return Y_SCALE(d.Year) - (Y_SCALE(d.Year) - Y_SCALE(d.Year-1))/2; })
+				.attr("width", function(d) { return X_SCALE(d.Value); })
+				.attr("height", function(d) { return Y_SCALE(d.Year) - Y_SCALE(d.Year-1); })
+				.attr("fill", function(d) { return "url(#" + (d.CountryNoSpace) + "-gradient)"; })
+				.attr("stroke-width", 1)
+				.style("stroke", function(d) { return STROKE[d.Country]; });
+		}
+
+		function updateElements() {
+			// Compute the x y locations for legend elements
+			calculateLegendDimensions();
+
+			// Update x axis
+			X_AXIS.transition("x-axis-update").duration(500)
+				.call(d3.axisBottom(X_SCALE));
+
+			// Update y axis
+			Y_AXIS.transition("y-axis-update").duration(500)
+				.call(d3.axisLeft(Y_SCALE));
+
+			// Update gradients
+			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.label; });
+
+			GRADIENTS.each(function(d, i) {
+				d3.select(this).selectAll("stop")
+					.attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); });
+			});
+
+			GRADIENTS.enter().append("linearGradient")
+				.classed("gradient", true)
+				.attr("id", function(d) { return d.label + "-gradient"; })
+				.attr("x1", "0%")
+				.attr("x2", "100%")
+				.attr("y1", "50%")
+				.attr("y2", "50%")
+				.each(function(d, i) {
+					// Append color stops
+					d3.select(this).append("stop")
+					   .attr('class', 'start')
+					   .attr("offset", "0%")
+					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
+					   .attr("stop-opacity", 1);
+
+					d3.select(this).append("stop")
+					   .attr('class', 'end')
+					   .attr("offset", "100%")
+					   .attr("stop-color", function(d) { return FILL[d.label] ? FILL[d.label] : COLOR_SCALE(i); })
+					   .attr("stop-opacity", .7);
+			});
+
+			// Update colored legend rects
+			LEGEND_RECTS = G_LEGEND.selectAll(".legend-color").data(Object.keys(CENTER_GUIDES), function(d) { return d; });
+
+			LEGEND_RECTS.transition().duration(500)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH;
+				})
+				.attr("y", function(d,i) {
+					return .25*LEGEND_HEIGHT + (Math.floor(i/8))*.5*LEGEND_HEIGHT;
+				})
+				.style("opacity", 1);
+
+			LEGEND_RECTS.enter().append("rect")
+				.classed("legend-color", true)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH;
+				})
+				.attr("y", function(d,i) {
+					return .25*LEGEND_HEIGHT + (Math.floor(i/8))*.5*LEGEND_HEIGHT;
+				})
+				.attr("width", 10)
+				.attr("height", 10)
+				.attr("fill", function(d) {	return "url(#" + (d.replace(/ /g, "_")) + "-gradient)"; })
+				.attr("stroke-width", 1)
+				.style("stroke", function(d) { return STROKE[d]; })
+				.style("opacity", 0.000001)
+				.transition().duration(500)
+				.style("opacity", 1);
+
+			LEGEND_RECTS.exit()
+				.transition().duration(500)
+				.style("opacity", function(d) { return 0.000001; })
+				.remove();
+
+			// Update legend text
+			LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(Object.keys(CENTER_GUIDES), function(d) { return d; });
+
+			LEGEND_TEXTS.transition().duration(500)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH + 15;
+				})
+				.attr("y", function(d,i) {
+					return .25*LEGEND_HEIGHT + (Math.floor(i/8))*.5*LEGEND_HEIGHT;
+				})
+				.style("opacity", 1);
+
+			LEGEND_TEXTS.enter().append("text")
+				.classed("legend-text", true)
+				.attr("x", function(d,i) {
+					var med = (Object.keys(CENTER_GUIDES).length<8 ? (Object.keys(CENTER_GUIDES).length/2 - .5) : (Math.floor(i/8) ? ((Object.keys(CENTER_GUIDES).length-8)/2 - .5) : (3.5)));
+					return WIDTH/2 - .5*BOX_WIDTH + (i%8-med)*BOX_WIDTH + 15;
+				})
+				.attr("y", function(d,i) {
+					return .25*LEGEND_HEIGHT + (Math.floor(i/8))*.5*LEGEND_HEIGHT;
+				})
+				.text(function (d) { return d; })
+				.style("opacity", 0.000001)
+				.transition().duration(500)
+				.style("opacity", 1);
+
+			LEGEND_TEXTS.exit()
+				.transition().duration(500)
+				.style("opacity", 0.000001)
+				.remove();
+
+			// Update data bars
+			DATA_BARS = G_CHART_AREA.selectAll(".data-bar").data(DATA, function(d) { return d.Country + "-" + d.Year; });
+
+			DATA_BARS.attr("data-cum-value", function(d) { return d.CumValue; })
+				.classed("exiting", false)
+				.transition("data-bar-update").duration(500)
+				.attr("stroke-width", 1)
+				.attr("x", function(d) {
+					if (CENTER) {
+						return CENTER_GUIDES[d.Country].Middle - X_SCALE(d.Value/2);
+					}
+					else {
+						return X_SCALE(d.CumValue);
+					}
+				})
+				.attr("width", function(d) { return X_SCALE(d.Value); });
+
+			DATA_BARS.enter().append("rect")
+				.classed("data-bar", true)
+				.classed("exiting", false)
+				.attr("id", function(d) { return d.CountryNoSpace + "-" + d.Year; })
+				.attr("data-country", function(d) { return d.CountryNoSpace; })
+				.attr("data-year", function(d) { return d.Year; })
+				.attr("data-value", function(d) { return d.Value; })
+				.attr("data-cum-value", function(d) { return d.CumValue; })
+				.attr("x", function(d) {
+					if (CENTER) {
+						var prev = $("#" + d.CountryNoSpace + "-" + d.Year).prev();
+						var first = $("[data-country=" +  prev.attr("data-country") + "]").first();
+						return !prev.hasClass("data-bar") ?  0 : (parseInt(prev.attr("data-year"))!=d.Year ? 0 : parseInt(first.attr("x"))+parseInt(first.attr("width"))+1);
+
+					}
+					else {
+						var prev = $("#" + d.CountryNoSpace + "-" + d.Year).prev();
+						// console.log("Entering " + d.Country + "-" + d.Year);
+						// console.log("\tValue: " + d.Value);
+						// console.log("\tCumValue: " + d.CumValue);
+						// console.log("\tPrev element is " + prev.attr("id"));
+						return !prev.hasClass("data-bar") ?  0 : (parseInt(prev.attr("data-year"))!=d.Year ? 0 : parseInt(prev.attr("x"))+parseInt(prev.attr("width"))+1);
+					}
+				})
+				.attr("y", function(d) { return Y_SCALE(d.Year) - (Y_SCALE(d.Year) - Y_SCALE(d.Year-1))/2; })
+				.attr("width", function(d) { return 0; })
+				.attr("height", function(d) { return Y_SCALE(d.Year) - Y_SCALE(d.Year-1); })
+				.attr("fill", function(d) { return "url(#" + (d.CountryNoSpace) + "-gradient)"; })
+				.attr("stroke-width", 0)
+				.style("stroke", function(d) { return STROKE[d.Country]; })
+				.transition(/*"data-bar-enter"*/).duration(500)
+				.attr("stroke-width", 1)
+				.attr("x", function(d, i) {
+					if (CENTER) {
+						 return CENTER_GUIDES[d.Country].Middle - X_SCALE(d.Value/2);
+					}
+					else {
+						return X_SCALE(d.CumValue);
+					}
+				})
+				.attr("width", function(d) { return X_SCALE(d.Value); });
+
+			DATA_BARS.exit()
+				.classed("exiting", true)
+				.transition("data-bar-exit").duration(500)
+				.attr("stroke-width", 0)
+				.attr("width", 0)
+				.attr("x", function(d) {
+					if (CENTER) {
+						var prev = $("#" + d.CountryNoSpace + "-" + d.Year).prev();
+						while (prev.hasClass("exiting")) {
+							prev = prev.prev();
+						}
+						var first = $("[data-country=" +  prev.attr("data-country") + "]").first();
+
+						return !prev.hasClass("data-bar") ?  0 : (parseInt(prev.attr("data-year"))!=d.Year ? 0 : CENTER_GUIDES[prev.attr("data-country")].Right);
+					}
+					else {
+						var prev = $("#" + d.CountryNoSpace + "-" + d.Year).prev();
+						while (prev.hasClass("exiting")) {
+							prev = prev.prev();
+						}
+
+						return !prev.hasClass("data-bar") ?  0 : (parseInt(prev.attr("data-year"))!=d.Year ? 0 : X_SCALE(parseInt(prev.attr("data-cum-value")) + parseInt(prev.attr("data-value"))));
+					}
+				 });
+		}
+
+		/******************************************************* Helper Functions *******************************************************/
+
+		// Determine whether or not page is being rendered in iFrame
+		function inIframe () {
+			try {
+				return window.self !== window.top;
+			} catch (e) {
+				return true;
+			}
+		}
+
+		// Initialize tooltips
+		function initializeTips() {
+			TIP = d3.tip()
+		    	.attr("class", "d3-tip")
+				.offset([-8,0])
+		    	.html(function(d) {
+					return "<table class='d3-tip-content'> <tr> <td> " + METADATA.category + ":\t</td> <td>" + d.label + "</td> </tr>" +
+						   "<tr> <td> " + METADATA.measure + ":\t</td> <td>" + d.measure + "</td> </tr> </table>";
+				});
+
+		    d3.select(this).call(TIP);
+		}
+
+		// Determine coordinates for dynamic legend
+		function calculateLegendDimensions() {
+			// Get height of legend title to determine vertical offset of legend elements
+			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
+
+			// Create dummy text variables to caculate widths for legend text elements
+			var textWidths = []
+			d3.select("#" + SVG_ID).selectAll('.dummyText').data(DATA).enter().append("text")
+				.classed("legend-text", true)
+			    .text(function(d) { return d.label})
+			    .each(function(d, i) {
+			        textWidths.push(this.getComputedTextLength());
+			        this.remove();
+			    });
+
+			// Determine which row each element will sit in and how long each row is
+			var rows = [];
+			var rowSums = [];
+			var rowSum;
+			var row = 0;
+			for (var i=0; i<textWidths.length; i++) {
+				rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+				rows.push(row);
+				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=DRAWABLE_WIDTH && i+1<textWidths.length) {
+					i++;
+					rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+					rows.push(row);
+				}
+				rowSums.push(rowSum);
+				row++;
+			}
+
+			// Calculate x and y coordinates for legend elements
+			LEG_EL_POS = [];
+			for (var i=0; i<textWidths.length; i++) {
+				LEG_EL_POS.push({
+					x: (i==0 || rows[i-1]!=rows[i]) ? DRAWABLE_WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
+					y: rows[i]*LEG_ROW_HEIGHT + LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD
+				});
+			}
+		}
+	});
+</script>
+</body>
+</html>

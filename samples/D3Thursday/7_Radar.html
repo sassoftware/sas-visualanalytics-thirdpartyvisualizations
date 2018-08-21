@@ -19,6 +19,9 @@ limitations under the License.
 	<!-- Import D3.js -->
 	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
+	<!-- Import d3-tip -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+
 	<!-- Import utilities  -->
 	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
 	<script type="text/javascript" src="../../util/contentUtil.js"></script>
@@ -36,21 +39,13 @@ limitations under the License.
 		font-family: Verdana, sans-serif;
 	}
 
-	.axis path {
-		opacity: 0;
-	}
-
-	.axis text {
-		fill: #C4C4C4;
-	}
-
-	.data-arc.selected {
-		stroke-width: 2px;
-		stroke: black;
+	.data-path {
+		pointer-events: none;
 	}
 
 	.legend-title {
-		font-size: 1.0em;
+		font-size: .9em;
+		font-weight: bold;
 		text-anchor: middle;
 		alignment-baseline: hanging;
 	}
@@ -71,6 +66,35 @@ limitations under the License.
 	.g-legend-entry.selected .legend-rect {
 		stroke-width: 2px;
 	}
+
+	.d3-tip {
+		pointer-events: none !important;
+		background: white;
+		position: relative;
+    	border: 1px solid #C4C4C4;
+		border-radius: 2px;
+	}
+
+	.d3-tip:before { /* Create arrow on tooltip */
+		content: "";
+		position: absolute;
+		top: 100%;
+		left: 50%;
+		height: 10px;
+		width: 10px;
+		background: white;
+		box-sizing:border-box;
+		transform: rotate(45deg) translate(-50%);
+		border-bottom: inherit;
+		border-right: inherit;
+		box-shadow: inherit;
+	}
+
+	.d3-tip-content {
+		font-family: Verdana, sans-serif;
+		font-size: .9em;
+		text-align: left;
+	}
 </style>
 
 <script>
@@ -83,14 +107,14 @@ limitations under the License.
 		var SVG_ID = "radar";																// ID of SVG element
 		var SAMPLE_MESSAGE = {
 		    "version": "1",
-		    "resultName": "dd115",
-		    "rowCount": 18,
-		    "availableRowCount": 18,
+		    "resultName": "dd148",
+		    "rowCount": 9,
+		    "availableRowCount": 9,
 		    "data": [
 		        [
 		            "Hybrid",
 		            "Cylinders",
-		            3.6666666666666665,
+		            0.5583756345177665,
 		            ".",
 		            ".",
 		            ".",
@@ -105,7 +129,7 @@ limitations under the License.
 		            "Hybrid",
 		            "EngineSize",
 		            ".",
-		            1.6333333333333335,
+		            0.40040858018386116,
 		            ".",
 		            ".",
 		            ".",
@@ -120,7 +144,7 @@ limitations under the License.
 		            "Horsepower",
 		            ".",
 		            ".",
-		            92,
+		            0.3237575409365125,
 		            ".",
 		            ".",
 		            ".",
@@ -132,7 +156,7 @@ limitations under the License.
 		        [
 		            "Sedan",
 		            "Cylinders",
-		            5.580152671755725,
+		            0.849769442399349,
 		            ".",
 		            ".",
 		            ".",
@@ -147,7 +171,7 @@ limitations under the License.
 		            "Sedan",
 		            "EngineSize",
 		            ".",
-		            2.970992366412214,
+		            0.7283331643911448,
 		            ".",
 		            ".",
 		            ".",
@@ -162,7 +186,7 @@ limitations under the License.
 		            "Horsepower",
 		            ".",
 		            ".",
-		            201.65648854961833,
+		            0.709650096159961,
 		            ".",
 		            ".",
 		            ".",
@@ -174,7 +198,7 @@ limitations under the License.
 		        [
 		            "Sports",
 		            "Cylinders",
-		            6.340425531914893,
+		            0.9655470353169888,
 		            ".",
 		            ".",
 		            ".",
@@ -189,7 +213,7 @@ limitations under the License.
 		            "Sports",
 		            "EngineSize",
 		            ".",
-		            3.442857142857142,
+		            0.844009922661608,
 		            ".",
 		            ".",
 		            ".",
@@ -204,133 +228,7 @@ limitations under the License.
 		            "Horsepower",
 		            ".",
 		            ".",
-		            284.16326530612247,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "SUV",
-		            "Cylinders",
-		            6.566666666666666,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "SUV",
-		            "EngineSize",
-		            ".",
-		            3.9200000000000004,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "SUV",
-		            "Horsepower",
-		            ".",
-		            ".",
-		            235.81666666666666,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Truck",
-		            "Cylinders",
-		            6.25,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Truck",
-		            "EngineSize",
-		            ".",
-		            4.079166666666667,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Truck",
-		            "Horsepower",
-		            ".",
-		            ".",
-		            224.83333333333334,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Wagon",
-		            "Cylinders",
-		            5.3,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Wagon",
-		            "EngineSize",
-		            ".",
-		            2.77,
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            ".",
-		            "."
-		        ],
-		        [
-		            "Wagon",
-		            "Horsepower",
-		            ".",
-		            ".",
-		            194,
+		            1,
 		            ".",
 		            ".",
 		            ".",
@@ -342,17 +240,17 @@ limitations under the License.
 		    ],
 		    "columns": [
 		        {
-		            "name": "bi116",
+		            "name": "bi145",
 		            "label": "Type",
 		            "type": "string"
 		        },
 		        {
-		            "name": "bi117",
+		            "name": "bi146",
 		            "label": "Metric",
 		            "type": "string"
 		        },
 		        {
-		            "name": "bi118",
+		            "name": "bi149",
 		            "label": "Cylinders",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -365,7 +263,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi119",
+		            "name": "bi150",
 		            "label": "Engine Size (L)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -378,7 +276,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi120",
+		            "name": "bi151",
 		            "label": "Horsepower",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -391,7 +289,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi121",
+		            "name": "bi152",
 		            "label": "Invoice",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -404,7 +302,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi122",
+		            "name": "bi153",
 		            "label": "Length (IN)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -417,7 +315,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi123",
+		            "name": "bi154",
 		            "label": "MPG (City)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -430,7 +328,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi124",
+		            "name": "bi155",
 		            "label": "MPG (Highway)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -443,7 +341,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi125",
+		            "name": "bi156",
 		            "label": "MSRP",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -456,7 +354,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi126",
+		            "name": "bi157",
 		            "label": "Weight (LBS)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -469,7 +367,7 @@ limitations under the License.
 		            }
 		        },
 		        {
-		            "name": "bi127",
+		            "name": "bi158",
 		            "label": "Wheelbase (IN)",
 		            "type": "number",
 		            "usage": "quantitative",
@@ -485,8 +383,10 @@ limitations under the License.
 		};																					// Sample data message to render graph outside of VA for debugging
 		var VA_MESSAGE;																		// Data message to be received from VA
 		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
-		var DATA = [];																		// Data to be parsed from VA data message
+		var DATA;																			// Data to be parsed from VA data message
 		var METADATA = [];																	// Metadata to be parsed from VA data message
+		var OLD_METRICS;																	// Metrics from previous render to track pseudo point
+		var LAST_TRANSITION_END = Date.now();
 		var NUM_OPTIONAL_COL = 20;															// Number of optional numerical variables radar chart will accept
 		var OPACITY = {
 			fill: {
@@ -518,41 +418,34 @@ limitations under the License.
 		};																					// Stroke colors keyed to labels
 
 		// Static dimension variables
-		var MARGIN = {top: 70, right: 50, bottom: 10, left: 50};							// Margin on interior edge of SVG
 		var TRANS_TIME = 500;																// Duration of major transitions
 		var HOVER_TRANS_TIME = 100;															// Duration of focus transitions
 		var ENTER_REMOVE_TRANS_TIME = 200;													// Duration of enter and exit transitions for data points and grid lines
 		var MEASURE_LABEL_PADDING = 10;														// Padding between edge of radar chart and measure labels
-		var LEG_MIN_HEIGHT = 50;															// Minimum height allocated for legend
-		var LEG_PADDING = 50;																// Space between legend and chart area
-		var LEG_ROW_HEIGHT = 15;															// Height allocated for each row of legend
+		var TOOLTIP_TOP_PAD = 60;															// Padding at top of donut to prevent tooltip spillover
+		var TOOLTIP_SIDE_PAD = 65;															// Padding around side of donut to prevent tooltip spillover
+		var LEG_TOP_PAD = 30;																// Padding between chart and legend title
+		var LEG_TITLE_PAD = 5;																// Padding between legend title bottom and first row of legend
+		var LEG_ROW_PAD = 3;																// Padding between legend rows
 		var LEG_RECT_WIDTH = 12;															// Width of legend rects
-		var LEG_TITLE_TOP_PAD = 5;															// Padding between chart and legend title
-		var LEG_TITLE_HEIGHT;																// Height of legend title element
-		var LEG_TITLE_BOT_PAD = 5;															// Padding between legend title bottom and
 		var LEG_RECT_PAD = 5;																// Padding between legend rect and legend text
 		var LEG_TEXT_PAD = 5;																// Padding after legend text
 
 		// Dynamic dimension variables
-		var WIDTH = window.innerWidth;														// Width of SVG element
-		var HEIGHT = window.innerHeight;													// Height of SVG element
-		var DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;							// Drawable width of SVG
-		var DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;							// Drawable height of SVG
-		var RADIUS = Math.min(DRAWABLE_WIDTH,
-			DRAWABLE_HEIGHT - LEG_MIN_HEIGHT - LEG_PADDING) / 2;							// Radius of radar chart
-		var LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT,
-			DRAWABLE_HEIGHT - LEG_PADDING - 2*RADIUS);										// Height allocated for legend
-		var LEG_EL_POS = [];																// Positions of legend text elements
+		var WIDTH;																			// Width of SVG element
+		var HEIGHT;																			// Height of SVG element
+		var LEG_EL_POS;																		// Positions of legend text elements
+		var LEG_HEIGHT;																		// Height allocated for legend
+		var RADIUS;																			// Radius of radar chart
 		var DELTA_ANGLE;																	// Angle in radians between each measure on circle
 
 		// Selection and d3 variables
 		var SVG;																			// SVG selection
+		var TIP;																			// Tooltip generator
 		var DEFS;																			// Defs element selection
 		var G_CHART_AREA;																	// Chart area group selection
 		var G_GRID;																			// Grid lines group selection
 		var G_LEGEND;																		// Legend group selection
-		var SCALE;																			// Scale for radial percentiles
-		var AXIS;																			// Axis for radial percentiles data-join
 		var AXIS_LABEL;																		// Axis label data-join
 		var GRADIENTS;																		// Gradients data-join
 		var GRID_LINES;																		// Grid lines data-join
@@ -563,11 +456,16 @@ limitations under the License.
 		var DATA_POINTS;																	// Data points data-join
 		var LEGEND_TITLE;																	// Legend title data-join
 		var LEGEND_GROUPS;																	// Legend groups data-join
+		d3.selection.prototype.moveToFront = function() {
+	    	return this.each(function(){
+	    		this.parentNode.appendChild(this);
+	    	});
+		};																					// Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
 
 		/*************************************************** Setup Callback Functions ***************************************************/
 
 		// Attach event for data message from VA
-		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+		va.messagingUtil.setOnDataReceivedCallback(handleCallback);
 
 		// If not being rendered in iFrame (outside VA), render with sample data
 		if (!inIframe()) { onDataReceived(SAMPLE_MESSAGE); }
@@ -576,6 +474,20 @@ limitations under the License.
 		va.contentUtil.setupResizeListener(drawElements);
 
 		/****************************************************** Callback Functions ******************************************************/
+
+		// Use timeouts to debounce update events
+		function handleCallback(messageFromVA) {
+			if (LAST_TRANSITION_END>Date.now()) {
+				setTimeout(function() {
+					onDataReceived(messageFromVA);
+				}, LAST_TRANSITION_END - Date.now());
+				LAST_TRANSITION_END = LAST_TRANSITION_END + TRANS_TIME + 50;
+			}
+			else {
+				onDataReceived(messageFromVA);
+				LAST_TRANSITION_END = Date.now() + TRANS_TIME + 50;
+			}
+		}
 
 		// Take action on received data
 		function onDataReceived(messageFromVA) {
@@ -604,7 +516,8 @@ limitations under the License.
 			var nestedData = d3.nest().key(function(d) { return d[1]; }).entries(VA_MESSAGE.data);
 			var numMeasures = nestedData.length;
 
-			// Parse metadata from data message
+			// Restructure metadata from data message
+			OLD_METRICS = METADATA.metrics;
 			DELTA_ANGLE = 2*Math.PI / (numMeasures);
 
 			METADATA = {
@@ -616,7 +529,7 @@ limitations under the License.
 				METADATA.metrics.push({metric: nestedData[i].key, angle: i*DELTA_ANGLE});
 			}
 
-			// Parse data from 2d array to array of objects
+			// Restructure data from 2d array to array of objects
 			var datum;
 			DATA = [];
 			for (var i=0; i<VA_MESSAGE.data.length/numMeasures; i++) { // Iterate over each category
@@ -650,65 +563,81 @@ limitations under the License.
 
 		// Draw elements for first time and on resize event
 		function drawElements() {
+			// Return if data is not yet initialized
+			if (!DATA) {
+				return;
+			}
+
 			// Calculate dimensions for graph based on container dimensions
 			WIDTH = window.innerWidth;
 			HEIGHT = window.innerHeight;
-			DRAWABLE_WIDTH = WIDTH - MARGIN.right - MARGIN.left;
-			DRAWABLE_HEIGHT = HEIGHT - MARGIN.bottom - MARGIN.top;
-			RADIUS = Math.min(DRAWABLE_WIDTH, DRAWABLE_HEIGHT - LEG_MIN_HEIGHT - LEG_PADDING) / 2;
-			LEG_HEIGHT = Math.max(LEG_MIN_HEIGHT, DRAWABLE_HEIGHT - LEG_PADDING - 2*RADIUS);
 
 			// Append svg and save reference
 			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
 				.attr("id", SVG_ID)
-				.on("click", legendDeselectAll);
+				.on("click", legendDeselectAll)
+				.each(initializeTips);
 
 			SVG = d3.select("#" + SVG_ID)
 				.attr("width", WIDTH)
 				.attr("height", HEIGHT);
+
+			// Compute the x y locations for legend elements
+			calculateLegendDimensions();
+
+			// Append/update legend group and save reference
+			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
+				.classed("g-legend", true);
+
+			G_LEGEND = SVG.select(".g-legend");
+
+			// Create legend title
+			LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+			LEGEND_TITLE.enter().append("text")
+				.classed("legend-title", true)
+				.text(METADATA.category)
+			.merge(LEGEND_TITLE)
+				.attr("transform", "translate(" + (WIDTH/2) + ", 0)");
+
+			// Create legend groups
+			LEGEND_GROUPS = G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; }).enter().append("g")
+				.classed("g-legend-entry", true)
+				.classed("selected", function(d, i) { return i==0; })
+				.attr("id", function(d) { return d.category + "-legend-entry"; })
+				.on("click", function(d, i) { legendSelect(d, i, this); });
+
+			G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; })
+				.attr("transform", function(d, i) { return "translate(" + (LEG_EL_POS[i].x) + ", " + (LEG_EL_POS[i].y) + ")"; });
+
+			// Append legend rects
+			LEGEND_GROUPS.append("rect")
+				.classed("legend-rect", true)
+				.attr("width", LEG_RECT_WIDTH)
+				.attr("height", LEG_RECT_WIDTH)
+				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
+				.attr("stroke-width", 1)
+				.attr("stroke", function(d) { return STROKE[d.category]; })
+
+			// Append legend texts
+			LEGEND_GROUPS.append("text")
+				.classed("legend-text", true)
+				.text(function(d) { return d.category; })
+				.attr("x", (LEG_RECT_WIDTH + LEG_RECT_PAD));
+
+			// Use legend height to determine radius and move legend
+			G_LEGEND
+				.attr("transform", function() {
+					LEG_HEIGHT = this.getBBox().height;
+					RADIUS = Math.min(WIDTH-2*TOOLTIP_SIDE_PAD, HEIGHT-LEG_HEIGHT-LEG_TOP_PAD-TOOLTIP_TOP_PAD) / 2;
+					return "translate(0, " + (HEIGHT-LEG_HEIGHT) + ")";
+				});
 
 			// Append defs and save reference
 			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
 				.classed("gradient-defs", true);
 
 			DEFS = SVG.select(".gradient-defs");
-
-			// Append/update chart-area group and save reference
-			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
-				.classed("g-chart-area", true);
-
-			G_CHART_AREA = SVG.select(".g-chart-area")
-				.attr("transform", "translate(" + (WIDTH/2) + "," + (MARGIN.top + (DRAWABLE_HEIGHT-LEG_HEIGHT-LEG_PADDING)/2) + ")");
-
-			// Append/update grid group and save reference
-			G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter().append("g")
-				.classed("g-grid", true);
-
-			G_GRID = SVG.select(".g-grid");
-
-			// Append/update legend group and save reference
-			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
-				.classed("g-legend", true);
-
-			G_LEGEND = SVG.select(".g-legend")
-				.attr("transform", "translate(" + (MARGIN.left) + "," + (HEIGHT-MARGIN.bottom-LEG_HEIGHT) + ")");
-
-			// Create scale
-			SCALE = d3.scaleLinear()
-				.rangeRound([RADIUS, 0])
-				.domain([0, 1]);
-
-			// Create axis
-			AXIS = G_GRID.selectAll(".axis").data([DATA]);
-
-			AXIS.enter().append("g")
-				.classed("axis", true)
-			.merge(AXIS)
-				.call(d3.axisRight(SCALE)
-						.ticks(5)
-						.tickFormat(d3.format(".0%"))
-						.tickSize(0))
-				.attr("transform", "translate(" + (0) + "," + (-RADIUS) + ")");
 
 			// Create gradients
 			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
@@ -735,8 +664,21 @@ limitations under the License.
 					   .attr("stop-opacity", .7);
 			});
 
+			// Append/update chart-area group and save reference
+			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
+				.classed("g-chart-area", true);
+
+			G_CHART_AREA = SVG.select(".g-chart-area")
+				.attr("transform", "translate(" + (WIDTH/2) + ", " + (TOOLTIP_TOP_PAD + RADIUS) + ")");
+
+			// Append/update grid group and save reference
+			G_CHART_AREA.selectAll(".g-grid").data([DATA]).enter().append("g")
+				.classed("g-grid", true);
+
+			G_GRID = G_CHART_AREA.select(".g-grid");
+
 			// Create grid lines
-			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.category; });
+			GRID_LINES = G_GRID.selectAll(".grid-line").data(METADATA.metrics, function(d) { return d.metric; });
 
 			GRID_LINES.enter().append("line")
 				.classed("grid-line", true)
@@ -745,7 +687,7 @@ limitations under the License.
 				.attr("x1", 0)
 				.attr("y1", 0)
 			.merge(GRID_LINES)
-				.attr("x2", function(d, i) { return RADIUS*Math.sin(d.angle); })
+				.attr("x2", function(d, i) { console.log("Setting X2 for: "); console.log(d); return RADIUS*Math.sin(d.angle); })
 				.attr("y2", function(d, i) { return -RADIUS*Math.cos(d.angle); });
 
 			// Create grid circles
@@ -827,6 +769,9 @@ limitations under the License.
 						.classed("data-point", true)
 						.attr("fill", FILL[dPath.category])
 						.attr("fill-opacity", (iPath==0 ? OPACITY.stroke.focus : OPACITY.stroke.unfocus))
+						.on("mouseover", function(d) {
+							console.log(d);
+						})
 					.merge(DATA_POINTS)
 						.attr("cx", function(d) { return d.x; })
 						.attr("cy", function(d) { return d.y; })
@@ -834,44 +779,6 @@ limitations under the License.
 
 					return path;
 				});
-
-			// Create legend title
-			LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-			LEGEND_TITLE.enter().append("text")
-				.classed("legend-title", true)
-				.text(METADATA.category)
-			.merge(LEGEND_TITLE)
-				.attr("x", DRAWABLE_WIDTH/2)
-				.attr("y", LEG_TITLE_TOP_PAD);
-
-			// Compute the x y locations for legend elements
-			calculateLegendDimensions();
-
-			// Create legend groups
-			LEGEND_GROUPS = G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; }).enter().append("g")
-				.classed("g-legend-entry", true)
-				.classed("selected", function(d, i) { return i==0; })
-				.attr("id", function(d) { return d.category + "-legend-entry"; })
-				.on("click", function(d, i) { legendSelect(d, i, this); });
-
-			G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(d) { return d.category; })
-				.attr("transform", function(d, i) { return "translate(" + (LEG_EL_POS[i].x) + ", " + (LEG_EL_POS[i].y) + ")"; });
-
-			// Append legend rects
-			LEGEND_GROUPS.append("rect")
-				.classed("legend-rect", true)
-				.attr("width", LEG_RECT_WIDTH)
-				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
-				.attr("stroke-width", 1)
-				.attr("stroke", function(d) { return STROKE[d.category]; })
-
-			// Append legend texts
-			LEGEND_GROUPS.append("text")
-				.classed("legend-text", true)
-				.text(function(d) { return d.category; })
-				.attr("x", (LEG_RECT_WIDTH + LEG_RECT_PAD));
 		}
 
 		// Redraw data dependent elements on data change
@@ -966,8 +873,9 @@ limitations under the License.
 					var oldPercentiles = JSON.parse(d3.select(this).attr("data-percentiles"));
 					var length = Math.max(oldPercentiles.length, d.percentiles.length);
 					d.entered = oldPercentiles.length < d.percentiles.length;
+
 					for (var i=0; i<length; i++) {
-						if (oldPercentiles[i] != d.percentiles[i]) {
+						if (!OLD_METRICS[i] || !METADATA.metrics[i] || OLD_METRICS[i].metric!=METADATA.metrics[i].metric) {
 							d.changedIndex = i;
 							break;
 						}
@@ -1034,13 +942,14 @@ limitations under the License.
 						.attr("cx", function(d) { return d.x; })
 						.attr("cy", function(d) { return d.y; })
 						.attr("r", 4)
-						.style("opacity", 0)
-					.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
-						.style("opacity", function(d) {
+						.attr("fill-opacity", function(d) {
 							return (d3.selectAll(".selected").empty()) ? (OPACITY.stroke.default) :
 								   ((d3.select("#" + d.category + "-legend-entry").classed("selected")) ? (OPACITY.stroke.focus) :
 								   (OPACITY.stroke.unfocus));
-						});
+						})
+						.style("opacity", 0)
+					.transition().delay(TRANS_TIME-ENTER_REMOVE_TRANS_TIME).duration(ENTER_REMOVE_TRANS_TIME)
+						.style("opacity", 1);
 
 					DATA_POINTS.exit().transition().duration(ENTER_REMOVE_TRANS_TIME)
 						.style("opacity", 0)
@@ -1081,6 +990,19 @@ limitations under the License.
 			}
 		}
 
+		// Initialize tooltips
+		function initializeTips() {
+			TIP = d3.tip()
+		    	.attr("class", "d3-tip")
+				.offset([-8,0])
+		    	.html(function(d) {
+					return "<table class='d3-tip-content'> <tr> <td> " + METADATA.category + ":\t</td> <td>" + d.category + "</td> </tr>" +
+						   "<tr> <td> " + METADATA.measure + ":\t</td> <td>" + d.measure + "</td> </tr> </table>";
+				});
+
+		    d3.select(this).call(TIP);
+		}
+
 		// Deselect all on svg click
 		function legendDeselectAll() {
 			// Deselect all legend groups
@@ -1088,12 +1010,12 @@ limitations under the License.
 				.classed("selected", false);
 
 			// Transition all data paths to default opacity
-			d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
+			d3.selectAll(".data-path").transition("select").duration(HOVER_TRANS_TIME)
 				.attr("fill-opacity", OPACITY.fill.default)
 				.attr("stroke-opacity", OPACITY.stroke.default);
 
 			// Transition all data points to default opacity
-			d3.selectAll(".data-point").transition().duration(HOVER_TRANS_TIME)
+			d3.selectAll(".data-point").transition("select").duration(HOVER_TRANS_TIME)
 				.attr("fill-opacity", OPACITY.stroke.default);
 		}
 
@@ -1107,13 +1029,13 @@ limitations under the License.
 				.classed("selected", false);
 
 			// Transition all other data paths to unfocus opacity
-			d3.selectAll(".data-path").transition().duration(HOVER_TRANS_TIME)
+			d3.selectAll(".data-path").transition("select").duration(HOVER_TRANS_TIME)
 			.filter(function(d) { return datum.category != d.category; } )
 				.attr("fill-opacity", OPACITY.fill.unfocus)
 				.attr("stroke-opacity", OPACITY.stroke.unfocus);
 
 			// Transition all other data points to unfocus opacity
-			d3.selectAll(".data-point").transition().duration(HOVER_TRANS_TIME)
+			d3.selectAll(".data-point").transition("select").duration(HOVER_TRANS_TIME)
 			.filter(function(d) { return datum.category != d.category; } )
 				.attr("fill-opacity", OPACITY.stroke.unfocus);
 
@@ -1123,34 +1045,36 @@ limitations under the License.
 			// Bring selected data path to front and transition focus opacity
 			d3.select("#" + datum.category + "-path")
 				.moveToFront()
-			.transition().duration(HOVER_TRANS_TIME)
+			.transition("select").duration(HOVER_TRANS_TIME)
 				.attr("fill-opacity", OPACITY.fill.focus)
 				.attr("stroke-opacity", OPACITY.stroke.focus);
 
 			// Transition selected data points to focus opacity
-			d3.selectAll("#g-data-" + datum.category + " .data-point").transition().duration(HOVER_TRANS_TIME)
+			d3.selectAll("#g-data-" + datum.category + " .data-point").transition("select").duration(HOVER_TRANS_TIME)
 				.attr("fill-opacity", OPACITY.stroke.focus);
 		}
 
-		// Helper function to bring element to front of SVG (from https://github.com/wbkd/d3-extended)
-		d3.selection.prototype.moveToFront = function() {
-	    	return this.each(function(){
-	    		this.parentNode.appendChild(this);
-	    	});
-		};
-
 		// Determine coordinates for dynamic legend
 		function calculateLegendDimensions() {
-			// Get height of legend title to determine vertical offset of legend elements
-			LEG_TITLE_HEIGHT = d3.select(".legend-title").node().getBBox().height;
+			// Create dummy text variable to get legend title height
+			var titleHeight;
+			SVG.selectAll(".dummyText").data([DATA]).enter().append("text")
+				.classed("legend-text", true)
+			    .text("TEST")
+				.each(function() {
+					titleHeight = this.getBBox().height;
+					this.remove();
+				});
 
-			// Create dummy text variables to caculate widths for legend text elements
+			// Create dummy text variables to get legend text height/widths
 			var textWidths = []
-			d3.select("#" + SVG_ID).selectAll('.dummyText').data(DATA).enter().append("text")
+			var textHeight;
+			SVG.selectAll(".dummyText").data(DATA).enter().append("text")
 				.classed("legend-text", true)
 			    .text(function(d) { return d.category})
 				.style("font-weight", "bold")
-			    .each(function(d, i) {
+			    .each(function() {
+					textHeight = this.getBBox().height;
 			        textWidths.push(this.getComputedTextLength());
 			        this.remove();
 			    });
@@ -1160,10 +1084,10 @@ limitations under the License.
 			var rowSums = [];
 			var rowSum;
 			var row = 0;
-			for (var i=0, length=textWidths.length; i<length; i++) {
+			for (var i=0; i<textWidths.length; i++) {
 				rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
 				rows.push(row);
-				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=DRAWABLE_WIDTH && i+1<length) {
+				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=WIDTH && i+1<textWidths.length) {
 					i++;
 					rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
 					rows.push(row);
@@ -1174,10 +1098,10 @@ limitations under the License.
 
 			// Calculate x and y coordinates for legend elements
 			LEG_EL_POS = [];
-			for (var i=0, length=textWidths.length; i<length; i++) {
+			for (var i=0; i<textWidths.length; i++) {
 				LEG_EL_POS.push({
-					x: (i==0 || rows[i-1]!=rows[i]) ? DRAWABLE_WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
-					y: rows[i]*LEG_ROW_HEIGHT + LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD
+					x: (i==0 || rows[i-1]!=rows[i]) ? WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
+					y: titleHeight + LEG_TITLE_PAD + rows[i]*(textHeight + LEG_ROW_PAD)
 				});
 			}
 		}
@@ -1187,7 +1111,6 @@ limitations under the License.
 			var interpolateAngle = d3.interpolate(startAngle, endAngle);
 			return function(t) {
 				var interpolatedAngle = interpolateAngle(t);
-				// d3.select("#" + d.label).attr("data-d", JSON.stringify(d));
 				return radius*Math.sin(interpolatedAngle);
 			};
 		}
