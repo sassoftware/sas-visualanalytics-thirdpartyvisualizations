@@ -6,7 +6,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    https://www.apache.org/licenses/LICENSE-2.0
+https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,693 +16,897 @@ limitations under the License.
 -->
 <html>
 <head>
-	<!-- Import D3.js -->
-	<script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
-	<!-- Import d3-tip -->
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
 
-	<!-- Import utilities  -->
-	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
-	<script type="text/javascript" src="../../util/contentUtil.js"></script>
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
 </head>
 <body>
 <style type="text/css">
-	html, body, svg {
-		overflow: hidden;
-		margin: 0px;
-		width: 100%;
-		height: 100%;
-	}
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
 
-	text {
-		font-family: Verdana, sans-serif;
-	}
+  text {
+    font-family: Verdana, sans-serif;
+  }
 
-	.selectable.selected {
-		stroke-width: 2px;
-		stroke: black;
-	}
+  .selectable.selected {
+    stroke-width: 2px;
+    stroke: black;
+  }
 
-	.data-arc, .legend-rect {
-		stroke-width: 1px;
-	}
+  .data-arc, .legend-rect {
+    stroke-width: 1px;
+  }
 
-	.legend-title {
-		font-size: .9em;
-		font-weight: bold;
-		text-anchor: middle;
-		alignment-baseline: hanging;
-	}
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
 
-	.legend-text {
-		font-size: .9em;
-		alignment-baseline: hanging;
-	}
+  .legend-text {
+    font-size: .8em;
+    alignment-baseline: hanging;
+  }
 
-	.d3-tip {
-		pointer-events: none !important;
-		background: white;
-		position: relative;
-    	border: 1px solid #C4C4C4;
-		border-radius: 2px;
-	}
+  .d3-tip {
+    pointer-events: none !important;
+    background: white;
+    position: relative;
+    border: 1px solid #C4C4C4;
+    border-radius: 2px;
+  }
 
-	.d3-tip:before { /* Create arrow on tooltip */
-		content: "";
-		position: absolute;
-		top: 100%;
-		left: 50%;
-		height: 10px;
-		width: 10px;
-		background: white;
-		box-sizing:border-box;
-		transform: rotate(45deg) translate(-50%);
-		border-bottom: inherit;
-		border-right: inherit;
-		box-shadow: inherit;
-	}
+  .d3-tip:before { /* Create arrow on tooltip */
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    height: 10px;
+    width: 10px;
+    background: white;
+    box-sizing:border-box;
+    transform: rotate(45deg) translate(-50%);
+    border-bottom: inherit;
+    border-right: inherit;
+    box-shadow: inherit;
+  }
 
-	.d3-tip-content {
-		font-family: Verdana, sans-serif;
-		font-size: .9em;
-		text-align: left;
-	}
+  .d3-tip-content {
+    font-family: Verdana, sans-serif;
+    font-size: .9em;
+    text-align: left;
+  }
 </style>
 
 <script>
-	"use strict";
-
-	document.addEventListener("DOMContentLoaded", function(e) {
-		/*************************************************** Declare global variables ***************************************************/
-
-		// Data variables
-		var SVG_ID = "styled-donut";														// ID of SVG element
-		var SAMPLE_MESSAGE = {
-		    "version": "1",
-		    "resultName": "dd75",
-		    "rowCount": 6,
-		    "availableRowCount": 6,
-		    "data": [
-		        [
-		            "Hybrid",
-		            3
-		        ],
-		        [
-		            "Sedan",
-		            262
-		        ],
-		        [
-		            "Sports",
-		            49
-		        ],
-		        [
-		            "SUV",
-		            60
-		        ],
-		        [
-		            "Truck",
-		            24
-		        ],
-		        [
-		            "Wagon",
-		            30
-		        ]
-		    ],
-		    "columns": [
-		        {
-		            "name": "bi77",
-		            "label": "Type",
-		            "type": "string"
-		        },
-		        {
-		            "name": "bi78",
-		            "label": "Frequency",
-		            "type": "number",
-		            "usage": "quantitative",
-		            "aggregation": "totalCount",
-		            "format": {
-		                "name": "COMMA",
-		                "width": 12,
-		                "precision": 0,
-		                "formatString": "COMMA12."
-		            }
-		        }
-		    ]
-		};																					// Sample data message to render graph outside of VA for debugging
-		var VA_MESSAGE;																		// Data message to be received from VA
-		var VA_RESULT_NAME;																	// Result name required to send messages back to VA
-		var SELECTED;																		// Selected rows passed in from VA
-		var DATA;																			// Data to be parsed from VA data message
-		var METADATA;																		// Metadata to be parsed from VA data message
-		var FILL = {
-			"Hybrid": "#21b9b7",
-			"Sedan": "#4141e0",
-			"Sports":  "#7db71a",
-			"SUV": "#8e2f8a",
-			"Truck": "#d38506",
-			"Wagon": "#0abf85"
-		};																					// Fill colors keyed to categories
-		var STROKE = {
-			"Hybrid": "#1d9992",
-			"Sedan": "#2222bc",
-			"Sports": "#6a9617",
-			"SUV": "#6d256d",
-			"Truck": "#ba7006",
-			"Wagon": "#0a9e69"
-		};																					// Stroke colors keyed to categories
-
-		// Static dimension variables
-		var TRANS_TIME = 500;																// Duration of transitions
-		var MIN_ARC_PADDING = .03;															// Minimum padding between arc segments in radians
-		var TOOLTIP_TOP_PAD = 60;															// Padding at top of donut to prevent tooltip spillover
-		var TOOLTIP_SIDE_PAD = 65;															// Padding around side of donut to prevent tooltip spillover
-		var LEG_TOP_PAD = 20;																// Padding between chart and legend title
-		var LEG_TITLE_PAD = 5;																// Padding between legend title bottom and first row of legend
-		var LEG_ROW_PAD = 3;																// Padding between legend rows
-		var LEG_RECT_WIDTH = 12;															// Width of legend rects
-		var LEG_RECT_PAD = 5;																// Padding between legend rect and legend text
-		var LEG_TEXT_PAD = 5;																// Padding after legend text
-
-		// Dynamic dimension variables
-		var WIDTH;																			// Width of SVG element
-		var HEIGHT;																			// Height of SVG element
-		var LEG_EL_POS;																		// Positions of legend text elements
-		var LEG_HEIGHT;																		// Height allocated for legend
-		var ARC_PADDING;																	// Padding in radians between arc segments
-		var RADIUS;																			// Radius of pie/donut
-
-		// Selection and d3 variables
-		var SVG;																			// SVG selection
-		var TIP;																			// Tooltip generator
-		var DEFS;																			// Defs element selection
-		var G_CHART_AREA;																	// Chart Area Group selection
-		var G_LEGEND;																		// Legend Group selection
-		var COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2);									// Ordinal color scale to determine arc fill color scale
-		var PATH;																			// Path generator to create arc paths from arc data
-		var GRADIENTS;																		// Gradients data-join
-		var DATA_ARCS;																		// Data Arcs data-join
-		var LEGEND_TITLE;																	// Legend title data-join
-		var LEGEND_RECTS;																	// Legend rects data-join
-		var LEGEND_TEXTS;																	// Legend texts data-join
-
-		/*************************************************** Setup Callback Functions ***************************************************/
-
-		// Attach event for data message from VA
-		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
-
-		// If not being rendered in iFrame (outside VA), render with sample data
-		if (!inIframe()) { onDataReceived(SAMPLE_MESSAGE); }
-
-		// Listen for resize event
-		va.contentUtil.setupResizeListener(drawElements);
-
-		/****************************************************** Callback Functions ******************************************************/
-
-		// Take action on received data
-		function onDataReceived(messageFromVA) {
-			// Initialize global data variables
-			VA_MESSAGE = messageFromVA;
-			VA_RESULT_NAME = messageFromVA.resultName;
-			SELECTED = va.contentUtil.initializeSelections(messageFromVA);
-
-			// Validate data roles
-			if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)) {
-				va.messagingUtil.postInstructionalMessage(VA_RESULT_NAME,
-					"D3 Donut Chart expects columns to be assigned in this order:\n" +
-					" 1. Category (string)\n" +
-					" 2. Measure (number)");
-				return;
-			}
-
-			// Restructure metadata from data message
-			METADATA = {
-				category: VA_MESSAGE.columns[0].label,
-				measure: VA_MESSAGE.columns[1].label
-			};
-
-			// Restructure data from 2d array to array of objects
-			var total = d3.sum(VA_MESSAGE.data, function(d) { return d[1]; });
-			ARC_PADDING = ARC_PADDING ? ARC_PADDING : Math.min((d3.min(VA_MESSAGE.data, function(d) { return d[1]; })/(2*total))*2*Math.PI, MIN_ARC_PADDING);	// Define padding btw arcs on first draw
-			var availableAngle = 2*Math.PI - VA_MESSAGE.data.length*ARC_PADDING;
-
-			var category, measure, currentData, finalStartAngle, finalEndAngle, startAngle, endAngle;
-			DATA = [];
-			for (var i=0; i<VA_MESSAGE.data.length; i++) {
-				category = VA_MESSAGE.data[i][0];
-			 	measure = VA_MESSAGE.data[i][1];
-
-				currentData = d3.select("#" + category);
-
-				finalStartAngle =  i==0 ? 0 : DATA[i-1].finalEndAngle + ARC_PADDING;
-				finalEndAngle = i==0 ? ((measure/total)*availableAngle) : (DATA[i-1].finalEndAngle + ARC_PADDING + (measure/total)*availableAngle);
-
-				startAngle = currentData.empty() ? finalStartAngle : JSON.parse(currentData.attr("data-d")).startAngle;
-				endAngle =  currentData.empty() ? finalEndAngle : JSON.parse(currentData.attr("data-d")).endAngle;
-
-				DATA.push({
-					category: category,
-					measure: measure,
-					finalStartAngle: finalStartAngle,
-					finalEndAngle: finalEndAngle,
-					startAngle: startAngle,
-					endAngle: endAngle
-				});
-			}
-
-			// Initialize chart if first draw, otherwise process data and update elements accordingly
-			if (d3.select("#" + SVG_ID).empty()) {
-				drawElements();
-			}
-			else {
-				updateElements();
-			}
-
-			// Apply selections
-			d3.selectAll(".selectable")
-				.classed("selected", false)
-				.filter(function(d, i) {
-					return SELECTED.find(function(selection) {
-						 return selection.row == i;
-					 });
-				})
-				.classed("selected", true);
-		}
-
-		// Draw elements for first time and on resize event
-		function drawElements() {
-			// Return if data is not yet initialized
-			if (!DATA) {
-				return;
-			}
-
-			// Calculate dimensions for graph based on container dimensions
-			WIDTH = window.innerWidth;
-			HEIGHT = window.innerHeight;
-
-			// Append svg and save reference
-			d3.select("body").selectAll("#" + SVG_ID).data([DATA]).enter().append("svg")
-				.attr("id", SVG_ID)
-				.on("click", deselectAllElements)
-				.each(initializeTips);
-
-			SVG = d3.select("#" + SVG_ID)
-				.attr("width", WIDTH)
-				.attr("height", HEIGHT);
-
-			// Compute the x y locations for legend elements
-			calculateLegendDimensions();
-
-			// Append/update legend group and save reference
-			SVG.selectAll(".g-legend").data([DATA]).enter().append("g")
-				.classed("g-legend", true);
-
-			G_LEGEND = SVG.select(".g-legend");
-
-			// Create legend title
-			LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-			LEGEND_TITLE.enter().append("text")
-				.classed("legend-title", true)
-				.text(METADATA.category)
-			.merge(LEGEND_TITLE)
-				.attr("transform", "translate(" + (WIDTH/2) + ", 0)");
-
-			// Create legend rects
-			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.category; });
-
-			LEGEND_RECTS.enter().append("rect")
-				.classed("legend-rect", true)
-				.attr("width", LEG_RECT_WIDTH)
-				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
-				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
-			.merge(LEGEND_RECTS)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
-
-			// Create legend text
-			LEGEND_TEXTS= G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.category; });
-
-			LEGEND_TEXTS.enter().append("text")
-				.classed("legend-text", true)
-				.text(function(d) { return d.category; })
-			.merge(LEGEND_TEXTS)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; });
-
-			// Use legend height to determine radius and move legend
-			G_LEGEND
-				.attr("transform", function() {
-					LEG_HEIGHT = this.getBBox().height;
-					RADIUS = Math.min(WIDTH-2*TOOLTIP_SIDE_PAD, HEIGHT-LEG_HEIGHT-LEG_TOP_PAD-TOOLTIP_TOP_PAD) / 2;
-					return "translate(0, " + (HEIGHT-LEG_HEIGHT) + ")";
-				});
-
-			// Append defs and save reference
-			SVG.selectAll(".gradient-defs").data([DATA]).enter().append("defs")
-				.classed("gradient-defs", true);
-
-			DEFS = SVG.select(".gradient-defs");
-
-			// Create gradients
-			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
-
-			GRADIENTS.enter().append("linearGradient")
-				.classed("gradient", true)
-				.attr("id", function(d) { return d.category + "-gradient"; })
-				.attr("x1", "0%")
-				.attr("x2", "100%")
-				.attr("y1", "50%")
-				.attr("y2", "50%")
-				.each(function(d, i) {
-					// Append color stops
-					d3.select(this).append("stop")
-					   .attr('class', 'start')
-					   .attr("offset", "0%")
-					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", 1);
-
-					d3.select(this).append("stop")
-					   .attr('class', 'end')
-					   .attr("offset", "100%")
-					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", .7);
-			});
-
-			// Append/update chart-area group and save reference
-			SVG.selectAll(".g-chart-area").data([DATA]).enter().append("g")
-				.classed("g-chart-area", true);
-
-			G_CHART_AREA = SVG.select(".g-chart-area")
-				.attr("transform", "translate(" + (WIDTH/2) + ", " + (TOOLTIP_TOP_PAD + RADIUS) + ")");
-
-			// Create path generator
-			PATH = d3.arc().outerRadius(RADIUS).innerRadius(.7*RADIUS);
-
-			// Append circle to bind tooltip to
-			G_CHART_AREA.selectAll("#tooltip-tracker").data([DATA]).enter().append("circle")
-				.attr("id", "tooltip-tracker")
-				.attr("cx", 0)
-				.attr("cy", 0)
-				.attr("r", 1)
-				.style("opacity", 0);
-
-			// Create data arcs
-			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
-
-			DATA_ARCS.enter().append("path")
-				.classed("data-arc", true)
-				.classed("selectable", true)
-				.attr("id", function(d) { return d.category; })
-				.attr("data-d", function(d) { return JSON.stringify(d); })
-				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
-				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
-				.on("click", function(d, i) { selectElement(i, this); })
-		    	.on("mouseover", function(d) {
-					// Move tooltip tracker to midpoint of arc
-					d3.select("#tooltip-tracker")
-						.attr("cx", (+RADIUS*Math.sin((d.startAngle+d.endAngle)/2)))
-						.attr("cy", (-RADIUS*Math.cos((d.startAngle+d.endAngle)/2)));
-
-					// Show tooltip
-					TIP.show(d, d3.select("#tooltip-tracker").node());
-				})
-		    	.on("mouseout", TIP.hide)
-			.merge(DATA_ARCS)
-				.attr("d", function(d) {
-					return PATH({startAngle: d.finalStartAngle, endAngle: d.finalEndAngle});
-				});
-		}
-
-		// Redraw data dependent elements on data change
-		function updateElements() {
-			// Compute the x y locations for legend elements
-			calculateLegendDimensions();
-
-			// Update legend rects
-			LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) { return d.category; });
-
-			LEGEND_RECTS.transition().duration(TRANS_TIME)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 1);
-
-			LEGEND_RECTS.enter().append("rect")
-				.classed("legend-rect", true)
-				.attr("width", LEG_RECT_WIDTH)
-				.attr("height", LEG_RECT_WIDTH)
-				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
-				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 0)
-			.transition().duration(TRANS_TIME)
-				.style("opacity", 1);
-
-			LEGEND_RECTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", 0)
-				.remove();
-
-			// Update legend text
-			LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) { return d.category; });
-
-			LEGEND_TEXTS.transition().duration(TRANS_TIME)
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 1);
-
-			LEGEND_TEXTS.enter().append("text")
-				.classed("legend-text", true)
-				.text(function(d) { return d.category; })
-				.attr("x", function(d, i) { return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD; })
-				.attr("y", function(d, i) { return LEG_EL_POS[i].y; })
-				.style("opacity", 0)
-			.transition().duration(TRANS_TIME)
-				.style("opacity", 1);
-
-			LEGEND_TEXTS.exit().transition().duration(TRANS_TIME)
-				.style("opacity", 0)
-				.remove();
-
-			// Update gradients
-			GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) { return d.category; });
-
-			GRADIENTS.each(function(d, i) {
-				d3.select(this).selectAll("stop")
-					.attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); });
-			});
-
-			GRADIENTS.enter().append("linearGradient")
-				.classed("gradient", true)
-				.attr("id", function(d) { return d.category + "-gradient"; })
-				.attr("x1", "0%")
-				.attr("x2", "100%")
-				.attr("y1", "50%")
-				.attr("y2", "50%")
-				.each(function(d, i) {
-					// Append color stops
-					d3.select(this).append("stop")
-					   .attr('class', 'start')
-					   .attr("offset", "0%")
-					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", 1);
-
-					d3.select(this).append("stop")
-					   .attr('class', 'end')
-					   .attr("offset", "100%")
-					   .attr("stop-color", function(d) { return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i); })
-					   .attr("stop-opacity", .7);
-			});
-
-			// Update data arcs
-			DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) { return d.category; });
-
-			DATA_ARCS
-				.classed("exiting", false)
-			.transition().duration(TRANS_TIME)
-				.attr("stroke-width", 1)
-		    	.attrTween("d", function(d) {
-		    		d3.select("#"+d.category).attr("data-d", JSON.stringify(d));
-
-		    		return arcTween(d, d.startAngle, d.finalStartAngle, d.endAngle, d.finalEndAngle);
-		    	});
-
-		    DATA_ARCS.enter().append("path")
-				.classed("data-arc", true)
-				.classed("selectable", true)
-				.attr("id", function(d) { return d.category; })
-				.attr("data-d", function(d) { return JSON.stringify(d); })
-				.attr("fill", function(d) { return "url(#" + (d.category) + "-gradient)"; })
-				.attr("stroke-width", 0)
-				.attr("stroke", function(d, i) { return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i); })
-				.on("click", function(d, i) { selectElement(i, this); })
-		    	.on("mouseover", function(d) {
-					// Move tooltip tracker to midpoint of arc
-					d3.select("#tooltip-tracker")
-						.attr("cx", (+RADIUS*Math.sin((d.startAngle+d.endAngle)/2)))
-						.attr("cy", (-RADIUS*Math.cos((d.startAngle+d.endAngle)/2)));
-
-					// Show tooltip
-					TIP.show(d, d3.select("#tooltip-tracker").node());
-				})
-		    	.on("mouseout", TIP.hide)
-			.transition().duration(TRANS_TIME)
-				.attr("stroke-width", 1)
-		    	.attrTween("d", function(d) {
-					var prev = d3.select(this.previousElementSibling);
-					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {endAngle: -ARC_PADDING};
-
-		    		return arcTween(d, prevD.endAngle + ARC_PADDING/2, d.finalStartAngle, prevD.endAngle + ARC_PADDING/2, d.finalEndAngle);
-		    	});
-
-		    DATA_ARCS.exit()
-		    	.classed("exiting", true)
-		    .transition().duration(TRANS_TIME)
-				.attr("stroke-width", 0)
-		    	.attrTween("d", function(d, i) {
-					var prev = d3.select(this.previousElementSibling);
-					while (prev.node() && prev.classed("exiting")) {
-						prev = d3.select(prev.node().previousElementSibling);
-					}
-					var prevD = prev.classed("data-arc") ? JSON.parse(prev.attr("data-d")) : {finalEndAngle: -ARC_PADDING};
-
-		    		return arcTween(d, d.startAngle, prevD.finalEndAngle + ARC_PADDING/2, d.endAngle, prevD.finalEndAngle + ARC_PADDING/2);
-		    	})
-		    	.remove();
-		}
-
-		/******************************************************* Helper Functions *******************************************************/
-
-		// Determine whether or not page is being rendered in iFrame
-		function inIframe () {
-			try {
-				return window.self !== window.top;
-			} catch (e) {
-				return true;
-			}
-		}
-
-		// Initialize tooltips
-		function initializeTips() {
-			TIP = d3.tip()
-		    	.attr("class", "d3-tip")
-				.offset([-8,0])
-		    	.html(function(d) {
-					return "<table class='d3-tip-content'> <tr> <td> " + METADATA.category + ":\t</td> <td>" + d.category + "</td> </tr>" +
-						   "<tr> <td> " + METADATA.measure + ":\t</td> <td>" + d.measure + "</td> </tr> </table>";
-				});
-
-		    d3.select(this).call(TIP);
-		}
-
-		// Deselect all on svg click
-		function deselectAllElements() {
-			// Deselect all elements
-			d3.selectAll(".selectable").classed("selected", false);
-
-			// Post message to VA
-			va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
-		}
-
-		// Handle selection on element
-		function selectElement(index, el) {
-			// Prevent event from falling through to underlying elements
-			d3.event.stopPropagation();
-
-			// If control is held toggle selected on click preserving array, otherwise select only clicked element
-			if (d3.event.ctrlKey) {
-				// Toggle selection on clicked element
-				d3.select(el).classed("selected", !d3.select(el).classed("selected"));
-
-				// Build array of selected elements
-				var selections = [];
-				d3.selectAll(".selectable").each(function(d, i){
-					if (d3.select(this).classed("selected")) {
-						selections.push({row: i});
-					}
-				});
-
-				// Post message to VA
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
-			}
-			else {
-				// Deselect all elements
-				d3.selectAll(".selectable").classed("selected", false);
-
-				// Select clicked element
-				d3.select(el).classed("selected", true);
-
-				// Post message to VA
-				va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{row: index}]);
-			}
-		}
-
-		// Determine coordinates for dynamic legend
-		function calculateLegendDimensions() {
-			// Create dummy text variable to get legend title height
-			var titleHeight;
-			SVG.selectAll(".dummyText").data([DATA]).enter().append("text")
-				.classed("legend-text", true)
-			    .text("TEST")
-				.each(function() {
-					titleHeight = this.getBBox().height;
-					this.remove();
-				});
-
-			// Create dummy text variables to get legend text height/widths
-			var textWidths = []
-			var textHeight;
-			SVG.selectAll(".dummyText").data(DATA).enter().append("text")
-				.classed("legend-text", true)
-			    .text(function(d) { return d.category})
-			    .each(function() {
-					textHeight = this.getBBox().height;
-			        textWidths.push(this.getComputedTextLength());
-			        this.remove();
-			    });
-
-			// Determine which row each element will sit in and how long each row is
-			var rows = [];
-			var rowSums = [];
-			var rowSum;
-			var row = 0;
-			for (var i=0; i<textWidths.length; i++) {
-				rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-				rows.push(row);
-				while(rowSum +  textWidths[i+1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD<=WIDTH && i+1<textWidths.length) {
-					i++;
-					rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-					rows.push(row);
-				}
-				rowSums.push(rowSum);
-				row++;
-			}
-
-			// Calculate x and y coordinates for legend elements
-			LEG_EL_POS = [];
-			for (var i=0; i<textWidths.length; i++) {
-				LEG_EL_POS.push({
-					x: (i==0 || rows[i-1]!=rows[i]) ? WIDTH/2 - rowSums[rows[i]]/2 : LEG_EL_POS[i-1].x + textWidths[i-1] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD,
-					y: titleHeight + LEG_TITLE_PAD + rows[i]*(textHeight + LEG_ROW_PAD)
-				});
-			}
-		}
-
-		// Tween function to create interpolators for arc segments
-		function arcTween(d, origStart, finalStart, origEnd, finalEnd) {
-			var interpolateStart = d3.interpolate(origStart, finalStart);
-			var interpolateEnd = d3.interpolate(origEnd, finalEnd);
-			return function(t) {
-				d.startAngle = interpolateStart(t);
-				d.finalStartAngle = finalStart;
-				d.endAngle = interpolateEnd(t);
-				d.finalEndAngle = finalEnd;
-				d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
-				return PATH(d);
-			};
-		}
-	});
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "styled-donut"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd75",
+    rowCount: 6,
+    availableRowCount: 6,
+    data: [
+      ["Hybrid", 3],
+      ["Sedan", 262],
+      ["Sports", 49],
+      ["SUV", 60],
+      ["Truck", 24],
+      ["Wagon", 30]
+    ],
+    columns: [
+      {
+        name: "bi77",
+        label: "Type",
+        type: "string"
+      },
+      {
+        name: "bi78",
+        label: "Frequency",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "totalCount",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 0,
+          formatString: "COMMA12."
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+  const FILL = {
+    Hybrid: "#21b9b7",
+    Sedan: "#4141e0",
+    Sports: "#7db71a",
+    SUV: "#8e2f8a",
+    Truck: "#d38506",
+    Wagon: "#0abf85"
+  }; // Fill colors keyed to categories
+  const STROKE = {
+    Hybrid: "#1d9992",
+    Sedan: "#2222bc",
+    Sports: "#6a9617",
+    SUV: "#6d256d",
+    Truck: "#ba7006",
+    Wagon: "#0a9e69"
+  }; // Stroke colors keyed to categories
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let SELECTED; // Selected rows passed in from VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let DATA; // Data to be parsed from VA data message
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of transitions
+  const MIN_ARC_PADDING = 0.03; // Minimum padding between arc segments in radians
+  const TOOLTIP_TOP_PAD = 60; // Padding at top of donut to prevent tooltip spillover
+  const TOOLTIP_SIDE_PAD = 65; // Padding around side of donut to prevent tooltip spillover
+  const LEG_TOP_PAD = 20; // Padding between chart and legend title
+  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
+  const LEG_ROW_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
+  const LEG_TEXT_PAD = 5; // Padding after legend text
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let LEG_EL_POS; // Positions of legend text elements
+  let LEG_HEIGHT; // Height allocated for legend
+  let ARC_PADDING; // Padding in radians between arc segments
+  let RADIUS; // Radius of pie/donut
+
+  // Selection and d3 variables
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale to determine arc fill color scale
+  let SVG; // SVG selection
+  let TIP; // Tooltip generator
+  let DEFS; // Defs element selection
+  let GRADIENTS; // Gradients data-join
+  let G_LEGEND; // Legend group selection
+  let LEGEND_TITLE; // Legend title data-join
+  let LEGEND_RECTS; // Legend rects data-join
+  let LEGEND_TEXTS; // Legend texts data-join
+  let G_CHART_AREA; // Chart area group selection
+  let PATH; // Path generator to create arc paths from arc data
+  let DATA_ARCS; // Data Arcs data-join
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize global data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Donut Chart expects columns to be assigned in this order:\n" +
+          " 1. Category (string)\n" +
+          " 2. Measure (number)"
+      );
+      return;
+    }
+
+    // Restructure metadata from data message
+    METADATA = {
+      category: VA_MESSAGE.columns[0].label,
+      measure: VA_MESSAGE.columns[1].label
+    };
+
+    // Restructure data from 2d array to array of objects
+    const total = d3.sum(VA_MESSAGE.data, function(d) {
+      return d[1];
+    });
+    ARC_PADDING = ARC_PADDING
+      ? ARC_PADDING
+      : Math.min(
+          (d3.min(VA_MESSAGE.data, function(d) {
+            return d[1];
+          }) /
+            (2 * total)) *
+            2 *
+            Math.PI,
+          MIN_ARC_PADDING
+        ); // Define padding btw arcs on first draw
+    const availableAngle = 2 * Math.PI - VA_MESSAGE.data.length * ARC_PADDING;
+
+    let category,
+      measure,
+      currentData,
+      finalStartAngle,
+      finalEndAngle,
+      startAngle,
+      endAngle;
+    DATA = [];
+    for (let i = 0; i < VA_MESSAGE.data.length; i++) {
+      category = VA_MESSAGE.data[i][0];
+      measure = VA_MESSAGE.data[i][1];
+
+      currentData = d3.select("#" + category);
+
+      finalStartAngle = i == 0 ? 0 : DATA[i - 1].finalEndAngle + ARC_PADDING;
+      finalEndAngle =
+        i == 0
+          ? (measure / total) * availableAngle
+          : DATA[i - 1].finalEndAngle +
+            ARC_PADDING +
+            (measure / total) * availableAngle;
+
+      startAngle = currentData.empty()
+        ? finalStartAngle
+        : JSON.parse(currentData.attr("data-d")).startAngle;
+      endAngle = currentData.empty()
+        ? finalEndAngle
+        : JSON.parse(currentData.attr("data-d")).endAngle;
+
+      DATA.push({
+        category: category,
+        measure: measure,
+        finalStartAngle: finalStartAngle,
+        finalEndAngle: finalEndAngle,
+        startAngle: startAngle,
+        endAngle: endAngle
+      });
+    }
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+
+    // Apply selections
+    d3.selectAll(".selectable")
+      .classed("selected", false)
+      .filter(function(d, i) {
+        return SELECTED.find(function(selection) {
+          return selection.row == i;
+        });
+      })
+      .classed("selected", true);
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .on("click", deselectAllElements)
+      .each(initializeTips);
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    DEFS = SVG.select(".gradient-defs");
+
+    // Create gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) {
+      return d.category;
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.category + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d, i) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function(d) {
+            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function(d) {
+            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEGEND = SVG.select(".g-legend");
+
+    // Create legend title
+    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+    LEGEND_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(METADATA.category)
+      .merge(LEGEND_TITLE)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) {
+      return d.category;
+    });
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.category + "-gradient)";
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      })
+      .merge(LEGEND_RECTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Create legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) {
+      return d.category;
+    });
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.category;
+      })
+      .merge(LEGEND_TEXTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Use legend height to determine radius and move legend
+    G_LEGEND.attr("transform", function() {
+      LEG_HEIGHT = this.getBBox().height;
+      RADIUS =
+        Math.min(
+          WIDTH - 2 * TOOLTIP_SIDE_PAD,
+          HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TOOLTIP_TOP_PAD
+        ) / 2;
+      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    });
+
+    // Append/update chart-area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" + WIDTH / 2 + ", " + (TOOLTIP_TOP_PAD + RADIUS) + ")"
+    );
+
+    // Create path generator
+    PATH = d3
+      .arc()
+      .outerRadius(RADIUS)
+      .innerRadius(0.7 * RADIUS);
+
+    // Append circle to bind tooltip to
+    G_CHART_AREA.selectAll("#tooltip-tracker")
+      .data([DATA])
+      .enter()
+      .append("circle")
+      .attr("id", "tooltip-tracker")
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("r", 1)
+      .style("opacity", 0);
+
+    // Create data arcs
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
+
+    DATA_ARCS.enter()
+      .append("path")
+      .classed("data-arc", true)
+      .classed("selectable", true)
+      .attr("id", function(d) {
+        return d.category;
+      })
+      .attr("data-d", function(d) {
+        return JSON.stringify(d);
+      })
+      .attr("fill", function(d) {
+        return "url(#" + d.category + "-gradient)";
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      })
+      .on("click", function(d, i) {
+        selectElement(i, this);
+      })
+      .on("mouseover", function(d) {
+        // Move tooltip tracker to midpoint of arc
+        d3.select("#tooltip-tracker")
+          .attr("cx", +RADIUS * Math.sin((d.startAngle + d.endAngle) / 2))
+          .attr("cy", -RADIUS * Math.cos((d.startAngle + d.endAngle) / 2));
+
+        // Show tooltip
+        TIP.show(d, d3.select("#tooltip-tracker").node());
+      })
+      .on("mouseout", TIP.hide)
+      .merge(DATA_ARCS)
+      .attr("d", function(d) {
+        return PATH({
+          startAngle: d.finalStartAngle,
+          endAngle: d.finalEndAngle
+        });
+      });
+  }
+
+  // Redraw data dependent elements on data change
+  function updateElements() {
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Update legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) {
+      return d.category;
+    });
+
+    LEGEND_RECTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.category + "-gradient)";
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_RECTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) {
+      return d.category;
+    });
+
+    LEGEND_TEXTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.category;
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) {
+      return d.category;
+    });
+
+    GRADIENTS.each(function(d, i) {
+      d3.select(this)
+        .selectAll("stop")
+        .attr("stop-color", function(d) {
+          return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+        });
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.category + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d, i) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function(d) {
+            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function(d) {
+            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Update data arcs
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) {
+      return d.category;
+    });
+
+    DATA_ARCS.classed("exiting", false)
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("stroke-width", 1)
+      .attrTween("d", function(d) {
+        d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
+
+        return arcTween(
+          d,
+          d.startAngle,
+          d.finalStartAngle,
+          d.endAngle,
+          d.finalEndAngle
+        );
+      });
+
+    DATA_ARCS.enter()
+      .append("path")
+      .classed("data-arc", true)
+      .classed("selectable", true)
+      .attr("id", function(d) {
+        return d.category;
+      })
+      .attr("data-d", function(d) {
+        return JSON.stringify(d);
+      })
+      .attr("fill", function(d) {
+        return "url(#" + d.category + "-gradient)";
+      })
+      .attr("stroke-width", 0)
+      .attr("stroke", function(d, i) {
+        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      })
+      .on("click", function(d, i) {
+        selectElement(i, this);
+      })
+      .on("mouseover", function(d) {
+        // Move tooltip tracker to midpoint of arc
+        d3.select("#tooltip-tracker")
+          .attr("cx", +RADIUS * Math.sin((d.startAngle + d.endAngle) / 2))
+          .attr("cy", -RADIUS * Math.cos((d.startAngle + d.endAngle) / 2));
+
+        // Show tooltip
+        TIP.show(d, d3.select("#tooltip-tracker").node());
+      })
+      .on("mouseout", TIP.hide)
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("stroke-width", 1)
+      .attrTween("d", function(d) {
+        const prev = d3.select(this.previousElementSibling);
+        const prevD = prev.classed("data-arc")
+          ? JSON.parse(prev.attr("data-d"))
+          : { endAngle: -ARC_PADDING };
+
+        return arcTween(
+          d,
+          prevD.endAngle + ARC_PADDING / 2,
+          d.finalStartAngle,
+          prevD.endAngle + ARC_PADDING / 2,
+          d.finalEndAngle
+        );
+      });
+
+    DATA_ARCS.exit()
+      .classed("exiting", true)
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("stroke-width", 0)
+      .attrTween("d", function(d) {
+        let prev = d3.select(this.previousElementSibling);
+        while (prev.node() && prev.classed("exiting")) {
+          prev = d3.select(prev.node().previousElementSibling);
+        }
+        const prevD = prev.classed("data-arc")
+          ? JSON.parse(prev.attr("data-d"))
+          : { finalEndAngle: -ARC_PADDING };
+
+        return arcTween(
+          d,
+          d.startAngle,
+          prevD.finalEndAngle + ARC_PADDING / 2,
+          d.endAngle,
+          prevD.finalEndAngle + ARC_PADDING / 2
+        );
+      })
+      .remove();
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Initialize tooltips
+  function initializeTips() {
+    TIP = d3
+      .tip()
+      .attr("class", "d3-tip")
+      .offset([-8, 0])
+      .html(function(d) {
+        return (
+          "<table class='d3-tip-content'> <tr> <td> " +
+          METADATA.category +
+          ":\t</td> <td>" +
+          d.category +
+          "</td> </tr>" +
+          "<tr> <td> " +
+          METADATA.measure +
+          ":\t</td> <td>" +
+          d.measure +
+          "</td> </tr> </table>"
+        );
+      });
+
+    d3.select(this).call(TIP);
+  }
+
+  // Deselect all on svg click
+  function deselectAllElements() {
+    // Deselect all elements
+    d3.selectAll(".selectable").classed("selected", false);
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
+  }
+
+  // Handle selection on element
+  function selectElement(index, el) {
+    // Prevent event from falling through to underlying elements
+    d3.event.stopPropagation();
+
+    // If control is held toggle selected on click preserving array, otherwise select only clicked element
+    if (d3.event.ctrlKey) {
+      // Toggle selection on clicked element
+      d3.select(el).classed("selected", !d3.select(el).classed("selected"));
+
+      // Build array of selected elements
+      const selections = [];
+      d3.selectAll(".selectable").each(function(d, i) {
+        if (d3.select(this).classed("selected")) {
+          selections.push({ row: i });
+        }
+      });
+
+      // Post message to VA
+      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+    } else {
+      // Deselect all elements
+      d3.selectAll(".selectable").classed("selected", false);
+
+      // Select clicked element
+      d3.select(el).classed("selected", true);
+
+      // Post message to VA
+      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{ row: index }]);
+    }
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(DATA)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.category;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG_RECT_WIDTH +
+          LEG_RECT_PAD +
+          LEG_TEXT_PAD <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG_EL_POS = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG_EL_POS.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG_EL_POS[i - 1].x +
+              textWidths[i - 1] +
+              LEG_RECT_WIDTH +
+              LEG_RECT_PAD +
+              LEG_TEXT_PAD,
+        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+      });
+    }
+  }
+
+  // Tween function to create interpolators for arc segments
+  function arcTween(d, origStart, finalStart, origEnd, finalEnd) {
+    const interpolateStart = d3.interpolate(origStart, finalStart);
+    const interpolateEnd = d3.interpolate(origEnd, finalEnd);
+    return function(t) {
+      d.startAngle = interpolateStart(t);
+      d.finalStartAngle = finalStart;
+      d.endAngle = interpolateEnd(t);
+      d.finalEndAngle = finalEnd;
+      d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
+      return PATH(d);
+    };
+  }
+});
 </script>
 </body>
 </html>
