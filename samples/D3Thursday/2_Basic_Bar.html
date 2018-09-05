@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .data-bar {
+    fill: steelblue;
+  }
+
+  .data-bar:hover {
+    fill: lightsteelblue;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  setTimeout(function() { // Wait until iFrame has been assigned the proper size
+    /******************************************************* Declare variables *******************************************************/
+
+    // Static data variables
+    const SVG_ID = "simple-bar"; // ID of SVG element
+    const DATA = [["Apple", 50], ["Banana", 35], ["Mango", 40], ["Orange", 20]]; // Hard coded data in same format SAS VA sends data
+
+    // Static dimension variables
+    const EDGE_PADDING = 10; // Padding between end of axes and edge of SVG
+    const Y_AXIS_WIDTH = 30; // Width allocated for y-axis
+    const X_AXIS_HEIGHT = 30; // Height allocated for x-axis
+
+    // Dynamic dimension variables
+    let WIDTH = window.innerWidth; // Width of SVG element
+    let HEIGHT = window.innerHeight; // Height of SVG element
+    let CHART_WIDTH = WIDTH - Y_AXIS_WIDTH - EDGE_PADDING; // Width of chart area for bars
+    let CHART_HEIGHT = HEIGHT - X_AXIS_HEIGHT - EDGE_PADDING; // Height of chart area for bars
+
+    // Selection and d3 variables
+    let SVG; // SVG selection
+    let G_CHART_AREA; // Chart area group selection
+    let X_SCALE; // Band scale for x categories
+    let Y_SCALE; // Linear scale for bar heights
+    let X_AXIS; // X axis data-join
+    let Y_AXIS; // Y axis data join
+    let DATA_BARS; // Data bars data-join
+
+    /**************************************************** Create Static Elements ****************************************************/
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID);
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append chart area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true)
+      .attr("transform", "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")");
+
+    G_CHART_AREA = SVG.select(".g-chart-area");
+
+    /************************************************ Create Data Dependent Elements ************************************************/
+
+    // Create x scale
+    X_SCALE = d3
+      .scaleBand()
+      .rangeRound([0, CHART_WIDTH])
+      .padding(0.1)
+      .domain(
+        DATA.map(function(d) {
+          return d[0];
+        })
+      );
+
+    // Create y scale
+    Y_SCALE = d3
+      .scaleLinear()
+      .rangeRound([CHART_HEIGHT, 0])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d[1];
+        })
+      ]);
+
+    // Create x axis
+    X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
+
+    X_AXIS.enter()
+      .append("g")
+      .classed("x-axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + ", " + (HEIGHT - X_AXIS_HEIGHT) + ")"
+      )
+      .call(d3.axisBottom(X_SCALE));
+
+    // Create y axis
+    Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
+
+    Y_AXIS.enter()
+      .append("g")
+      .classed("y-axis", true)
+      .attr("transform", "translate(" + Y_AXIS_WIDTH + ", " + EDGE_PADDING + ")")
+      .call(d3.axisLeft(Y_SCALE));
+
+    // Create bars for each country + year
+    DATA_BARS = G_CHART_AREA.selectAll(".data-bar").data(DATA);
+
+    DATA_BARS.enter()
+      .append("rect")
+      .classed("data-bar", true)
+      .attr("x", function(d) {
+        return X_SCALE(d[0]);
+      })
+      .attr("y", function(d) {
+        return Y_SCALE(d[1]);
+      })
+      .attr("width", function() {
+        return X_SCALE.bandwidth();
+      })
+      .attr("height", function(d) {
+        return CHART_HEIGHT - Y_SCALE(d[1]);
+      });
+    }, 500);
+});
+</script>
+</body>
+</html>

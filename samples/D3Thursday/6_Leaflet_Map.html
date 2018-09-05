@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+
+  <!-- Import Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"
+  integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ=="
+  crossorigin=""/>
+
+  <!-- Import Leaflet JavaScript (must come after CSS import) -->
+  <script type="text/javascript" src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"
+  integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw=="
+  crossorigin=""></script>
+</head>
+<body>
+<style type="text/css">
+  html, body {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  #map {
+    display: inline-block;
+    float: left;
+    width: 66%;
+    height: 100%;
+  }
+
+  #key-value {
+    display: inline-block;
+    float: left;
+    width: 33%;
+    height: 100%;
+  }
+
+  #legend {
+    position: absolute;
+    z-index: 401;
+    top: 10px;
+    right: 10px;
+    background-color: #F4F4F4;
+    opacity: .8;
+    border-radius: 10px;
+    border: 2px solid #F4F4F4;
+    cursor: pointer;
+  }
+
+  #key-value-static {
+    text-anchor: middle;
+    alignment-baseline: middle;
+  }
+
+  #key-value-type {
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  #key-value-cost {
+    text-anchor: middle;
+    alignment-baseline: ideographic;
+  }
+
+  .leaflet-popup-content {
+    font-size: 1.0em;
+  }
+
+  .legend-title {
+    font-size: 1.0em;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .85em;
+    alignment-baseline: hanging;
+  }
+
+  .g-legend-entry.selected .legend-text {
+    font-size: .95em;
+    font-weight: bold;
+  }
+
+  .g-legend-entry.selected .legend-rect {
+    stroke-width: 2px;
+  }
+</style>
+
+<div id="map">
+  <svg id="legend"> </svg>
+</div>
+
+<svg id="key-value"></svg>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const ACCESS_TOKEN = ""; // Your personal access token for Mapbox which can be retrieved from https://www.mapbox.com/studio/account/tokens/
+  const LAT = 42.3953; // Latitude to center map on
+  const LNG = -94.6339; // Longitude to center map on
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd55",
+    rowCount: 6,
+    availableRowCount: 6,
+    data: [
+      ["Hybrid", 55],
+      ["Sedan", 21.083969465648856],
+      ["Sports", 18.408163265306122],
+      ["SUV", 16.1],
+      ["Truck", 16.5],
+      ["Wagon", 21.1]
+    ],
+    columns: [
+      {
+        name: "bi57",
+        label: "Type",
+        type: "string"
+      },
+      {
+        name: "bi69",
+        label: "MPG (City)",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "average",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      }
+    ]
+  }; // Sample data message to render map outside of VA for debugging
+  const FILL = [
+    "#21b9b7",
+    "#4141e0",
+    "#7db71a",
+    "#8e2f8a",
+    "#d38506",
+    "#0abf85"
+  ]; // Fill colors
+  const STROKE = [
+    "#1d9992",
+    "#2222bc",
+    "#6a9617",
+    "#6d256d",
+    "#ba7006",
+    "#0a9e69"
+  ]; // Stroke colors
+
+  const LEG_SVG_ID = "legend"; // ID of legend SVG
+
+  const KV_SVG_ID = "key-value"; // ID of key value SVG
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let DATA; // Data to be parsed from VA data message
+  let DEBOUNCE = false; // Boolean variable to prevent transitions from being interupted
+  let KV_TYPE_COST_MAX_LENGTH_STRING; // The longest key value type or cost by length
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of transitions
+  const LEG_EXTERNAL_PAD = 5; // Padding between edge of SVG and legend contents
+  const LEG_TITLE_TOP_PAD = 0; // Padding above of legend title text
+  const LEG_TITLE_BOT_PAD = 5; // Padding below of legend title text
+  const LEG_ROW_V_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rects and legend text
+
+  const KV_RING_PAD = 5; // Padding between key value ring and edge of svg
+  const KV_RING_WIDTH = 0.05; // Width of key value ring in percent of radius
+  const KV_EXTERNAL_PAD_PROP = 0.25; // Proportion of radius to leave as padding between inside key value ring and key value type/cost text
+  const KV_INTERNAL_MIN_PAD = 5; // Minimum padding between key value static text and key value type/cost text
+  const KV_STATIC_PADDING = 5; // Horizontal padding on either side of key value static text
+
+  // Dynamic dimension variables
+  let LEG_SVG_WIDTH; // Width of legend SVG element
+  let LEG_SVG_HEIGHT; // Height of legend SVG element
+  let LEG_TITLE_HEIGHT; // Height of legend title
+  let LEG_ROW_HEIGHT; // Height of legend row
+  let LEG_TEXT_MAX_WIDTH = 0; // Width of longest legend text element
+
+  let KV_SVG_WIDTH; // Width of key value SVG element
+  let KV_SVG_HEIGHT; // Height of key value SVG element
+  let KV_RADIUS; // Radius of key value ring
+  let KV_INNER_RADIUS; // Inner radius of key value ring
+  let KV_CHORD; // Chord that defines maximum width of key value type/cost text
+  let KV_EXTERNAL_PAD; // Padding between inside key value ring and key value type/cost text
+  let KV_STATIC_HEIGHT; // Height of key value static text
+  let KV_TYPE_COST_FONT_SIZE; // Font size for key value type and cost text
+
+  // Selection, leaflet, and d3 variables
+  const ZOOM = 12; // Initial zoom level
+  const CIRCLES = []; // Array of leaflet circles
+  const POPUPS = []; // Array of leaflet popups
+  let MAP; // Leaflet map variable
+
+  let LEG_SVG; // Legend SVG selection
+  let G_LEG; // Legend group selection
+  let LEG_TITLE; // Legend title data-join
+  let G_LEG_ENTRIES; // Legend entry groups selection
+
+  const COST_FORMAT = d3.format("$.2f"); // Formatter for key value cost text
+  let KV_SVG;
+  let G_KV; // Key value group selection
+  let PATH; // Path generator to create key value ring
+  let KV_RING; // Key value ring
+  let KV_STATIC; // Key value static text
+  let KV_TYPE; // Key value type text
+  let KV_COST; // Key value cost text
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawKeyValue);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize global data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["string", "number"]
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "Map expects columns to be assigned in this order:\n" +
+          " 1. Type of Vehicle (string)\n" +
+          " 2. City MPG (number)"
+      );
+      return;
+    }
+
+    // Restructure data from 2d array to array of objects
+    DATA = [];
+    let distMile, distMeter, cost;
+    for (let i = 0, length = VA_MESSAGE.data.length; i < length; i++) {
+      distMile = VA_MESSAGE.data[i][1] / 10; // city mpg / 10 trips per week = miles per trip consuming 1 gal per week
+      distMeter = distMile * 1609.34; // miles per trip consuming 1 gal per week * 1609.35 meters per mile = meters per trip consuming 1 gal per week
+      cost = (3 / distMile) * 2.53 * 54; // 3 miles per trip / dist per gal per week * $2.53 per gallon * 54 weeks per year = cost per year to commute 3 miles a day to work
+
+      DATA.push({
+        type: VA_MESSAGE.data[i][0],
+        distMile: distMile,
+        distMeter: distMeter,
+        cost: cost
+      });
+
+      KV_TYPE_COST_MAX_LENGTH_STRING =
+        COST_FORMAT(DATA[i].cost).length > DATA[i].type.length
+          ? COST_FORMAT(DATA[i].cost)
+          : DATA[i].type;
+    }
+
+    // Sort data from most fuel efficient to least
+    DATA.sort(function(a, b) {
+      return a.cost - b.cost;
+    });
+
+    drawMap();
+    drawLegend();
+    drawKeyValue();
+  }
+
+  // Draw leaflet map
+  function drawMap() {
+    // Initialize map
+    MAP = L.map("map", {
+      zoomControl: false
+    }).setView([LAT, LNG], ZOOM);
+
+    // Add tile layer to map
+    L.tileLayer(
+      "https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=" +
+        ACCESS_TOKEN,
+      {
+        maxZoom: 18,
+        attribution:
+          "Map data &copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors, " +
+          "<a href='https://creativecommons.org/licenses/by-sa/2.0/''>CC-BY-SA</a>, " +
+          "Imagery © <a href='https://www.mapbox.com/'>Mapbox</a>",
+        id: "mapbox.streets"
+      }
+    ).addTo(MAP);
+
+    // Add circles and popups to map for each type of car
+    for (let i = 0, length = DATA.length; i < length; i++) {
+      CIRCLES.push(
+        L.circle([42.3953, -94.6339] /*[35.818379, -78.757441]*/, {
+          color: STROKE[i % 8],
+          fillColor: FILL[i % 8],
+          fillOpacity: 0.3 * Math.pow(0.9, i),
+          radius: DATA[i].distMeter
+        }).addTo(MAP)
+      );
+
+      POPUPS.push(
+        L.popup()
+          .setLatLng(radiusLatLng(CIRCLES[i]))
+          .setContent(
+            "In " +
+              phrase(DATA[i].type) +
+              " you would need to live within " +
+              Math.round(DATA[i].distMile * 100) / 100 +
+              " miles to only consume 1 gallon of gas per week commuting to work."
+          )
+          .openOn(MAP)
+      );
+    }
+
+    // Open first map popup
+    MAP.openPopup(POPUPS[0]);
+
+    // Bind key value select event to map circles
+    d3.selectAll(".leaflet-interactive").on("click", function(d, i) {
+      keyValSelect(i);
+    });
+  }
+
+  // Draw legend on map
+  function drawLegend() {
+    // Append and remove legend title element to get height of legend title
+    d3.select("#" + LEG_SVG_ID)
+      .selectAll(".dummyText")
+      .data([DATA])
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text("Type")
+      .each(function() {
+        LEG_TITLE_HEIGHT = this.getBBox().height;
+        this.remove();
+      });
+
+    // Append and remove legend text element to get height of legend row and maximum legend text width
+    d3.select("#" + LEG_SVG_ID)
+      .selectAll(".dummyText")
+      .data(DATA)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.type;
+      })
+      .style("font-weight", "bold")
+      .each(function() {
+        LEG_ROW_HEIGHT = Math.max(this.getBBox().height, LEG_RECT_WIDTH);
+        LEG_TEXT_MAX_WIDTH = Math.max(
+          LEG_TEXT_MAX_WIDTH,
+          this.getComputedTextLength()
+        );
+        this.remove();
+      });
+
+    // Calculate overall LEG_SVG elements based on legend dimensions
+    LEG_SVG_WIDTH =
+      LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_MAX_WIDTH + 2 * LEG_EXTERNAL_PAD;
+    LEG_SVG_HEIGHT =
+      LEG_TITLE_TOP_PAD +
+      LEG_TITLE_HEIGHT +
+      LEG_TITLE_BOT_PAD +
+      DATA.length * (LEG_ROW_HEIGHT + LEG_ROW_V_PAD);
+
+    // Save reference for svg
+    LEG_SVG = d3
+      .select("#" + LEG_SVG_ID)
+      .classed("expanded", true)
+      .attr("width", LEG_SVG_WIDTH)
+      .attr("height", LEG_SVG_HEIGHT)
+      .style("padding", LEG_EXTERNAL_PAD)
+      .on("click", function() {
+        d3.event.stopPropagation();
+        const expanded = d3.select(this).classed("expanded");
+        d3.select(this)
+          .transition()
+          .duration(TRANS_TIME)
+          .attr("height", function() {
+            return expanded
+              ? LEG_TITLE_TOP_PAD + LEG_TITLE_HEIGHT + LEG_TITLE_BOT_PAD
+              : LEG_SVG_HEIGHT;
+          });
+        d3.select(this).classed("expanded", !expanded);
+      });
+
+    // Append legend group and save reference
+    LEG_SVG.selectAll(".g-legend")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEG = LEG_SVG.select(".g-legend");
+
+    // Create legend title
+    LEG_TITLE = G_LEG.selectAll(".legend-title").data([DATA]);
+
+    LEG_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text("Type")
+      .attr("x", LEG_SVG_WIDTH / 2)
+      .attr("y", LEG_TITLE_TOP_PAD);
+
+    // Append legend entry groups and save reference
+    G_LEG_ENTRIES = G_LEG.selectAll(".g-legend-entry")
+      .data(DATA)
+      .enter()
+      .append("g")
+      .classed("g-legend-entry", true)
+      .classed("selected", function(d, i) {
+        return i == 0 ? true : false;
+      })
+      .attr("transform", function(d, i) {
+        return (
+          "translate(0, " +
+          (LEG_TITLE_TOP_PAD +
+            LEG_TITLE_HEIGHT +
+            LEG_TITLE_BOT_PAD +
+            LEG_ROW_V_PAD +
+            i * (LEG_ROW_HEIGHT + LEG_ROW_V_PAD)) +
+          ")"
+        );
+      })
+      .on("click", function(d, i) {
+        keyValSelect(i);
+      });
+
+    // Append legend rects
+    G_LEG_ENTRIES.append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d, i) {
+        return FILL[i % 8];
+      })
+      .attr("stroke-width", 1)
+      .attr("stroke", function(d, i) {
+        return STROKE[i % 8];
+      });
+
+    // Append legend text
+    G_LEG_ENTRIES.append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.type;
+      })
+      .attr("x", LEG_RECT_WIDTH + LEG_RECT_PAD);
+  }
+
+  // Draw key value
+  function drawKeyValue() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Get overall key value dimensions
+    KV_SVG_WIDTH = d3
+      .select("#" + KV_SVG_ID)
+      .node()
+      .getBoundingClientRect().width;
+    KV_SVG_HEIGHT = d3
+      .select("#" + KV_SVG_ID)
+      .node()
+      .getBoundingClientRect().height;
+    KV_RADIUS =
+      Math.min(
+        KV_SVG_WIDTH - 2 * KV_RING_PAD,
+        KV_SVG_HEIGHT - 2 * KV_RING_PAD
+      ) / 2;
+    KV_INNER_RADIUS = (1 - KV_RING_WIDTH) * KV_RADIUS;
+    KV_EXTERNAL_PAD = KV_INNER_RADIUS * KV_EXTERNAL_PAD_PROP;
+    KV_CHORD =
+      2 *
+      KV_INNER_RADIUS *
+      Math.sin(Math.acos(1 - KV_EXTERNAL_PAD / KV_INNER_RADIUS));
+
+    // Save reference for svg
+    KV_SVG = d3.select("#" + KV_SVG_ID);
+
+    // Append legend group and save reference
+    KV_SVG.selectAll(".g-key-value")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-key-value", true);
+
+    G_KV = KV_SVG.select(".g-key-value").attr(
+      "transform",
+      "translate(" + KV_SVG_WIDTH / 2 + "," + KV_SVG_HEIGHT / 2 + ")"
+    );
+
+    // Create path generator
+    PATH = d3
+      .arc()
+      .outerRadius(KV_RADIUS)
+      .innerRadius(KV_INNER_RADIUS)
+      .startAngle(0)
+      .endAngle(2 * Math.PI);
+
+    // Create key value ring
+    KV_RING = G_KV.selectAll("#key-value-ring").data([DATA]);
+
+    KV_RING.enter()
+      .append("path")
+      .attr("id", "key-value-ring")
+      .attr("fill", FILL[0])
+      .attr("stroke-width", 2)
+      .attr("stroke", STROKE[0])
+      .merge(KV_RING)
+      .attr("d", PATH);
+
+    // Create key value static
+    KV_STATIC = G_KV.selectAll("#key-value-static").data([DATA]);
+
+    KV_STATIC.enter()
+      .append("text")
+      .attr("id", "key-value-static")
+      .text("Annual Fuel Cost with 3 Mile Commute")
+      .attr("x", 0)
+      .attr("y", 0)
+      .merge(KV_STATIC)
+      .style("font-size", "1em")
+      .style("font-size", function() {
+        return (
+          (2 * KV_INNER_RADIUS - 2 * KV_STATIC_PADDING) /
+            this.getComputedTextLength() +
+          "em"
+        );
+      })
+      .each(function() {
+        KV_STATIC_HEIGHT = this.getBBox().height;
+      });
+
+    // Determine font size for key value type and cost text
+    G_KV.append("text")
+      .text(KV_TYPE_COST_MAX_LENGTH_STRING)
+      .style("font-size", "1em")
+      .each(function() {
+        const widthConstrained = KV_CHORD / this.getComputedTextLength();
+        const heightConstrained =
+          (KV_INNER_RADIUS -
+            KV_EXTERNAL_PAD -
+            KV_INTERNAL_MIN_PAD -
+            KV_STATIC_HEIGHT / 2) /
+          this.getBBox().height;
+        KV_TYPE_COST_FONT_SIZE =
+          Math.min(widthConstrained, heightConstrained) + "em";
+        d3.select(this).remove();
+      });
+
+    // Create key value type
+    KV_TYPE = G_KV.selectAll("#key-value-type").data([DATA]);
+
+    KV_TYPE.enter()
+      .append("text")
+      .attr("id", "key-value-type")
+      .text(DATA[0].type.toUpperCase())
+      .attr("fill", STROKE[0])
+      .attr("x", 0)
+      .merge(KV_TYPE)
+      .attr("y", -KV_INNER_RADIUS + KV_EXTERNAL_PAD)
+      .style("font-size", KV_TYPE_COST_FONT_SIZE);
+
+    // Create key value cost
+    KV_COST = G_KV.selectAll("#key-value-cost").data([DATA]);
+
+    KV_COST.enter()
+      .append("text")
+      .attr("id", "key-value-cost")
+      .text(COST_FORMAT(DATA[0].cost))
+      .attr("x", 0)
+      .merge(KV_COST)
+      .attr("y", KV_INNER_RADIUS - KV_EXTERNAL_PAD)
+      .style("font-size", KV_TYPE_COST_FONT_SIZE);
+  }
+
+  // Transition necessary elements on selection
+  function keyValSelect(index) {
+    // Prevent event from falling through to underlying elements
+    d3.event.stopPropagation();
+
+    // Prevent transition from being interupted
+    if (DEBOUNCE) {
+      return;
+    }
+
+    // Select only appropriate legend entry group
+    G_LEG.selectAll(".g-legend-entry")
+      .classed("selected", false)
+      .filter(function(d, i) {
+        return i == index;
+      })
+      .classed("selected", true);
+
+    // Transition key value ring fill and stroke color
+    G_KV.select("#key-value-ring")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("fill", FILL[index])
+      .attr("stroke", STROKE[index])
+      .on("start", function() {
+        DEBOUNCE = true;
+      });
+
+    // Transition key value type text
+    G_KV.select("#key-value-type")
+      .classed("exiting", true)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    G_KV.append("text")
+      .attr("id", "key-value-type")
+      .text(DATA[index].type.toUpperCase())
+      .attr("fill", STROKE[index])
+      .attr("x", 0)
+      .attr("y", -KV_INNER_RADIUS + KV_EXTERNAL_PAD)
+      .style("font-size", KV_TYPE_COST_FONT_SIZE)
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    // Transition key value cost text
+    G_KV.select("#key-value-cost")
+      .transition()
+      .duration(TRANS_TIME)
+      .tween("text", function() {
+        const that = d3.select(this);
+        const oldCostNum = that.text().substring(1);
+        const newCostNum = DATA[index].cost;
+        const i = d3.interpolateNumber(oldCostNum, newCostNum);
+        return function(t) {
+          that.text(COST_FORMAT(i(t)));
+        };
+      })
+      .on("end", function() {
+        DEBOUNCE = false;
+      });
+
+    // Open appropriate popup
+    MAP.openPopup(POPUPS[index]);
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Generate lat/lng for western most point of circle
+  function radiusLatLng(circle) {
+    const lat = circle._latlng.lat; // Circle's center lat
+    const lng = circle._latlng.lng; // Circle's center lng
+    const r = circle._mRadius; // Circle's radius
+    const R = 6378137; // Earth's radius
+    return {
+      lat: lat,
+      lng: lng + ((r / (R * Math.cos((Math.PI * lat) / 180))) * 180) / Math.PI
+    };
+  }
+
+  // Generate string for popup depending on vehicle type
+  function phrase(type) {
+    switch (type) {
+      case "Hybrid":
+        return "a hybrid";
+      case "Wagon":
+        return "a wagon";
+      case "Sedan":
+        return "a sedan";
+      case "Sports":
+        return "a sports car";
+      case "SUV":
+        return "an SUV";
+      case "Truck":
+        return "a truck";
+      default:
+        return type.toLowerCase();
+    }
+  }
+});
+</script>
+</html>
