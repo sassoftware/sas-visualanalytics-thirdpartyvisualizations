@@ -133,7 +133,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Take action on received data
   function onDataReceived(messageFromVA) {
-    // Initialize global data variables
+    // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
     SELECTED = va.contentUtil.initializeSelections(messageFromVA);
@@ -382,7 +382,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("data-test", function() {
         return 0;
       })
-      .style("opacity", 0.000001)
+      .style("opacity", 0)
       .remove();
   }
 
