@@ -204,7 +204,8 @@ document.addEventListener("DOMContentLoaded", function() {
   let OLD_DATA; // Data from previous render to track duplicate point
   let METADATA = []; // Metadata to be parsed from VA data message
   let OLD_METADATA; // Metadata from previous render to track duplicate point
-  let SELECTED; // Currently selected category
+  let SELECTED; // Selected rows passed in from VA
+  let SELECTED_CATEGORY; // Currently selected category
   let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
 
   // Static dimension variables
@@ -287,6 +288,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
+    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
     // Validate data roles
     if (
@@ -1360,8 +1362,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Get opacity of data path and data points based on category
   function getOpacity(category, opacity) {
-    return SELECTED
-      ? category == SELECTED
+    return SELECTED_CATEGORY
+      ? category == SELECTED_CATEGORY
         ? opacity.focus
         : opacity.unfocus
       : opacity.default;
@@ -1392,7 +1394,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Deselect all on svg click
   function legendDeselectAll() {
     // Uninitialize selected
-    SELECTED = null;
+    SELECTED_CATEGORY = null;
 
     // Deselect all legend groups
     G_LEGEND.selectAll(".g-legend-entry").classed("selected", false);
@@ -1417,7 +1419,7 @@ document.addEventListener("DOMContentLoaded", function() {
     hideTip();
 
     // Change selected to new item
-    SELECTED = datum.category;
+    SELECTED_CATEGORY = datum.category;
 
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
