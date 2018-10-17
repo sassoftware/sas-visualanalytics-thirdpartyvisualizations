@@ -258,7 +258,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Take action on received data
   function onDataReceived(messageFromVA) {
-    // Initialize global data variables
+    // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
@@ -627,7 +627,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
 
-    // Prevent transition from being interupted
+    // Prevent transition from being interrupted
     if (DEBOUNCE) {
       return;
     }

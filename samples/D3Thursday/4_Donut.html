@@ -141,7 +141,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Take action on received data
   function onDataReceived(messageFromVA) {
-    // Initialize global data variables
+    // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
     SELECTED = va.contentUtil.initializeSelections(messageFromVA);
@@ -337,7 +337,9 @@ document.addEventListener("DOMContentLoaded", function() {
       .innerRadius(0.7 * RADIUS);
 
     // Create data arcs
-    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) {
+      return d.category;
+    });
 
     DATA_ARCS.enter()
       .append("path")

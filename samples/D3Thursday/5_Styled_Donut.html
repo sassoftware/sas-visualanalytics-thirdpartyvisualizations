@@ -177,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let RADIUS; // Radius of pie/donut
 
   // Selection and d3 variables
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale to determine arc fill color scale
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
   let SVG; // SVG selection
   let TIP; // Tooltip generator
   let DEFS; // Defs element selection
@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Take action on received data
   function onDataReceived(messageFromVA) {
-    // Initialize global data variables
+    // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
     SELECTED = va.contentUtil.initializeSelections(messageFromVA);
@@ -361,7 +361,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .append("stop")
           .attr("class", "start")
           .attr("offset", "0%")
-          .attr("stop-color", function(d) {
+          .attr("stop-color", function() {
             return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
           })
           .attr("stop-opacity", 1);
@@ -370,7 +370,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .append("stop")
           .attr("class", "end")
           .attr("offset", "100%")
-          .attr("stop-color", function(d) {
+          .attr("stop-color", function() {
             return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
           })
           .attr("stop-opacity", 0.7);
@@ -616,7 +616,7 @@ document.addEventListener("DOMContentLoaded", function() {
     GRADIENTS.each(function(d, i) {
       d3.select(this)
         .selectAll("stop")
-        .attr("stop-color", function(d) {
+        .attr("stop-color", function() {
           return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
         });
     });
@@ -637,7 +637,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .append("stop")
           .attr("class", "start")
           .attr("offset", "0%")
-          .attr("stop-color", function(d) {
+          .attr("stop-color", function() {
             return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
           })
           .attr("stop-opacity", 1);
@@ -646,7 +646,7 @@ document.addEventListener("DOMContentLoaded", function() {
           .append("stop")
           .attr("class", "end")
           .attr("offset", "100%")
-          .attr("stop-color", function(d) {
+          .attr("stop-color", function() {
             return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
           })
           .attr("stop-opacity", 0.7);

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+* Copyright 2018 SAS Institute Inc.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+* 
+* https://www.apache.org/licenses/LICENSE-2.0
+* 
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*
+* Author: Ryan West
+*
+* Input: Any dataset with at least one categorical variable and 1 numerical variable
+*
+* Output: The input dataset modified into a tall version with columns category, metric,
+* measure, and format.
+*
+* Parameters: One categorical variable followed by N numerical variables
+*
+* Dependencies/Assumptions: D3 Radar Chart assumes all numerical variables take positive values.
+*
+* Usage: Run custom task within SAS Studio. Specify desired dataset and variables according to instructions.
+* 
+-->
+
+<Task schemaVersion="6.3" runNLS="never">
+	<Registration>
+	<Name>New Task</Name>
+	<Description>This is a blank task</Description>
+	<GUID>726B2B12-4542-4200-96F4-960C645D767F</GUID>
+	<Procedures>TBD</Procedures>
+	<Version>4.3</Version>
+	<Links>
+		<Link href="http://support.sas.com/software/products/sasstudio/index.html#s1=2">SAS Studio Documentation</Link>
+	</Links>
+	</Registration>
+	
+	<Metadata>
+		
+		<!--- Define the data and roles for this task.    -->
+		<DataSources>
+			<DataSource name="DATASOURCE">
+				<Roles>
+					<Role type="C" maxVars="1" order="true" minVars="1" name="CAT_VAR">Character variable:</Role>
+					<Role type="N" maxVars="100" order="true" minVars="1" name="NUM_VARS" exclude="VAR">Numeric variable:</Role>
+				</Roles>
+			</DataSource>
+		</DataSources>
+
+		<!--- Define the task options.             -->
+		<Options>
+			<Option name="DATATAB" inputType="string">DATA</Option>
+			<Option name="MSGGROUP" inputType="string">INFO</Option>
+			<Option name="DATAGROUP" inputType="string">DATA</Option>
+			<Option name="ROLESGROUP" inputType="string">ROLES</Option>
+			<Option name="labelRES" inputType="string">Outputs dataset 'Work.D3_Radar_INPUT_DS_NAME'.</Option>
+			<Option name="labelDATA" inputType="string">Select the data source you would like to transform for the D3 Radar Chart.</Option>
+			<Option name="labelCAT" inputType="string">Select the character variable for the category.</Option>
+			<Option name="labelNUM" inputType="string">Select one or more numeric variables to display.</Option>
+		</Options>
+		
+	</Metadata>
+	
+	<UI>
+		<Container option="DATATAB">
+			<Group option="MSGGROUP" open="true">
+				<OptionItem option="labelRES"/>
+			</Group>
+			<Group option="DATAGROUP" open="true">
+				<OptionItem option="labelDATA"/>
+				<DataItem data="DATASOURCE"/>
+			</Group>
+			<Group option="ROLESGROUP" open="true">
+				<OptionItem option="labelCAT"/>
+				<RoleItem role="CAT_VAR"/>
+				<OptionItem option="labelNUM"/>
+				<RoleItem role="NUM_VARS"/>
+			</Group>
+		</Container>
+	</UI>
+	
+  	<CodeTemplate>
+		<![CDATA[
+		%macro radar_data_prep / parmbuff;
+			/* Extract data set name */
+			%let lib_dot_ds=%scan(&syspbuff, 1, '(,');
+			%let ds=%scan(&lib_dot_ds, 2);
+		
+			/* Extract categorical variable */
+			%let cat_var=%scan(&syspbuff, 3);
+		
+			/* Extract first numerical variable */
+			%let num=1;
+			%let num_var=%scan(&syspbuff, &num+3);
+		
+			/* Iterate as long as numerical variable is defined */
+			%do %while(&num_var ne);
+				/* Generate means by category */
+				proc means data=&lib_dot_ds noprint;
+					class &cat_var;
+					var &num_var;
+					output out=means_&num (drop=_:) mean=;
+				run;
+		
+				/* Remove entry for non-categorized, add metric, and replace num_var with measure */
+				data means_&num;
+					set means_&num;
+					drop &num_var;
+					length Metric $20;
+					if (&cat_var ^= "");
+					Metric=vlabel(&num_var);
+					Measure=&num_var;
+					Format=vformat(&num_var);
+				run;
+		
+				/* Append means data sets together */
+				%if (&num = 1) %then %do;
+					data D3_Radar_&ds;
+						set means_1;
+					run;
+				%end;
+				%else %do;
+					data D3_Radar_&ds;
+						set D3_Radar_&ds means_&num;
+					run;
+				%end;
+				
+				/* Remove temporary data sets */
+				proc datasets noprint;
+					delete means_&num;
+				run;
+		
+				/* Iterate to next numerical variable */
+				%let num=%eval(&num+1);
+				%let num_var=%scan(&syspbuff, &num+3);
+			%end;
+		
+			/* Print first ten observatons to confirm success */
+			proc print data=D3_Radar_&ds (obs=10);
+			run;
+		%mend radar_data_prep;
+		
+		%radar_data_prep($DATASOURCE, #foreach( $item in $CAT_VAR ) $item #end, #foreach( $item in $NUM_VARS ) $item, #end);
+
+		]]>
+	</CodeTemplate>
+</Task>
