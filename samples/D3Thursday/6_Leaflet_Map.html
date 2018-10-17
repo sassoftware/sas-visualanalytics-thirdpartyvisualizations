@@ -187,6 +187,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
   let DATA; // Data to be parsed from VA data message
+  let SELECTED; // Selected rows passed in from VA
   let DEBOUNCE = false; // Boolean variable to prevent transitions from being interupted
   let KV_TYPE_COST_MAX_LENGTH_STRING; // The longest key value type or cost by length
 
@@ -261,6 +262,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
+    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
     // Validate data roles
     if (
