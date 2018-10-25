@@ -714,6 +714,15 @@ document.addEventListener("DOMContentLoaded", function() {
 
         return path;
       });
+
+    // Move tooltip if present
+    d3.select(".tip")
+      .style("top", function() {
+        return RADIUS + TOP_PAD - this.height / 2 + "px";
+      })
+      .style("left", function() {
+        return WIDTH / 2 - this.width / 2 + "px";
+      });
   }
 
   // Redraw data dependent elements on data change
