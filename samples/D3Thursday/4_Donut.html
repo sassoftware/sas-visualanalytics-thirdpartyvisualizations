@@ -99,6 +99,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Static dimension variables
   const TRANS_TIME = 500; // Duration of transitions
+  const EDGE_PADDING = 5; // Padding around exterior of donut
   const LEG_TOP_PAD = 20; // Padding between chart and legend title
   const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
   const LEG_ROW_PAD = 3; // Padding between legend rows
@@ -170,6 +171,7 @@ document.addEventListener("DOMContentLoaded", function() {
       return d[1];
     });
     let category,
+      id,
       measure,
       currentData,
       finalStartAngle,
@@ -179,9 +181,10 @@ document.addEventListener("DOMContentLoaded", function() {
     DATA = [];
     for (let i = 0; i < VA_MESSAGE.data.length; i++) {
       category = VA_MESSAGE.data[i][0];
+      id = category;
       measure = VA_MESSAGE.data[i][1];
 
-      currentData = d3.select("#" + category + "-data-arc");
+      currentData = d3.select("#" + id);
 
       finalStartAngle = i == 0 ? 0 : DATA[i - 1].finalEndAngle;
       finalEndAngle =
@@ -197,6 +200,7 @@ document.addEventListener("DOMContentLoaded", function() {
         : JSON.parse(currentData.attr("data-d")).endAngle;
 
       DATA.push({
+        id: id,
         category: category,
         measure: measure,
         finalStartAngle: finalStartAngle,
@@ -205,6 +209,7 @@ document.addEventListener("DOMContentLoaded", function() {
         endAngle: endAngle
       });
     }
+
 
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
@@ -215,13 +220,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Apply selections
     d3.selectAll(".selectable")
-      .classed("selected", false)
-      .filter(function(d, i) {
+      .classed("selected", function(d, i) {
         return SELECTED.find(function(selection) {
           return selection.row == i;
         });
-      })
-      .classed("selected", true);
+      });
   }
 
   // Draw elements for first time and on resize event
@@ -314,7 +317,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Use legend height to determine radius and move legend
     G_LEGEND.attr("transform", function() {
       LEG_HEIGHT = this.getBBox().height;
-      RADIUS = Math.min(WIDTH, HEIGHT - LEG_HEIGHT - LEG_TOP_PAD) / 2;
+      RADIUS = Math.min(WIDTH - 2 * EDGE_PADDING, HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - EDGE_PADDING) / 2;
       return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
     });
 
@@ -327,7 +330,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     G_CHART_AREA = SVG.select(".g-chart-area").attr(
       "transform",
-      "translate(" + WIDTH / 2 + ", " + RADIUS + ")"
+      "translate(" + WIDTH / 2 + ", " + (RADIUS + EDGE_PADDING) + ")"
     );
 
     // Create path generator
@@ -346,7 +349,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .classed("data-arc", true)
       .classed("selectable", true)
       .attr("id", function(d) {
-        return d.category + "-data-arc";
+        return d.id;
       })
       .attr("data-d", function(d) {
         return JSON.stringify(d);
@@ -365,6 +368,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data change
   function updateElements() {
+    // Deselect all elements on data update
+    deselectAllElements();
+
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
@@ -461,7 +467,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .transition()
       .duration(TRANS_TIME)
       .attrTween("d", function(d) {
-        d3.select("#" + d.category + "-data-arc").attr(
+        d3.select("#" + d.id).attr(
           "data-d",
           JSON.stringify(d)
         );
@@ -480,7 +486,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .classed("data-arc", true)
       .classed("selectable", true)
       .attr("id", function(d) {
-        return d.category + "-data-arc";
+        return d.id;
       })
       .attr("data-d", function(d) {
         return JSON.stringify(d);
@@ -665,7 +671,7 @@ document.addEventListener("DOMContentLoaded", function() {
       d.finalStartAngle = finalStart;
       d.endAngle = interpolateEnd(t);
       d.finalEndAngle = finalEnd;
-      d3.select("#" + d.category + "-data-arc").attr(
+      d3.select("#" + d.id).attr(
         "data-d",
         JSON.stringify(d)
       );
