@@ -68,21 +68,93 @@ limitations under the License.
     border-radius: 2px;
   }
 
-  .d3-tip:before { /* Create arrow on tooltip */
+  /* Create arrow on tooltip */
+  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
     content: "";
     position: absolute;
-    top: 100%;
-    left: 50%;
-    height: 10px;
-    width: 10px;
-    background: white;
-    box-sizing:border-box;
-    transform: rotate(45deg) translate(-50%);
-    border-bottom: inherit;
-    border-right: inherit;
-    box-shadow: inherit;
+    border-style: solid;
+    border-width: 5px 10px 5px 0;
+    border-color: transparent #C4C4C4;
+    transform-origin: 0% 0%;
   }
 
+  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 4px 8px 4px 0;
+    border-color: transparent #fff;
+    transform-origin: 0% 0%;
+  }
+
+  /* Move the arrow depending on direction */
+  /* North */
+  .d3-tip.n:before, .d3-tip.n:after {
+    top: 100%;
+    left: 50%;
+    transform: rotate(-90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.n:after {
+    transform: rotate(-90deg) translate(-7px, -4px);
+  }
+
+  /* North east */
+  .d3-tip.ne:before, .d3-tip.ne:after {
+    top: 100%;
+    left: 0%;
+    transform: rotate(-45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.ne:after {
+    transform: rotate(-45deg) translate(-3px, -4px);
+  }
+
+  /* North west */
+  .d3-tip.nw:before, .d3-tip.nw:after {
+    top: 100%;
+    left: 100%;
+    transform: rotate(-135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.nw:after {
+    transform: rotate(-135deg) translate(-3px, -4px);
+  }
+
+  /* South */
+  .d3-tip.s:before, .d3-tip.s:after {
+    top: 0%;
+    left: 50%;
+    transform: rotate(90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.s:after {
+    transform: rotate(90deg) translate(-7px, -4px);
+  }
+
+  /* South east */
+  .d3-tip.se:before, .d3-tip.se:after {
+    top: 0%;
+    left: 0%;
+    transform: rotate(45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.se:after {
+    transform: rotate(45deg) translate(-3px, -4px);
+  }
+
+  /* South west */
+  .d3-tip.sw:before, .d3-tip.sw:after {
+    top: 0%;
+    left: 100%;
+    transform: rotate(135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.sw:after {
+    transform: rotate(135deg) translate(-3px, -4px);
+  }
+
+  /* Style tip content */
   .d3-tip-content {
     font-family: Verdana, sans-serif;
     font-size: .9em;
@@ -158,9 +230,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Static dimension variables
   const TRANS_TIME = 500; // Duration of transitions
-  const MIN_ARC_PADDING = 0.03; // Minimum padding between arc segments in radians
-  const TOOLTIP_TOP_PAD = 60; // Padding at top of donut to prevent tooltip spillover
-  const TOOLTIP_SIDE_PAD = 65; // Padding around side of donut to prevent tooltip spillover
+  const EDGE_PADDING = 5; // Padding around exterior of donut
   const LEG_TOP_PAD = 20; // Padding between chart and legend title
   const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
   const LEG_ROW_PAD = 3; // Padding between legend rows
@@ -173,13 +243,13 @@ document.addEventListener("DOMContentLoaded", function() {
   let HEIGHT; // Height of SVG element
   let LEG_EL_POS; // Positions of legend text elements
   let LEG_HEIGHT; // Height allocated for legend
-  let ARC_PADDING; // Padding in radians between arc segments
   let RADIUS; // Radius of pie/donut
 
   // Selection and d3 variables
   const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
   let SVG; // SVG selection
   let TIP; // Tooltip generator
+  let TIP_DIRECTION; // Direction for tip used to calculate offset
   let DEFS; // Defs element selection
   let GRADIENTS; // Gradients data-join
   let G_LEGEND; // Legend group selection
@@ -187,6 +257,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let LEGEND_RECTS; // Legend rects data-join
   let LEGEND_TEXTS; // Legend texts data-join
   let G_CHART_AREA; // Chart area group selection
+  let G_SELECTED; // Selected group selection
   let PATH; // Path generator to create arc paths from arc data
   let DATA_ARCS; // Data Arcs data-join
 
@@ -235,20 +306,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const total = d3.sum(VA_MESSAGE.data, function(d) {
       return d[1];
     });
-    ARC_PADDING = ARC_PADDING
-      ? ARC_PADDING
-      : Math.min(
-          (d3.min(VA_MESSAGE.data, function(d) {
-            return d[1];
-          }) /
-            (2 * total)) *
-            2 *
-            Math.PI,
-          MIN_ARC_PADDING
-        ); // Define padding btw arcs on first draw
-    const availableAngle = 2 * Math.PI - VA_MESSAGE.data.length * ARC_PADDING;
-
     let category,
+      id,
       measure,
       currentData,
       finalStartAngle,
@@ -258,17 +317,16 @@ document.addEventListener("DOMContentLoaded", function() {
     DATA = [];
     for (let i = 0; i < VA_MESSAGE.data.length; i++) {
       category = VA_MESSAGE.data[i][0];
+      id = category;
       measure = VA_MESSAGE.data[i][1];
 
-      currentData = d3.select("#" + category);
+      currentData = d3.select("#" + id);
 
-      finalStartAngle = i == 0 ? 0 : DATA[i - 1].finalEndAngle + ARC_PADDING;
+      finalStartAngle = i == 0 ? 0 : DATA[i - 1].finalEndAngle;
       finalEndAngle =
         i == 0
-          ? (measure / total) * availableAngle
-          : DATA[i - 1].finalEndAngle +
-            ARC_PADDING +
-            (measure / total) * availableAngle;
+          ? (measure / total) * 2 * Math.PI
+          : DATA[i - 1].finalEndAngle + (measure / total) * 2 * Math.PI;
 
       startAngle = currentData.empty()
         ? finalStartAngle
@@ -278,6 +336,7 @@ document.addEventListener("DOMContentLoaded", function() {
         : JSON.parse(currentData.attr("data-d")).endAngle;
 
       DATA.push({
+        id: id,
         category: category,
         measure: measure,
         finalStartAngle: finalStartAngle,
@@ -296,13 +355,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Apply selections
     d3.selectAll(".selectable")
-      .classed("selected", false)
-      .filter(function(d, i) {
+      .classed("selected", function(d, i) {
         return SELECTED.find(function(selection) {
           return selection.row == i;
         });
-      })
-      .classed("selected", true);
+      });
   }
 
   // Draw elements for first time and on resize event
@@ -349,7 +406,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("linearGradient")
       .classed("gradient", true)
       .attr("id", function(d) {
-        return d.category + "-gradient";
+        return d.id + "-gradient";
       })
       .attr("x1", "0%")
       .attr("x2", "100%")
@@ -444,11 +501,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Use legend height to determine radius and move legend
     G_LEGEND.attr("transform", function() {
       LEG_HEIGHT = this.getBBox().height;
-      RADIUS =
-        Math.min(
-          WIDTH - 2 * TOOLTIP_SIDE_PAD,
-          HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TOOLTIP_TOP_PAD
-        ) / 2;
+      RADIUS = Math.min(WIDTH - 2 * EDGE_PADDING, HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - EDGE_PADDING) / 2;
       return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
     });
 
@@ -461,7 +514,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
     G_CHART_AREA = SVG.select(".g-chart-area").attr(
       "transform",
-      "translate(" + WIDTH / 2 + ", " + (TOOLTIP_TOP_PAD + RADIUS) + ")"
+      "translate(" + WIDTH / 2 + ", " + (RADIUS + EDGE_PADDING) + ")"
+    );
+
+    // Append/update selection group and save reference
+    SVG.selectAll(".g-selected")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-selected", true);
+
+    G_SELECTED = SVG.select(".g-selected").attr(
+      "transform",
+      "translate(" + WIDTH / 2 + ", " + (RADIUS + EDGE_PADDING) + ")"
     );
 
     // Create path generator
@@ -482,14 +547,16 @@ document.addEventListener("DOMContentLoaded", function() {
       .style("opacity", 0);
 
     // Create data arcs
-    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA);
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) {
+      return d.category;
+    });
 
     DATA_ARCS.enter()
       .append("path")
       .classed("data-arc", true)
       .classed("selectable", true)
       .attr("id", function(d) {
-        return d.category;
+        return d.id;
       })
       .attr("data-d", function(d) {
         return JSON.stringify(d);
@@ -501,16 +568,22 @@ document.addEventListener("DOMContentLoaded", function() {
         return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
       })
       .on("click", function(d, i) {
-        selectElement(i, this);
+        selectElement(d, i, this);
       })
-      .on("mouseover", function(d) {
+      .on("mouseover", function(d, i) {
         // Move tooltip tracker to midpoint of arc
         d3.select("#tooltip-tracker")
           .attr("cx", +RADIUS * Math.sin((d.startAngle + d.endAngle) / 2))
           .attr("cy", -RADIUS * Math.cos((d.startAngle + d.endAngle) / 2));
 
-        // Show tooltip
-        TIP.show(d, d3.select("#tooltip-tracker").node());
+        // Assign direction and show tooltip
+        TIP
+          .direction("n")
+          .offset([-8, 0])
+          .show(d, d3.select("#tooltip-tracker").node())
+          .direction(getDirection())
+          .offset(getOffset())
+          .show(d, d3.select("#tooltip-tracker").node());
       })
       .on("mouseout", TIP.hide)
       .merge(DATA_ARCS)
@@ -524,6 +597,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data change
   function updateElements() {
+    // Deselect all elements on data update
+    deselectAllElements();
+
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
@@ -625,7 +701,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("linearGradient")
       .classed("gradient", true)
       .attr("id", function(d) {
-        return d.category + "-gradient";
+        return d.id + "-gradient";
       })
       .attr("x1", "0%")
       .attr("x2", "100%")
@@ -662,7 +738,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .duration(TRANS_TIME)
       .attr("stroke-width", 1)
       .attrTween("d", function(d) {
-        d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
+        d3.select("#" + d.id).attr("data-d", JSON.stringify(d));
 
         return arcTween(
           d,
@@ -678,7 +754,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .classed("data-arc", true)
       .classed("selectable", true)
       .attr("id", function(d) {
-        return d.category;
+        return d.id;
       })
       .attr("data-d", function(d) {
         return JSON.stringify(d);
@@ -691,16 +767,22 @@ document.addEventListener("DOMContentLoaded", function() {
         return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
       })
       .on("click", function(d, i) {
-        selectElement(i, this);
+        selectElement(d, i, this);
       })
-      .on("mouseover", function(d) {
+      .on("mouseover", function(d, i) {
         // Move tooltip tracker to midpoint of arc
         d3.select("#tooltip-tracker")
           .attr("cx", +RADIUS * Math.sin((d.startAngle + d.endAngle) / 2))
           .attr("cy", -RADIUS * Math.cos((d.startAngle + d.endAngle) / 2));
 
-        // Show tooltip
-        TIP.show(d, d3.select("#tooltip-tracker").node());
+        // Assign direction and show tooltip
+        TIP
+          .direction("n")
+          .offset([-8, 0])
+          .show(d, d3.select("#tooltip-tracker").node())
+          .direction(getDirection())
+          .offset(getOffset())
+          .show(d, d3.select("#tooltip-tracker").node());
       })
       .on("mouseout", TIP.hide)
       .transition()
@@ -710,13 +792,13 @@ document.addEventListener("DOMContentLoaded", function() {
         const prev = d3.select(this.previousElementSibling);
         const prevD = prev.classed("data-arc")
           ? JSON.parse(prev.attr("data-d"))
-          : { endAngle: -ARC_PADDING };
+          : { endAngle: 0 };
 
         return arcTween(
           d,
-          prevD.endAngle + ARC_PADDING / 2,
+          prevD.endAngle,
           d.finalStartAngle,
-          prevD.endAngle + ARC_PADDING / 2,
+          prevD.endAngle,
           d.finalEndAngle
         );
       });
@@ -733,14 +815,14 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         const prevD = prev.classed("data-arc")
           ? JSON.parse(prev.attr("data-d"))
-          : { finalEndAngle: -ARC_PADDING };
+          : { finalEndAngle: 0 };
 
         return arcTween(
           d,
           d.startAngle,
-          prevD.finalEndAngle + ARC_PADDING / 2,
+          prevD.finalEndAngle,
           d.endAngle,
-          prevD.finalEndAngle + ARC_PADDING / 2
+          prevD.finalEndAngle
         );
       })
       .remove();
@@ -781,24 +863,88 @@ document.addEventListener("DOMContentLoaded", function() {
     d3.select(this).call(TIP);
   }
 
+  // Determine direction for tooltip
+  function getDirection() {
+    const tip = d3.select(".d3-tip").node();
+    const w = tip.clientWidth;
+    const h = tip.clientHeight;
+    const left = tip.offsetLeft;
+    const top = tip.offsetTop;
+    let dir;
+
+    dir = top < 0 ? "s" : "n";
+
+    if (left < 0) {
+      dir += "e";
+    }
+    else if (left + w > WIDTH) {
+      dir += "w";
+    }
+    TIP_DIRECTION = dir;
+    return dir;
+  }
+
+  // Determine offset for tooltip based on direction
+  function getOffset() {
+    let offset;
+
+    switch(TIP_DIRECTION) {
+      case "n":
+        offset = [-8, 0];
+        break;
+      case "ne":
+        offset = [-5, 0];
+        break;
+      case "nw":
+        offset = [-5, 0];
+        break;
+      case "s":
+        offset = [8, 0];
+        break;
+      case "se":
+        offset = [5, 0];
+        break;
+      case "sw":
+        offset = [5, 0];
+        break;
+
+    }
+
+    return offset;
+  }
+
   // Deselect all on svg click
   function deselectAllElements() {
     // Deselect all elements
     d3.selectAll(".selectable").classed("selected", false);
+
+    // Remove all use elements
+    G_SELECTED.selectAll("use").remove();
 
     // Post message to VA
     va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
   }
 
   // Handle selection on element
-  function selectElement(index, el) {
+  function selectElement(datum, index, el) {
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
 
+    const selected = d3.select(el).classed("selected");
+
     // If control is held toggle selected on click preserving array, otherwise select only clicked element
     if (d3.event.ctrlKey) {
+      // Remove use element if it was already selected, else add use element
+      if (selected) {
+        G_SELECTED.select("#" + datum.id + "-use").remove();
+      } else {
+        G_SELECTED.append("use")
+          .attr("id", datum.id + "-use")
+          .attr("xlink:href", "#" + datum.id);
+      }
+
       // Toggle selection on clicked element
-      d3.select(el).classed("selected", !d3.select(el).classed("selected"));
+      d3.select(el).classed("selected", !selected);
 
       // Build array of selected elements
       const selections = [];
@@ -814,8 +960,16 @@ document.addEventListener("DOMContentLoaded", function() {
       // Deselect all elements
       d3.selectAll(".selectable").classed("selected", false);
 
+      // Remove all use elements
+      G_SELECTED.selectAll("use").remove();
+
       // Select clicked element
       d3.select(el).classed("selected", true);
+
+      // Add use element for clicked element
+      G_SELECTED.append("use")
+        .attr("id", datum.id + "-use")
+        .attr("xlink:href", "#" + datum.id);
 
       // Post message to VA
       va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{ row: index }]);
@@ -902,7 +1056,7 @@ document.addEventListener("DOMContentLoaded", function() {
       d.finalStartAngle = finalStart;
       d.endAngle = interpolateEnd(t);
       d.finalEndAngle = finalEnd;
-      d3.select("#" + d.category).attr("data-d", JSON.stringify(d));
+      d3.select("#" + d.id).attr("data-d", JSON.stringify(d));
       return PATH(d);
     };
   }
