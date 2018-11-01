@@ -169,13 +169,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Apply selections
     d3.selectAll(".selectable")
-      .classed("selected", false)
-      .filter(function(d, i) {
+      .classed("selected", function(d, i) {
         return SELECTED.find(function(selection) {
           return selection.row == i;
         });
-      })
-      .classed("selected", true);
+      });
   }
 
   // Draw elements for first time and on resize event
@@ -295,6 +293,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data change
   function updateElements() {
+    // Deselect all elements on data update
+    deselectAllElements();
+
     // Update x scale
     X_SCALE = d3
       .scaleBand()

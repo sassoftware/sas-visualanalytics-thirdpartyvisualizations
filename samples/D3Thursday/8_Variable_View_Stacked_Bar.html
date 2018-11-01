@@ -120,6 +120,77 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Static data variables
   const SVG_ID = "vvs-bar"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd427",
+    rowCount: 22,
+    availableRowCount: 22,
+    data: [
+      ["1960", "Andorra", 223, "Left Aligned", 0],
+      ["1960", "Belgium", 221, "Center Aligned", 1],
+      ["1961", "Andorra", 243, "Left Aligned", 0],
+      ["1961", "Belgium", 168, "Center Aligned", 1],
+      ["1962", "Andorra", 70, "Left Aligned", 0],
+      ["1962", "Belgium", 50, "Center Aligned", 1],
+      ["1963", "Andorra", 88, "Left Aligned", 0],
+      ["1963", "Belgium", 69, "Center Aligned", 1],
+      ["1964", "Andorra", 174, "Left Aligned", 0],
+      ["1964", "Belgium", 218, "Center Aligned", 1],
+      ["1965", "Andorra", 232, "Left Aligned", 0],
+      ["1965", "Belgium", 281, "Center Aligned", 1],
+      ["1966", "Andorra", 212, "Left Aligned", 0],
+      ["1966", "Belgium", 178, "Center Aligned", 1],
+      ["1967", "Andorra", 252, "Left Aligned", 0],
+      ["1967", "Belgium", 260, "Center Aligned", 1],
+      ["1968", "Andorra", 179, "Left Aligned", 0],
+      ["1968", "Belgium", 75, "Center Aligned", 1],
+      ["1969", "Andorra", 223, "Left Aligned", 0],
+      ["1969", "Belgium", 118, "Center Aligned", 1],
+      ["1970", "Andorra", 98, "Left Aligned", 0],
+      ["1970", "Belgium", 120, "Center Aligned", 1]
+    ],
+    columns: [
+      {
+        name: "bi423",
+        label: "Year",
+        type: "string"
+      },
+      {
+        name: "bi424",
+        label: "Country",
+        type: "string"
+      },
+      {
+        name: "bi428",
+        label: "Population (in millions)",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi425",
+        label: "View",
+        type: "string"
+      },
+      {
+        name: "ri1",
+        type: "number",
+        usage: "brush",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 2,
+          formatString: "COMMA12.2"
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
   const FILL = {
     Andorra: "#21b9b7",
     Belgium: "#4141e0",
@@ -236,8 +307,8 @@ document.addEventListener("DOMContentLoaded", function() {
           " 1. Y Category (string)\n" +
           " 2. Group By Category (string)\n" +
           " 3. Measure (number)\n" +
-          " 4. Alignment (string)\n" +
-          " 5. Alignment Selection (from linked selection) (number)"
+          " 4. View (string)\n" +
+          " 5. View Selection (from linked selection) (number)"
       );
       return;
     }

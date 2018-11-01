@@ -16,7 +16,7 @@
 * Author: Ryan West
 *
 * Output: A randomized dataset with columns Year (string), Country (string),
-* Population (number), and Alignment (string) for use with D3 variable view stacked
+* Population (number), and View (string) for use with D3 variable view stacked
 * bar chart, titled "8_Sample_Data" in the Work library.
 *
 * Usage: Run to produce dataset.
@@ -24,7 +24,7 @@
 \******************************************************************************/
 
 
-data work.D3Thursday_8_Sample_Data;
+data work.Sample_Data_8;
 	label Population = "Population (in millions)"; /* Designate labels how we want them to display in VA */
 	drop Year_n; /* Drop numeric version of variable*/
 	input Country $32.; /* Read in country from datalines */
@@ -32,8 +32,8 @@ data work.D3Thursday_8_Sample_Data;
 	/* Iterate over all years in range */
 	do Year_n = 1960 to 2010;
 		/* Assign alignment depending on parity */
-		if mod(_N_, 2) eq 0 then Alignment = "Center Aligned";
-		else Alignment = "Left Aligned";
+		if mod(_N_, 2) eq 0 then View = "Center Aligned";
+		else View = "Left Aligned";
 
 		/* Randomly generate population for each year */
 		Population = rand("Integer", 30, 300);
