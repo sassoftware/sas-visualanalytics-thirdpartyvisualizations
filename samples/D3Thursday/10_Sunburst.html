@@ -16,9 +16,11 @@ limitations under the License.
 -->
 <html>
 <head>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
   <!-- Import D3.js -->
   <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import lodash.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
 
   <!-- Import utilities  -->
   <script type="text/javascript" src="../../util/messagingUtil.js"></script>
@@ -240,7 +242,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Use timeouts to debounce update events
   function handleCallback(messageFromVA) {
-    if (VA_MESSAGE && messageFromVA.data.length == VA_MESSAGE.data.length) {
+    // Prevent duplicate data messages that come from nested filters
+    if (VA_MESSAGE && _.isEqual(messageFromVA, VA_MESSAGE)) {
       return;
     }
 
@@ -722,7 +725,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("fill", function(d) {
         return d.data.color;
       })
-      .attrTween("d", function(d) {
+      .attrTween("d", function(d, i) {
         const old = findDescendant(OLD_ROOT.descendants(), d.data.id);
         return arcTween(
           d,
