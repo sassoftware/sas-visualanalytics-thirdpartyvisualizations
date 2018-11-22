@@ -198,16 +198,17 @@ limitations under the License.
         }
 
         function onDataReceived(messageFromVA) {
-            if (event && event.data) {
+            if (messageFromVA.data) {
                 var stdJson = [];
-                event.data.data.forEach(function (row) {
+                var _data = messageFromVA.data;
+                _data.forEach(function (row) {
                     var newRow = {};
                     var t = 0;
                     for (i = 1; i < row.length; i++) {
                         t += row[i] = +row[i];
                     }
                     newRow.total = t;
-                    event.data.columns.forEach(
+                    messageFromVA.columns.forEach(
                         function (item, index) {
                             newRow[item.label] = row[index];
                         }
@@ -216,7 +217,7 @@ limitations under the License.
                 });
                 stdJson.columns = [];
                 var cols = [];
-                event.data.columns.forEach(
+                messageFromVA.columns.forEach(
                     function (item, index) {
                         stdJson.columns.push(item.label);
                     }
