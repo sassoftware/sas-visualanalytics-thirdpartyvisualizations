@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import font awesome -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+
+  <!-- Import lodash.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    float: left;
+    min-width: 500px;
+    min-height: 300px;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  svg {
+    height: calc(100% - 80px);
+  }
+
+  text, p {
+    font-family: Verdana, sans-serif;
+  }
+
+  .input-container {
+    width: 99%;
+    height: 80px;
+  }
+
+  .row {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    float: left;
+  }
+
+  .slider {
+    cursor: pointer;
+    position: relative;
+    -webkit-appearance: none;
+    width: 90%;
+    height: 10px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+  }
+
+  .slider:hover {
+    opacity: 1;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #777777;
+    cursor: pointer;
+  }
+
+  .slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #777777;
+    cursor: pointer;
+  }
+
+  .slider::-ms-fill-upper {
+    background: blue;
+  }
+
+  .x-axis, .y-axis {
+    font-size: .8em;
+  }
+
+  .x-label {
+    font-size: .9em;
+    text-anchor: Middle;
+    alignment-baseline: ideographic;
+  }
+
+  .y-label {
+    font-size: .9em;
+    alignment-baseline: hanging;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    alignment-baseline: hanging;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
+  }
+
+  .data-line {
+    stroke-width: 2px;
+  }
+
+  .date-text {
+    fill: #C4C4C4;
+    text-anchor: middle;
+    alignment-baseline: middle;
+  }
+
+  #play-button {
+    vertical-align: middle;
+    font-size: 3em;
+    color: #777777;
+    cursor: pointer;
+  }
+
+  #speed-slider {
+    direction: rtl;
+    width: 50%;
+  }
+
+  #slow-text {
+    margin-left: auto
+  }
+
+  #fast-text {
+    margin-right: auto
+  }
+</style>
+
+<div class="input-container">
+  <div id="row1" class="row">
+    <span id="play-button">
+      <i class="fas fa-play-circle"></i>
+    </span>
+    <p id="min-date">
+    </p>
+    <input id="date-slider" class="slider" type="range" min="0" max="100" value="0" step="1">
+    <p id="max-date">
+    </p>
+  </div>
+  <div id="row2" class="row">
+      <p id="slow-text">Slow</p>
+      <input id="speed-slider" class="slider" type="range" min="20" max="500" value="100">
+      <p id="fast-text">Fast</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "animated-area"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd520",
+    rowCount: 48,
+    availableRowCount: 48,
+    data: [
+      ["01/01/2000", 0.01, "Africa", 408],
+      ["01/01/2000", 0.01, "Asia", 500],
+      ["01/01/2000", 0.1, "Africa", 259],
+      ["01/01/2000", 0.1, "Asia", 750],
+      ["01/01/2000", 1, "Africa", 641],
+      ["01/01/2000", 1, "Asia", 330],
+      ["01/01/2000", 10, "Africa", 1004],
+      ["01/01/2000", 10, "Asia", 200],
+      ["01/01/2001", 0.01, "Africa", 392],
+      ["01/01/2001", 0.01, "Asia", 100],
+      ["01/01/2001", 0.1, "Africa", 248],
+      ["01/01/2001", 0.1, "Asia", 50],
+      ["01/01/2001", 1, "Africa", 617],
+      ["01/01/2001", 1, "Asia", 75],
+      ["01/01/2001", 10, "Africa", 971],
+      ["01/01/2001", 10, "Asia", 80],
+      ["01/01/2002", 0.01, "Africa", 449],
+      ["01/01/2002", 0.01, "Asia", 560],
+      ["01/01/2002", 0.1, "Africa", 289],
+      ["01/01/2002", 0.1, "Asia", 30],
+      ["01/01/2002", 1, "Africa", 697],
+      ["01/01/2002", 1, "Asia", 354],
+      ["01/01/2002", 10, "Africa", 1081],
+      ["01/01/2002", 10, "Asia", 64],
+      ["01/01/2003", 0.01, "Africa", 606],
+      ["01/01/2003", 0.01, "Asia", 64],
+      ["01/01/2003", 0.1, "Africa", 401],
+      ["01/01/2003", 0.1, "Asia", 63],
+      ["01/01/2003", 1, "Africa", 913],
+      ["01/01/2003", 1, "Asia", 16],
+      ["01/01/2003", 10, "Africa", 1375],
+      ["01/01/2003", 10, "Asia", 645],
+      ["01/01/2004", 0.01, "Africa", 831],
+      ["01/01/2004", 0.01, "Asia", 614],
+      ["01/01/2004", 0.1, "Africa", 565],
+      ["01/01/2004", 0.1, "Asia", 31],
+      ["01/01/2004", 1, "Africa", 1218],
+      ["01/01/2004", 1, "Asia", 64],
+      ["01/01/2004", 10, "Africa", 1781],
+      ["01/01/2004", 10, "Asia", 16],
+      ["01/01/2005", 0.01, "Africa", 950],
+      ["01/01/2005", 0.01, "Asia", 16],
+      ["01/01/2005", 0.1, "Africa", 654],
+      ["01/01/2005", 0.1, "Asia", 196],
+      ["01/01/2005", 1, "Africa", 1373],
+      ["01/01/2005", 1, "Asia", 16],
+      ["01/01/2005", 10, "Africa", 1978],
+      ["01/01/2005", 10, "Asia", 16]
+    ],
+    columns: [
+      {
+        name: "bi516",
+        label: "Date",
+        type: "date",
+        usage: "categorical",
+        format: {
+          name: "MMDDYY",
+          width: 8,
+          precision: 0,
+          formatString: "MMDDYY8"
+        }
+      },
+      {
+        name: "bi518",
+        label: "Income ($/day in constant ppp dollars 2011)",
+        type: "number",
+        usage: "categorical",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi517",
+        label: "Region",
+        type: "string"
+      },
+      {
+        name: "bi521",
+        label: "Population",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+  const FILL = {
+    Africa: "#21b9b7",
+    Asia: "#4141e0",
+    Europe: "#7db71a",
+    "The Americas": "#8e2f8a"
+  }; // Fill colors keyed to labels
+  const STROKE = {
+    Africa: "#1d9992",
+    Asia: "#2222bc",
+    Europe: "#6a9617",
+    "The Americas": "#6d256d"
+  }; // Stroke colors keyed to labels
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Result name required to send messages back to VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let CATEGORIES; // Categories present in data message
+  let Y_MAXIMUM = 0; // Maximum value for y scale (minimum of 0)
+  let Y_SCALE_SCALE = {}; // Format scaling of y scale
+  let NUM_X_TICKS; // Number of ticks on x axis
+  let DATA_SETS; // All data sets, one per date
+  let DATA_INDEX = 0; // Index of current data set
+  let STACK; // Stack generator
+  let STACKED_DATA; // Data arranged in stack to create stacked area graph
+  let OLD_STACKED_DATA; // Previous data used for update transitions
+  let LAST_TRANSITION_END = Date.now(); // Time of last transition end for transition queuing
+  let PLAYING = false; // Boolean for whether time animation is currently playing
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of transitions
+  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
+  const LEG_ROW_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
+  const LEG_TEXT_PAD = 5; // Padding after legend text
+  const VERT_PAD = 5; // Vertical padding between elements
+  const Y_AXIS_PAD = 2; // Padding between y-axis and chart area (prevent bar stroke overlapping axis)
+  const X_TICK_PAD = 10; // Padding between x tick labels to help space them out
+
+  // Dynamic dimension variables
+  let ANIMATION_TRANS_TIME = 250;
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let CHART_WIDTH; // Width of chart area for bars
+  let CHART_HEIGHT; // Height of chart area for bars
+  let Y_AXIS_WIDTH; // Width of y-axis
+  let X_AXIS_HEIGHT; // Height of x-axis
+  let LEG_EL_POS; // Positions of legend text elements
+  let LEG_HEIGHT; // Height allocated for legend
+  let X_LABEL_HEIGHT; // Height of x-axis label
+  let Y_LABEL_HEIGHT; // Height of y-axis label
+  let Y_TICK_HEIGHT; // Height of each y-tick
+  let X_TICK_MAX_WIDTH = 10; // Maximum of all x ticks
+  let DATE_TEXT_FONT_SIZE; // Font size to use for date text
+
+  // Selection and d3 variables
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
+  const DATE_FORMAT = d3.timeFormat("%Y"); // Format to use for date text
+  let SVG; // SVG selection
+  let DEFS; // Defs element selection
+  let GRADIENTS; // Gradients data-join
+  let X_SCALE; // Linear time scale for chart area
+  let Y_SCALE; // Linear scale for chart area path heights
+  let OLD_Y_SCALE; // Previous y scale for update transitions
+  let G_LEGEND; // Legend group selection
+  let LEGEND_TITLE; // Legend title data-join
+  let LEGEND_RECTS; // Legend rects data-join
+  let LEGEND_TEXTS; // Legend texts data-join
+  let X_LABEL; // X label data-join
+  let Y_LABEL; // Y label data-join
+  let X_AXIS; // X axis group data-join
+  let Y_AXIS; // Y axis group data join
+  let G_CHART_AREA; // Chart area group selection
+  let AREA; // Area generator
+  let OLD_AREA; // Previous area generator for update transitions
+  let DATA_PATHS; // Data paths data-join
+  let DATE_TEXT; // Date text data-join
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(handleCallback);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  // Animate when play button clicked
+  d3.select("#play-button").on("click", function() {
+    // Toggle playing boolean
+    PLAYING = !PLAYING;
+
+    // Update play button
+    d3.select("#play-button i")
+      .classed("fa-pause-circle", PLAYING ? true : false)
+      .classed("fa-play-circle", PLAYING ? false : true);
+
+    // Animate when played
+    if (PLAYING) {
+      // Reset slider if we are at end of data sets
+      if (DATA_INDEX == DATA_SETS.length - 1) {
+        d3.select("#date-slider").node().value = 0;
+      }
+
+      animateElements();
+    }
+  });
+
+  // Redraw when date slider moved
+  d3.select("#date-slider").on("input", function() {
+    // Update data index and data set, stop playing
+    DATA_INDEX = parseInt(this.value);
+    STACKED_DATA = STACK(DATA_SETS[DATA_INDEX].entries);
+    PLAYING = false;
+
+    // Update progress bar on slider
+    d3.select(this)
+      .attr("value", this.value)
+      .style("background-image", function() {
+        const middle =
+          (parseInt(this.value) - parseInt(this.min)) /
+          (parseInt(this.max) - parseInt(this.min));
+
+        return (
+          "-webkit-gradient(linear, left top, right top, " +
+          "color-stop(" +
+          middle +
+          ", #777777), " +
+          "color-stop(" +
+          middle +
+          ", #d3d3d3)" +
+          ")"
+        );
+      });
+
+    // Change play button to pause
+    d3.select("#play-button i")
+      .classed("fa-pause-circle", false)
+      .classed("fa-play-circle", true);
+
+    // Redraw selected data set
+    drawElements();
+  });
+
+  // Update animation time when speed slider moved
+  d3.select("#speed-slider").on("input", function() {
+    ANIMATION_TRANS_TIME = parseInt(this.value);
+  });
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Use timeouts to debounce update events
+  function handleCallback(messageFromVA) {
+    // Prevent duplicate data messages that come from nested filters
+    if (VA_MESSAGE && _.isEqual(messageFromVA, VA_MESSAGE)) {
+      return;
+    }
+
+    if (LAST_TRANSITION_END > Date.now()) {
+      setTimeout(function() {
+        onDataReceived(messageFromVA);
+      }, LAST_TRANSITION_END - Date.now());
+      LAST_TRANSITION_END = LAST_TRANSITION_END + TRANS_TIME + 50;
+    } else {
+      onDataReceived(messageFromVA);
+      LAST_TRANSITION_END = Date.now() + TRANS_TIME + 50;
+    }
+  }
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    va.contentUtil.convertDateColumns(messageFromVA);
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(messageFromVA, [
+        "date",
+        "number",
+        "string",
+        "number"
+      ])
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Animated Distribution Chart expects columns to be assigned in this order:\n" +
+          " 1. Date (date)\n" +
+          " 2. Distribution Bin Ceiling (number)\n" +
+          " 3. Group By Category (string)\n" +
+          " 4. Measure (number)"
+      );
+      return;
+    }
+
+    // Extract metadata from data message
+    METADATA = {
+      date: VA_MESSAGE.columns[0].label,
+      bin: VA_MESSAGE.columns[1].label,
+      category: VA_MESSAGE.columns[2].label,
+      measure: VA_MESSAGE.columns[3].label
+    };
+
+    // Create nests to help process data structure
+    CATEGORIES = d3
+      .nest()
+      .key(function(d) {
+        return d[2];
+      })
+      .entries(VA_MESSAGE.data);
+
+    // Extract data sets from 2d array format into associative array format
+    DATA_SETS = [];
+    let dateDatum, binDatum, binTotal;
+    let i = 0;
+    let length = VA_MESSAGE.data.length;
+    while (i < length) {
+      dateDatum = {
+        date: VA_MESSAGE.data[i][0],
+        entries: []
+      };
+
+      while (i < length && _.isEqual(dateDatum.date, VA_MESSAGE.data[i][0])) {
+        binTotal = 0;
+        binDatum = {
+          bin: VA_MESSAGE.data[i][1]
+        };
+
+        while (i < length && binDatum.bin == VA_MESSAGE.data[i][1]) {
+          binDatum[VA_MESSAGE.data[i][2]] = VA_MESSAGE.data[i][3];
+          binTotal += VA_MESSAGE.data[i][3];
+          i++;
+        }
+
+        Y_MAXIMUM = Math.max(Y_MAXIMUM, binTotal);
+        dateDatum.entries.push(binDatum);
+      }
+
+      DATA_SETS.push(dateDatum);
+    }
+
+    // Sort by earliest date and lowest bin
+    DATA_SETS.sort(function(a, b) {
+      return Date.parse(a.date) - Date.parse(b.date);
+    });
+
+    for (let i = 0; i < DATA_SETS.length; i++) {
+      DATA_SETS[i].entries.sort(function(a, b) {
+        return a.bin - b.bin;
+      });
+    }
+
+    // Calculate Y_SCALE_SCALE used to scale y values
+    calculateYScaleScale();
+    Y_MAXIMUM = Y_MAXIMUM / Math.pow(10, Y_SCALE_SCALE.factor);
+
+    // Update slider maximum
+    d3.select("#date-slider").attr("max", DATA_SETS.length - 1);
+
+    // Update slider min/max text
+    d3.select("#min-date").html(DATE_FORMAT(DATA_SETS[0].date));
+
+    d3.select("#max-date").html(
+      DATE_FORMAT(DATA_SETS[DATA_SETS.length - 1].date)
+    );
+
+    // Create data stack
+    STACK = d3
+      .stack()
+      .keys(
+        CATEGORIES.map(function(d) {
+          return d.key;
+        })
+      )
+      .value(function(d, key) {
+        return d[key] / Math.pow(10, Y_SCALE_SCALE.factor);
+      })
+      .offset(d3.stackOffsetNone);
+
+    OLD_STACKED_DATA = STACKED_DATA;
+    STACKED_DATA = STACK(DATA_SETS[DATA_INDEX].entries);
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!STACKED_DATA) {
+      return;
+    }
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([STACKED_DATA])
+      .enter()
+      .insert("svg", "div")
+      .attr("id", SVG_ID);
+
+    SVG = d3.select("#" + SVG_ID);
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = document.body.clientWidth;
+    HEIGHT = SVG.node().clientHeight;
+
+    // Append defs and save reference
+    SVG.selectAll("defs")
+      .data([STACKED_DATA])
+      .enter()
+      .append("defs");
+
+    DEFS = SVG.select("defs");
+
+    // Create gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
+      return d.key;
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.key.replace(/ /g, "_") + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Use fake scales to determine axes dimensions
+    calculateAxesDimensions();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([STACKED_DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEGEND = SVG.select(".g-legend");
+
+    // Create legend title
+    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([STACKED_DATA]);
+
+    LEGEND_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(METADATA.category)
+      .merge(LEGEND_TITLE)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(d.key);
+      })
+      .merge(LEGEND_RECTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Create legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEGEND_TEXTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Use legend height to move legend
+    G_LEGEND.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    });
+
+    // Create x axis label
+    X_LABEL = SVG.selectAll(".x-label").data([STACKED_DATA]);
+
+    X_LABEL.enter()
+      .append("text")
+      .classed("x-label", true)
+      .text(METADATA.bin)
+      .each(function() {
+        X_LABEL_HEIGHT = this.getBBox().height;
+      })
+      .merge(X_LABEL)
+      .attr("x", WIDTH / 2)
+      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+
+    // Create y axis label
+    Y_LABEL = SVG.selectAll(".y-label").data([STACKED_DATA]);
+
+    Y_LABEL.enter()
+      .append("text")
+      .classed("y-label", true)
+      .text(METADATA.measure + Y_SCALE_SCALE.text)
+      .each(function() {
+        Y_LABEL_HEIGHT = this.getBBox().height;
+      });
+
+    // Calculate chart dimensions
+    CHART_WIDTH = WIDTH - Y_AXIS_PAD - Y_AXIS_WIDTH;
+    CHART_HEIGHT =
+      HEIGHT -
+      LEG_HEIGHT -
+      X_LABEL_HEIGHT -
+      VERT_PAD -
+      X_AXIS_HEIGHT -
+      VERT_PAD -
+      Y_LABEL_HEIGHT;
+
+    // Initialize scales using chart dimensions
+    X_SCALE = d3
+      .scaleLog()
+      .domain(
+        d3.extent(DATA_SETS[DATA_INDEX].entries, function(d) {
+          return d.bin;
+        })
+      )
+      .rangeRound([0, CHART_WIDTH]);
+
+    NUM_X_TICKS =
+      Math.floor(Math.log10(X_SCALE.domain()[1] / X_SCALE.domain()[0])) + 1;
+
+    Y_SCALE = d3
+      .scaleLinear()
+      .domain([0, Y_MAXIMUM])
+      .rangeRound([CHART_HEIGHT, 0]);
+
+    // Create x axis
+    X_AXIS = SVG.selectAll(".x-axis").data([STACKED_DATA]);
+
+    X_AXIS.enter()
+      .append("g")
+      .classed("x-axis", true)
+      .merge(X_AXIS)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
+          ")"
+      )
+      .call(
+        d3
+          .axisBottom(X_SCALE)
+          .tickSizeOuter(0)
+          .ticks(NUM_X_TICKS, d3.format(".8"))
+      );
+
+    // Create y axis
+    Y_AXIS = SVG.selectAll(".y-axis").data([STACKED_DATA]);
+
+    Y_AXIS.enter()
+      .append("g")
+      .classed("y-axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + "," + (Y_LABEL_HEIGHT + VERT_PAD) + ")"
+      )
+      .merge(Y_AXIS)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            getTickValues(
+              0,
+              Y_MAXIMUM + 1,
+              parseFloat(CHART_HEIGHT / Y_TICK_HEIGHT),
+              1
+            )
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      );
+
+    // Determine date text font size
+    SVG.append("text")
+      .text("9999")
+      .style("font-size", "1em")
+      .each(function() {
+        const widthConstrained = CHART_WIDTH / this.getComputedTextLength();
+        const heightConstrained = CHART_HEIGHT / this.getBBox().height;
+        DATE_TEXT_FONT_SIZE =
+          Math.min(widthConstrained, heightConstrained) + "em";
+        d3.select(this).remove();
+      });
+
+    // Create date text
+    DATE_TEXT = SVG.selectAll(".date-text").data([DATA_SETS[DATA_INDEX].date]);
+
+    DATE_TEXT.enter()
+      .append("text")
+      .classed("date-text", true)
+      .merge(DATE_TEXT)
+      .text(function(d) {
+        return DATE_FORMAT(d);
+      })
+      .style("font-size", DATE_TEXT_FONT_SIZE)
+      .attr("transform", function() {
+        return (
+          "translate(" +
+          (Y_AXIS_WIDTH + CHART_WIDTH / 2) +
+          ", " +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT / 2) +
+          ")"
+        );
+      });
+
+    // Append G_CHART_AREA and save references
+    SVG.selectAll(".g-chart-area")
+      .data([STACKED_DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" +
+        (Y_AXIS_WIDTH + Y_AXIS_PAD) +
+        "," +
+        (Y_LABEL_HEIGHT + VERT_PAD) +
+        ")"
+    );
+
+    // Create area generator
+    AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE(d.data.bin);
+      })
+      .y0(function(d) {
+        return Y_SCALE(d[1]);
+      })
+      .y1(function(d) {
+        return Y_SCALE(d[0]);
+      })
+      .curve(d3.curveBasis);
+
+    // Create data paths
+    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(
+      STACKED_DATA,
+      function(d) {
+        return d.key;
+      }
+    );
+
+    DATA_PATHS.enter()
+      .append("path")
+      .attr("id", function(d) {
+        return d.key;
+      })
+      .classed("data-path", true)
+      .merge(DATA_PATHS)
+      .attr("d", AREA)
+      .attr("fill", function(d) {
+        return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+      })
+      .style("opacity", 0.6);
+  }
+
+  // Redraw data dependent elements on data changedIndex
+  function updateElements() {
+    // Update gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
+      return d.key;
+    });
+
+    GRADIENTS.each(function(d) {
+      d3.select(this)
+        .selectAll("stop")
+        .attr("stop-color", function() {
+          return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+        });
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.key.replace(/ /g, "_") + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Update legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_RECTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(d.key);
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_RECTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_TEXTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Move legend
+    G_LEGEND.transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+      });
+
+    // Move x axis label
+    SVG.select(".x-label")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+
+    // Calculate chart dimensions
+    CHART_WIDTH = WIDTH - Y_AXIS_PAD - Y_AXIS_WIDTH;
+    CHART_HEIGHT =
+      HEIGHT -
+      LEG_HEIGHT -
+      X_LABEL_HEIGHT -
+      VERT_PAD -
+      X_AXIS_HEIGHT -
+      VERT_PAD -
+      Y_LABEL_HEIGHT;
+
+    // Update y scales
+    OLD_Y_SCALE = Y_SCALE;
+    Y_SCALE = d3
+      .scaleLinear()
+      .domain([0, Y_MAXIMUM])
+      .rangeRound([CHART_HEIGHT, 0]);
+
+    // Update y axis
+    SVG.selectAll(".y-axis")
+      .transition()
+      .duration(TRANS_TIME)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            getTickValues(
+              0,
+              Y_MAXIMUM + 1,
+              parseFloat(CHART_HEIGHT / Y_TICK_HEIGHT),
+              1
+            )
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      );
+
+    // Move x axes
+    SVG.select(".x-axis")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
+          ")"
+      );
+
+    // Create old area generator
+    OLD_AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE(d.data.bin);
+      })
+      .y0(function(d) {
+        return OLD_Y_SCALE(d[1]);
+      })
+      .y1(function(d) {
+        return OLD_Y_SCALE(d[0]);
+      })
+      .curve(d3.curveBasis);
+
+    // Update clip path rect height
+    SVG.select(".clip-path-rect")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("height", CHART_HEIGHT);
+
+    // Update date text
+    DATE_TEXT = SVG.selectAll(".date-text").data([DATA_SETS[DATA_INDEX].date]);
+
+    DATE_TEXT.transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return (
+          "translate(" +
+          (Y_AXIS_WIDTH + CHART_WIDTH / 2) +
+          ", " +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT / 2) +
+          ")"
+        );
+      });
+
+    // Update data paths
+    DATA_PATHS = G_CHART_AREA.selectAll("path").data(STACKED_DATA, function(d) {
+      return d.key;
+    });
+
+    DATA_PATHS.transition()
+      .duration(TRANS_TIME)
+      .attr("d", AREA);
+
+    DATA_PATHS.enter()
+      .append("path")
+      .attr("id", function(d) {
+        return d.key;
+      })
+      .classed("data-path", true)
+      .attr("fill", function(d) {
+        return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(d.key);
+      })
+      .style("opacity", 0.6)
+      .attr("d", function() {
+        let neighborId, index;
+        if (this.previousElementSibling) {
+          neighborId = this.previousElementSibling.id;
+          index = 1;
+        } else {
+          neighborId = this.nextElementSibling.id;
+          index = 0;
+        }
+
+        let neighborIndex = OLD_STACKED_DATA.findIndex(function(element) {
+          return element.key == neighborId;
+        });
+        let neighborDatum = OLD_STACKED_DATA[neighborIndex];
+
+        const datum = [];
+        for (let i = 0; i < neighborDatum.length; i++) {
+          datum.push({
+            0: neighborDatum[i][index],
+            1: neighborDatum[i][index],
+            data: neighborDatum[i].data
+          });
+        }
+
+        return OLD_AREA(datum);
+      })
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("d", AREA);
+
+    DATA_PATHS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("d", function() {
+        let neighborId, index;
+        if (this.previousElementSibling) {
+          neighborId = this.previousElementSibling.id;
+          index = 1;
+        } else {
+          neighborId = this.nextElementSibling.id;
+          index = 0;
+        }
+
+        let neighborIndex = STACKED_DATA.findIndex(function(element) {
+          return element.key == neighborId;
+        });
+        let neighborDatum = STACKED_DATA[neighborIndex];
+
+        const datum = [];
+        for (let i = 0; i < neighborDatum.length; i++) {
+          datum.push({
+            0: neighborDatum[i][index],
+            1: neighborDatum[i][index],
+            data: neighborDatum[i].data
+          });
+        }
+
+        return AREA(datum);
+      })
+      .remove();
+  }
+
+  // Redraw elements changed over time
+  function animateElements() {
+    // Iterate to next dataset
+    DATA_INDEX = DATA_INDEX >= DATA_SETS.length - 1 ? 0 : DATA_INDEX + 1;
+    STACKED_DATA = STACK(DATA_SETS[DATA_INDEX].entries);
+
+    // Update date slider
+    d3.select("#date-slider")
+      .style("background-image", function() {
+        const middle =
+          (parseInt(this.value) + parseInt(this.step) - parseInt(this.min)) /
+          (parseInt(this.max) - parseInt(this.min));
+
+        return (
+          "-webkit-gradient(linear, left top, right top, " +
+          "color-stop(" +
+          middle +
+          ", #777777), " +
+          "color-stop(" +
+          middle +
+          ", #d3d3d3)" +
+          ")"
+        );
+      })
+      .node()
+      .stepUp();
+
+    // Update date texts
+    DATE_TEXT = SVG.selectAll(".date-text").data([DATA_SETS[DATA_INDEX].date]);
+
+    DATE_TEXT.text(function(d) {
+      return DATE_FORMAT(d);
+    });
+
+    // Update data paths
+    DATA_PATHS = G_CHART_AREA.selectAll(".data-path").data(
+      STACKED_DATA,
+      function(d) {
+        return d.key;
+      }
+    );
+
+    DATA_PATHS.transition()
+      .duration(ANIMATION_TRANS_TIME)
+      .attr("d", AREA);
+
+    // If playing and not at end of data sets, set timer to animate again
+    if (PLAYING && DATA_INDEX < DATA_SETS.length - 1) {
+      setTimeout(animateElements, ANIMATION_TRANS_TIME);
+    }
+    // Otherwise, pause
+    else if (DATA_INDEX == DATA_SETS.length - 1) {
+      PLAYING = false;
+
+      d3.select("#play-button i")
+        .classed("fa-pause-circle", false)
+        .classed("fa-play-circle", true);
+    }
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Use fake scales to determine axes dimensions
+  function calculateAxesDimensions() {
+    // Initialize scales with fake ranges
+    X_SCALE = d3
+      .scaleLog()
+      .domain(
+        d3.extent(DATA_SETS[DATA_INDEX].entries, function(d) {
+          return d.bin;
+        })
+      )
+      .rangeRound([0, 10]);
+
+    Y_SCALE = d3
+      .scaleLinear()
+      .domain([0, Y_MAXIMUM])
+      // .domain([0, d3.max(STACKED_DATA, function(layer) { return d3.max(layer, function(d){ return d[0] + d[1];}); })])
+      .rangeRound([0, 10]);
+
+    // Use dummy axes with fake scales to obtain dimensions
+    SVG.append("g")
+      .classed("y-axis", true)
+      .call(d3.axisLeft(Y_SCALE))
+      .each(function() {
+        Y_TICK_HEIGHT = d3
+          .select(this)
+          .select("text")
+          .node()
+          .getBBox().height;
+        Y_AXIS_WIDTH = this.getBBox().width;
+        this.remove();
+      });
+
+    SVG.append("g")
+      .classed("x-axis", true)
+      .call(d3.axisBottom(X_SCALE))
+      .each(function() {
+        d3.select(this)
+          .selectAll("text")
+          .each(function() {
+            X_TICK_MAX_WIDTH = Math.max(
+              X_TICK_MAX_WIDTH,
+              this.getComputedTextLength() + 2 * X_TICK_PAD
+            );
+          });
+        X_AXIS_HEIGHT = this.getBBox().height;
+        this.remove();
+      });
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(CATEGORIES)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG_RECT_WIDTH +
+          LEG_RECT_PAD +
+          LEG_TEXT_PAD <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG_EL_POS = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG_EL_POS.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG_EL_POS[i - 1].x +
+              textWidths[i - 1] +
+              LEG_RECT_WIDTH +
+              LEG_RECT_PAD +
+              LEG_TEXT_PAD,
+        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+      });
+    }
+
+    // Set legend height
+    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
+  }
+
+  // Compute array of readable tick values between min (inclusive) and max (exclusive) of length less than count
+  function getTickValues(min, max, count, minInterval) {
+    const pattern = [5, 2, 1];
+    let tickValues;
+    let range = max - min;
+    let pow = Math.floor(Math.log10(range));
+    let p = 0;
+    let interval = pattern[p] * Math.pow(10, pow);
+
+    do {
+      tickValues = d3.range(min, max, interval);
+
+      if (p == 2) {
+        p = 0;
+        pow--;
+      } else {
+        p++;
+      }
+
+      interval = pattern[p] * Math.pow(10, pow);
+    } while (d3.range(min, max, interval).length <= count && interval >= minInterval);
+
+    return tickValues;
+  }
+
+  // Calculate scale factor and corresponding text for y scale
+  function calculateYScaleScale() {
+    const log = Math.log10(Y_MAXIMUM);
+
+    if (log >= 18) {
+      Y_SCALE_SCALE.factor = 18;
+      Y_SCALE_SCALE.text = " (in quintillions)";
+    } else if (log >= 15) {
+      Y_SCALE_SCALE.factor = 15;
+      Y_SCALE_SCALE.text = " (in quadrillions)";
+    } else if (log >= 12) {
+      Y_SCALE_SCALE.factor = 12;
+      Y_SCALE_SCALE.text = " (in trillions)";
+    } else if (log >= 9) {
+      Y_SCALE_SCALE.factor = 9;
+      Y_SCALE_SCALE.text = " (in billions)";
+    } else if (log >= 6) {
+      Y_SCALE_SCALE.factor = 6;
+      Y_SCALE_SCALE.text = " (in millions)";
+    } else if (log >= 3) {
+      Y_SCALE_SCALE.factor = 3;
+      Y_SCALE_SCALE.text = " (in thousands)";
+    } else {
+      Y_SCALE_SCALE = 1;
+      Y_SCALE_SCALE.text = "";
+    }
+  }
+});
+</script>
+</body>
+</html>
