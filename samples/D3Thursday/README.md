@@ -4,5 +4,5 @@ The following visualizations were developed as a part of the D3 Thursday blog se
 
 ### Title | [Code]() | [Demo]() | [Blog Post]()
 
-<img align="left" src="./images/2.PNG">
+![Some Title](./2.PNG){:style="float: left; margin: 7px;"}
 Description text.....
