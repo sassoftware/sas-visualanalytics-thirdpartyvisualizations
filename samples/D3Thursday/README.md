@@ -46,13 +46,13 @@ This post illustrates how to use selections to create a variable view chart as w
 
 ### Split View Radar Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/9_Split_Radar.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/9_Split_Radar.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Creating-a-split-view-radar-chart-in-SAS-Visual-Analytics-with/ta-p/509208)
 
-<img width="600" height="600" src="./images/9.gif">
+<img width="600" height="300" src="./images/9.gif">
 
 This post shows how we can apply the variable view chart technique from the previous post to our radar chart example.
 
 ### Sunburst Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/10_Sunburst.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/10_Sunburst.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Visualizing-nested-data-with-a-sunburst-chart-in-SAS-Visual/ta-p/511114)
 
-<img width="600" height="600" src="./images/10.gif">
+<img width="600" height="425" src="./images/10.gif">
 
 This post goes over how to transform flat hierarchical datasets into a nested data structure and then visualize the nested data in a sunburst chart.
 
