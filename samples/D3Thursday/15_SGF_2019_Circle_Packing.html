@@ -61,6 +61,11 @@ limitations under the License.
     alignment-baseline: hanging;
   }
 
+  .selectable.selected {
+    stroke-width: 1px;
+    stroke: black;
+  }
+
   .d3-tip {
     pointer-events: none !important;
     background: white;
@@ -312,6 +317,13 @@ document.addEventListener("DOMContentLoaded", function() {
     // }
     //
 
+    // Add index
+    for (let i = 0; i < VA_MESSAGE.data.length; i++) {
+      VA_MESSAGE.data[i].push(i);
+    }
+
+    console.log(VA_MESSAGE.data);
+
     // Extract clusters from data message
     CLUSTERS = d3
       .nest()
@@ -329,8 +341,6 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .entries(VA_MESSAGE.data);
 
-    console.log(DATA);
-
     // Create d3 hierarchy from nested data
     ROOT = d3
       .hierarchy({ values: DATA }, function(d) {
@@ -339,28 +349,22 @@ document.addEventListener("DOMContentLoaded", function() {
       .count();
 
     traverse(ROOT, function(d) {
-      if (d.height == 0) {
-        d.data.id = "leaf-" + d.data[0];
+      if (d.depth == 0) {
+        d.data.id = "ROOT";
+      }
+      else if (d.depth == 1) {
+        d.data.id = "cluster-" + d.data.key.replace(/ /g, "");
       }
       else {
-        d.data.id = "cluster-" + d.data.key;
+        d.data.id = "leaf-" + d.data[0].replace(/ /g, "");
       }
-    });
 
-    console.log(ROOT);
+    });
     DIST_SCALE = d3.scaleLinear()
       .domain(d3.extent(VA_MESSAGE.data, function(d) {
         return d[2];
       }))
       .range([1, .2]);
-
-    console.log(d3.extent(VA_MESSAGE.data, function(d) {
-      return d[2];
-    }));
-
-    console.log(d3.extent(VA_MESSAGE.data, function(d) {
-      return d[2];
-    }));
 
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
@@ -372,7 +376,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Draw elements for first time and on resize event
   function drawElements() {
-    console.log("DRAW");
     // Return if data is not yet initialized
     if (!DATA) {
       return;
@@ -389,6 +392,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .enter()
       .append("svg")
       .attr("id", SVG_ID)
+      .on("click", deselectAllElements)
       .each(initializeTips);
 
     SVG = d3
@@ -502,7 +506,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .enter()
       .append("circle")
       .attr("class", function(d) {
-        return "data-circle depth-" + d.depth;
+        return "selectable data-circle depth-" + d.depth;
       })
       .attr("fill", function(d) {
         if (!d.height) {
@@ -543,25 +547,20 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .style("opacity", function(d) {
         return DIST_SCALE(d.data[2]);
+      })
+      .on("click", function() {
+        selectElement(this);
       });
   }
 
   // Redraw data dependent elements on data change
-  // function updateElements() {
-  //   console.log("UPDATE");
-  //   // Remove all elements
-  //   SVG.selectAll("*").remove();
-  //
-  //   // Redraw with updated data
-  //   drawElements();
-  // }
   function updateElements() {
-    console.log("UPDATE");
-
+    // Remove all elements
     d3.select("#" + SVG_ID)
       .selectAll("*")
       .remove();
 
+    // Redraw elements
     drawElements();
   }
 
@@ -573,6 +572,82 @@ document.addEventListener("DOMContentLoaded", function() {
       return window.self !== window.top;
     } catch (e) {
       return true;
+    }
+  }
+
+  // Deselect all on svg click
+  function deselectAllElements() {
+    // Deselect all elements
+    d3.selectAll(".selectable").classed("selected", false);
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
+  }
+
+  // Handle selection on element
+  function selectElement(el) {
+    console.clear();
+    // Prevent event from falling through to underlying elements
+    d3.event.stopPropagation();
+
+    // If control is held toggle selected on click preserving array, otherwise select only clicked element
+    const selections = [];
+    if (d3.event.ctrlKey) {
+      console.log("ctl");
+      // Toggle selection on clicked element and all sub elements
+      const selectBool = !d3.select(el).classed("selected")
+
+      d3.select(el)
+        .each(function(d) {
+            selectChildren(d, selectBool);
+        });
+
+      // Build array of selected elements
+      d3.selectAll(".selectable").each(function(d) {
+        if (d3.select(this).classed("selected")) {
+          if (d.data[4] != undefined) {
+            selections.push({ row: d.data[4] });
+          }
+        }
+      });
+    } else {
+      console.log("no ctl");
+      // Deselect all elements
+      d3.selectAll(".selectable").classed("selected", false);
+
+      // Select clicked element and all children elements
+      d3.select(el)
+        .each(function(d) {
+          selectChildren(d, true);
+        });
+
+      // Build array of selected elements
+      d3.selectAll(".selectable").each(function(d) {
+        if (d3.select(this).classed("selected")) {
+          if (d.data[4] != undefined) {
+            selections.push({ row: d.data[4] });
+          }
+        }
+      });
+    }
+
+    console.log(selections);
+    
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+  }
+
+  // Recurse selection to elements nodes
+  function selectChildren(node, selectBool) {
+    // Toggle selection on current node
+    d3.select("#" + node.data.id)
+      .classed("selected", selectBool);
+
+    // Toggle selection on children if present
+    if (node.children) {
+      for (let i = 0; i < node.children.length; i++) {
+        selectChildren(node.children[i], selectBool);
+      }
     }
   }
 
