@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+  <style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .data-circle.depth-0,
+  .data-circle.depth-1 {
+    stroke: #CCC;
+    stroke-width: 1px;
+  }
+
+  .legend-rect {
+    stroke-width: 1px;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    alignment-baseline: hanging;
+  }
+
+  .d3-tip {
+    pointer-events: none !important;
+    background: white;
+    position: relative;
+    border: 1px solid #C4C4C4;
+    border-radius: 2px;
+  }
+
+  /* Create arrow on tooltip */
+  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 5px 10px 5px 0;
+    border-color: transparent #C4C4C4;
+    transform-origin: 0% 0%;
+  }
+
+  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 4px 8px 4px 0;
+    border-color: transparent #fff;
+    transform-origin: 0% 0%;
+  }
+
+  /* Move the arrow depending on direction */
+  /* North */
+  .d3-tip.n:before, .d3-tip.n:after {
+    top: 100%;
+    left: 50%;
+    transform: rotate(-90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.n:after {
+    transform: rotate(-90deg) translate(-7px, -4px);
+  }
+
+  /* North east */
+  .d3-tip.ne:before, .d3-tip.ne:after {
+    top: 100%;
+    left: 0%;
+    transform: rotate(-45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.ne:after {
+    transform: rotate(-45deg) translate(-3px, -4px);
+  }
+
+  /* North west */
+  .d3-tip.nw:before, .d3-tip.nw:after {
+    top: 100%;
+    left: 100%;
+    transform: rotate(-135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.nw:after {
+    transform: rotate(-135deg) translate(-3px, -4px);
+  }
+
+  /* South */
+  .d3-tip.s:before, .d3-tip.s:after {
+    top: 0%;
+    left: 50%;
+    transform: rotate(90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.s:after {
+    transform: rotate(90deg) translate(-7px, -4px);
+  }
+
+  /* South east */
+  .d3-tip.se:before, .d3-tip.se:after {
+    top: 0%;
+    left: 0%;
+    transform: rotate(45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.se:after {
+    transform: rotate(45deg) translate(-3px, -4px);
+  }
+
+  /* South west */
+  .d3-tip.sw:before, .d3-tip.sw:after {
+    top: 0%;
+    left: 100%;
+    transform: rotate(135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.sw:after {
+    transform: rotate(135deg) translate(-3px, -4px);
+  }
+
+  /* Style tip content */
+  .d3-tip-content {
+    font-family: Verdana, sans-serif;
+    font-size: .9em;
+    text-align: left;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "sgf-circle-packing"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd75",
+    rowCount: 6,
+    availableRowCount: 6,
+    data: [
+      ["Hybrid", 3],
+      ["Sedan", 262],
+      ["Sports", 49],
+      ["SUV", 60],
+      ["Truck", 24],
+      ["Wagon", 30]
+    ],
+    columns: [
+      {
+        name: "bi77",
+        label: "Type",
+        type: "string"
+      },
+      {
+        name: "bi78",
+        label: "Frequency",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "totalCount",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 0,
+          formatString: "COMMA12."
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let CLUSTERS; //
+  let DATA; // Data to be parsed from VA data message
+  let ROOT;
+
+  // Static dimension variables
+  const TRANS_TIME = 5000;
+  const HOVER_TRANS_TIME = 100; // Duration of focus transitions
+  const EDGE_PADDING = 5; // Pading around edge of circle pack
+  const LEG_TOP_PAD = 5; // Padding between chart and legend title
+  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
+  const LEG_ROW_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
+  const LEG_TEXT_PAD = 5; // Padding after legend text
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let LEG_EL_POS; // Positions of legend text elements
+  let LEG_HEIGHT; // Height allocated for legend
+  let PACK_SIZE; // Width/height allocated for pack
+
+  // Selection and d3 variables
+  d3.selection.prototype.moveToFront = function() {
+    return this.each(function() {
+      this.parentNode.appendChild(this);
+    });
+  }; // Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeDark2); // Ordinal color scale as backup
+  let DIST_SCALE;
+  let SVG; // SVG selection
+  let TIP; // Tooltip generator
+  let TIP_DIRECTION; // Direction for tip used to calculate offset
+  let G_LEGEND; // Legend group selection
+  let LEGEND_TITLE; // Legend title data-join
+  let LEGEND_RECTS; // Legend rects data-join
+  let LEGEND_TEXTS; // Legend texts data-join
+  let G_CHART_AREA; // Chart area group selection
+  let DATA_CIRCLES; // Data Arcs data-join
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    console.log("ON DATA RECEIVED");
+    console.log(messageFromVA);
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+
+    // // Create array of optional columns
+    // const optional = [];
+    // let optionalString = "";
+    // for (let i=0; i<NUM_OPTIONAL_CATEGORIES; i++) {
+    //   optional.push("string")
+    //   optionalString += " " + (i+3) + ". Category (string) [optional]\n";
+    // }
+    //
+    // // Validate data roles
+    // if (
+    //   !va.contentUtil.validateRoles(messageFromVA, [
+    //     "number",
+    //     "string"
+    //   ], optional)) {
+    //   va.messagingUtil.postInstructionalMessage(
+    //     VA_RESULT_NAME,
+    //     "D3 Sunburst Chart expects columns to be assigned in this order:\n" +
+    //       " 1. Measure (number)\n" +
+    //       " 2. Category (string)\n" +
+    //       optionalString
+    //   );
+    //   return;
+    // }
+    //
+    // // Extract metadata from data message
+    // METADATA = {
+    //   value: {
+    //     label: VA_MESSAGE.columns[0].label,
+    //     format: VA_MESSAGE.columns[0].format
+    //   },
+    //   categories: []
+    // };
+    //
+    // for(let i=1; i<VA_MESSAGE.columns.length; i++) {
+    //   METADATA.categories.push(VA_MESSAGE.columns[i].label)
+    // }
+    //
+
+    // Extract clusters from data message
+    CLUSTERS = d3
+      .nest()
+      .key(function(d) {
+        return d[1];
+      })
+      .sortKeys(d3.ascending)
+      .entries(VA_MESSAGE.data);
+
+    // Convert flat data into nested structure
+    DATA = d3
+      .nest()
+      .key(function(d) {
+        return d[1];
+      })
+      .entries(VA_MESSAGE.data);
+
+    console.log(DATA);
+
+    // Create d3 hierarchy from nested data
+    ROOT = d3
+      .hierarchy({ values: DATA }, function(d) {
+        return d.values;
+      })
+      .count();
+
+    traverse(ROOT, function(d) {
+      if (d.height == 0) {
+        d.data.id = "leaf-" + d.data[0];
+      }
+      else {
+        d.data.id = "cluster-" + d.data.key;
+      }
+    });
+
+    console.log(ROOT);
+    DIST_SCALE = d3.scaleLinear()
+      .domain(d3.extent(VA_MESSAGE.data, function(d) {
+        return d[2];
+      }))
+      .range([1, .2]);
+
+    console.log(d3.extent(VA_MESSAGE.data, function(d) {
+      return d[2];
+    }));
+
+    console.log(d3.extent(VA_MESSAGE.data, function(d) {
+      return d[2];
+    }));
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    console.log("DRAW");
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .each(initializeTips);
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEGEND = SVG.select(".g-legend");
+
+    // Create legend title
+    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+    LEGEND_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text("Cluster ID")
+      .merge(LEGEND_TITLE)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CLUSTERS, function(d) {
+      return d.key;
+    });
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return COLOR_SCALE(d.key);
+      })
+      .attr("stroke", function(d, i) {
+        return d3.color(COLOR_SCALE(d.key)).darker().toString();
+      })
+      .merge(LEGEND_RECTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Create legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CLUSTERS, function(d) {
+      return d.key;
+    });
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEGEND_TEXTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Determine pack size and move legend
+    G_LEGEND.attr("transform", function() {
+      PACK_SIZE =
+        Math.min(
+          WIDTH - 2 * EDGE_PADDING,
+          HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - EDGE_PADDING
+        );
+      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    });
+
+    // Pack nested data
+    d3.pack().size([PACK_SIZE, PACK_SIZE]).padding(6)(ROOT);
+
+    // Append chart area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area")
+      .attr("transform", "translate(" + (WIDTH / 2 - PACK_SIZE / 2) + ", " + (HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - PACK_SIZE) + ")");
+
+    // Append data arcs
+    DATA_CIRCLES = G_CHART_AREA.selectAll(".data-circle")
+      .data(
+        ROOT.descendants()
+          .filter(function(d) {
+            // return !d.height;
+            return true;
+          })
+        ,
+        function(d) {
+          return d.data.id;
+        }
+      );
+
+    DATA_CIRCLES
+      .enter()
+      .append("circle")
+      .attr("class", function(d) {
+        return "data-circle depth-" + d.depth;
+      })
+      .attr("fill", function(d) {
+        if (!d.height) {
+          return COLOR_SCALE(d.data[1]);
+        }
+        else if (d.height == 1) {
+          return "#FFF";
+        }
+        else {
+          return "#EEE";
+        }
+      })
+      .attr("id", function(d) {
+        return d.data.id;
+      })
+      .on("mouseover", function(d, i) {
+        if (!d.height) {
+          // Assign direction and show tooltip
+          TIP
+            .direction("n")
+            .offset([-8, 0])
+            .show(d, this)
+            .direction(getDirection())
+            .offset(getOffset())
+            .show(d, this);
+        }
+      })
+      .on("mouseout", TIP.hide)
+      .merge(DATA_CIRCLES)
+      .attr("cx", function(d) {
+        return d.x;
+      })
+      .attr("cy", function(d) {
+        return d.y;
+      })
+      .attr("r", function(d) {
+        return d.r;
+      })
+      .style("opacity", function(d) {
+        return DIST_SCALE(d.data[2]);
+      });
+  }
+
+  // Redraw data dependent elements on data change
+  // function updateElements() {
+  //   console.log("UPDATE");
+  //   // Remove all elements
+  //   SVG.selectAll("*").remove();
+  //
+  //   // Redraw with updated data
+  //   drawElements();
+  // }
+  function updateElements() {
+    console.log("UPDATE");
+
+    d3.select("#" + SVG_ID)
+      .selectAll("*")
+      .remove();
+
+    drawElements();
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Initialize tooltips
+  function initializeTips() {
+    TIP = d3
+      .tip()
+      .attr("class", "d3-tip")
+      .offset([-8, 0])
+      .html(function(d) {
+        return (
+          "<table class='d3-tip-content'> <tr> <td> " +
+          d.data[3] +
+          "</td> </tr> </table>"
+        );
+      });
+
+    d3.select(this).call(TIP);
+  }
+
+  // Determine direction for tooltip
+  function getDirection() {
+    const tip = d3.select(".d3-tip").node();
+    const w = tip.clientWidth;
+    const h = tip.clientHeight;
+    const left = tip.offsetLeft;
+    const top = tip.offsetTop;
+    let dir;
+
+    dir = top < 0 ? "s" : "n";
+
+    if (left < 0) {
+      dir += "e";
+    }
+    else if (left + w > WIDTH) {
+      dir += "w";
+    }
+    TIP_DIRECTION = dir;
+    return dir;
+  }
+
+  // Determine offset for tooltip based on direction
+  function getOffset() {
+    let offset;
+
+    switch(TIP_DIRECTION) {
+      case "n":
+        offset = [-8, 0];
+        break;
+      case "ne":
+        offset = [-5, 0];
+        break;
+      case "nw":
+        offset = [-5, 0];
+        break;
+      case "s":
+        offset = [8, 0];
+        break;
+      case "se":
+        offset = [5, 0];
+        break;
+      case "sw":
+        offset = [5, 0];
+        break;
+
+    }
+
+    return offset;
+  }
+
+  // Traverse tree from root and invoke callback on each node
+  function traverse(node, callback) {
+    callback(node);
+    if (node.children) {
+      for (let i = 0; i < node.children.length; i++) {
+        traverse(node.children[i], callback);
+      }
+    }
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(CLUSTERS)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG_RECT_WIDTH +
+          LEG_RECT_PAD +
+          LEG_TEXT_PAD <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG_EL_POS = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG_EL_POS.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG_EL_POS[i - 1].x +
+              textWidths[i - 1] +
+              LEG_RECT_WIDTH +
+              LEG_RECT_PAD +
+              LEG_TEXT_PAD,
+        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+      });
+    }
+
+    // Set legend height
+    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
+  }
+});
+</script>
+</body>
+</html>
