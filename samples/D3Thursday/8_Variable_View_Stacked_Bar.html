@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import font awesome -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    float: left;
+    min-width: 300px;
+    min-height: 200px;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .x-axis, .y-axis {
+    font-size: .8em;
+  }
+
+  .x-label {
+    font-size: .9em;
+    text-anchor: Middle;
+    alignment-baseline: ideographic;
+  }
+
+  .y-label {
+    font-size: .9em;
+    alignment-baseline: hanging;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    alignment-baseline: hanging;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
+  }
+
+  .data-bar {
+    cursor: pointer;
+  }
+
+  .data-bar:hover {
+    opacity: .5;
+    stroke-width: 2px;
+    stroke: black;
+  }
+
+  .tip {
+    position: absolute;
+    display: inline-block;
+    overflow: hidden;
+    background: white;
+    border: 1px solid #C4C4C4;
+    box-shadow: 3px 3px 3px #444444;
+    border-radius: 2px;
+  }
+
+  .tip-close {
+    color: #A4A4A4;
+    position: absolute;
+    cursor: pointer;
+    right: 5px;
+  }
+
+  .tip-close:hover {
+    color: #444444;
+  }
+
+  .tip-content {
+    margin-top: 10px;
+    white-space: nowrap;
+    font-family: Verdana, sans-serif;
+    font-size: .8em;
+    text-align: left;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "vvs-bar"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd427",
+    rowCount: 22,
+    availableRowCount: 22,
+    data: [
+      ["1960", "Andorra", 223, "Left Aligned", 0],
+      ["1960", "Belgium", 221, "Center Aligned", 1],
+      ["1961", "Andorra", 243, "Left Aligned", 0],
+      ["1961", "Belgium", 168, "Center Aligned", 1],
+      ["1962", "Andorra", 70, "Left Aligned", 0],
+      ["1962", "Belgium", 50, "Center Aligned", 1],
+      ["1963", "Andorra", 88, "Left Aligned", 0],
+      ["1963", "Belgium", 69, "Center Aligned", 1],
+      ["1964", "Andorra", 174, "Left Aligned", 0],
+      ["1964", "Belgium", 218, "Center Aligned", 1],
+      ["1965", "Andorra", 232, "Left Aligned", 0],
+      ["1965", "Belgium", 281, "Center Aligned", 1],
+      ["1966", "Andorra", 212, "Left Aligned", 0],
+      ["1966", "Belgium", 178, "Center Aligned", 1],
+      ["1967", "Andorra", 252, "Left Aligned", 0],
+      ["1967", "Belgium", 260, "Center Aligned", 1],
+      ["1968", "Andorra", 179, "Left Aligned", 0],
+      ["1968", "Belgium", 75, "Center Aligned", 1],
+      ["1969", "Andorra", 223, "Left Aligned", 0],
+      ["1969", "Belgium", 118, "Center Aligned", 1],
+      ["1970", "Andorra", 98, "Left Aligned", 0],
+      ["1970", "Belgium", 120, "Center Aligned", 1]
+    ],
+    columns: [
+      {
+        name: "bi423",
+        label: "Year",
+        type: "string"
+      },
+      {
+        name: "bi424",
+        label: "Country",
+        type: "string"
+      },
+      {
+        name: "bi428",
+        label: "Population (in millions)",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi425",
+        label: "View",
+        type: "string"
+      },
+      {
+        name: "ri1",
+        type: "number",
+        usage: "brush",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 2,
+          formatString: "COMMA12.2"
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+  const FILL = {
+    Andorra: "#21b9b7",
+    Belgium: "#4141e0",
+    Mexico: "#7db71a",
+    Syria: "#8e2f8a",
+    "United Arab Emirates": "#d38506",
+    "United Kingdom": "#0abf85",
+    "United States": "#2f90ec",
+    Zimbabwe: "#db3851"
+  }; // Fill colors keyed to labels
+  const STROKE = {
+    Andorra: "#1d9992",
+    Belgium: "#2222bc",
+    Mexico: "#6a9617",
+    Syria: "#6d256d",
+    "United Arab Emirates": "#ba7006",
+    "United Kingdom": "#0a9e69",
+    "United States": "#07689e",
+    Zimbabwe: "#a50a2f"
+  }; // Stroke colors keyed to labels
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Result name required to send messages back to VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let CENTERED; // Boolean indicating whether graph should be rendered in centered mode
+  let METADATA; // Metadata to be parsed from VA data message
+  let CATEGORIES; // Categories present in DATA
+  let DATA; // Data to be parsed from VA data message
+  let CENTER_GUIDES; // Pixel location guides to assist in rendering centered bars
+  let MAX_CENTERED; // Sum of the maximum values for each category
+  let MAX_LEFT; // Sum of values for the longest row
+  let MAXIMUMS; // Maximum values by country
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of transitions
+  const TIP_TRANS_TIME = 250; // Duration of tooltip transitions
+  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
+  const LEG_ROW_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
+  const LEG_TEXT_PAD = 5; // Padding after legend text
+  const VERT_PAD = 5; // Vertical padding between elements
+  const Y_AXIS_PAD = 2; // Padding between y-axis and chart area (prevent bar stroke overlapping axis)
+  const X_TICK_PAD = 10; // Padding between x tick labels to help space them out
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let CHART_WIDTH; // Width of chart area for bars
+  let CHART_HEIGHT; // Height of chart area for bars
+  let Y_AXIS_WIDTH; // Width of y-axis
+  let X_AXIS_HEIGHT; // Height of x-axis
+  let LEG_EL_POS; // Positions of legend text elements
+  let LEG_HEIGHT; // Height allocated for legend
+  let X_LABEL_HEIGHT; // Height of x-axis label
+  let Y_LABEL_HEIGHT; // Height of y-axis label
+  let Y_TICK_HEIGHT;
+  let X_TICK_MAX_WIDTH = 10;
+
+  // Selection and d3 variables
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
+  let SVG; // SVG selection
+  let DEFS; // Defs element selection
+  let GRADIENTS; // Gradients data-join
+  let X_SCALE; // Linear scale for bar widths
+  let Y_SCALE; // Band scale for year variable
+  let G_LEGEND; // Legend group selection
+  let LEGEND_TITLE; // Legend title data-join
+  let LEGEND_RECTS; // Legend rects data-join
+  let LEGEND_TEXTS; // Legend texts data-join
+  let X_LABEL; // X label data-join
+  let Y_LABEL; // Y label data-join
+  let X_AXIS; // X axis group data-join
+  let Y_AXIS; // Y axis group data join
+  let G_CHART_AREA; // Chart area group selection
+  let YEAR_GROUPS; // Year groups data-join
+  let DATA_BARS; // Data bars data-join
+  let TIPS; // Tooltips data-join
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(messageFromVA, [
+        "string",
+        "string",
+        "number",
+        "string",
+        "number"
+      ])
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Variable View Stacked Bar Chart expects columns to be assigned in this order:\n" +
+          " 1. Y Category (string)\n" +
+          " 2. Group By Category (string)\n" +
+          " 3. Measure (number)\n" +
+          " 4. View (string)\n" +
+          " 5. View Selection (from linked selection) (number)"
+      );
+      return;
+    }
+
+    // Determine whether or not data should be centered based on selection
+    CENTERED =
+      (VA_MESSAGE.data[0][3] == "Center Aligned" &&
+        VA_MESSAGE.data[0][4] == 1) ||
+      (VA_MESSAGE.data[0][3] == "Left Aligned" &&
+        VA_MESSAGE.data[0][4] == 0);
+
+    // Restructure metadata from data message
+    METADATA = {
+      year: VA_MESSAGE.columns[0].label,
+      category: VA_MESSAGE.columns[1].label,
+      measure: VA_MESSAGE.columns[2].label
+    };
+
+    // Create nest to help process data structure
+    CATEGORIES = d3
+      .nest()
+      .key(function(d) {
+        return d[1];
+      })
+      .entries(VA_MESSAGE.data);
+
+    // Restructure data from 2d array format into associative array format
+    DATA = [];
+    MAX_LEFT = 0;
+    let year, category, measure, datum, cumMeasure;
+    for (let i = 0, length = VA_MESSAGE.data.length; i < length; i++) {
+      year = parseInt(VA_MESSAGE.data[i][0]);
+      category = VA_MESSAGE.data[i][1];
+      measure = VA_MESSAGE.data[i][2];
+
+      if (i == 0 || year != parseInt(VA_MESSAGE.data[i - 1][0])) {
+        cumMeasure = 0;
+        datum = {
+          year: year,
+          entries: []
+        };
+      }
+
+      datum.entries.push({
+        year: year,
+        category: category,
+        categoryNoSpace: category.replace(/ /g, "_"),
+        measure: measure,
+        cumMeasure: cumMeasure
+      });
+
+      cumMeasure += measure;
+      MAX_LEFT = Math.max(cumMeasure, MAX_LEFT);
+
+      if (i == length - 1 || year != parseInt(VA_MESSAGE.data[i + 1][0])) {
+        DATA.push(datum);
+      }
+    }
+
+    // Get maximum measure for each country
+    let entry;
+    MAXIMUMS = {};
+    for (let i = 0; i < DATA.length; i++) {
+      for (let j = 0; j < DATA[i].entries.length; j++) {
+        entry = DATA[i].entries[j];
+        if (
+          MAXIMUMS[entry.category] == null ||
+          MAXIMUMS[entry.category] < entry.measure
+        ) {
+          MAXIMUMS[entry.category] = entry.measure;
+        }
+      }
+    }
+
+    // Sum maximums to determine domain of x scale
+    MAX_CENTERED = 0;
+    for (const country in MAXIMUMS) {
+      MAX_CENTERED += MAXIMUMS[country];
+    }
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = document.body.clientWidth;
+    HEIGHT = document.body.clientHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .on("click", hideTip);
+
+    SVG = d3.select("#" + SVG_ID);
+
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    DEFS = SVG.select(".gradient-defs");
+
+    // Create gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
+      return d.key;
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.key.replace(/ /g, "_") + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d, i) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Use fake scales to determine axes dimensions
+    calculateAxesDimensions();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEGEND = SVG.select(".g-legend");
+
+    // Create legend title
+    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+    LEGEND_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(METADATA.category)
+      .merge(LEGEND_TITLE)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(i);
+      })
+      .merge(LEGEND_RECTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Create legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEGEND_TEXTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Use legend height to move legend
+    G_LEGEND.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    });
+
+    // Create x axis label
+    X_LABEL = SVG.selectAll(".x-label").data([DATA]);
+
+    X_LABEL.enter()
+      .append("text")
+      .classed("x-label", true)
+      .text(METADATA.measure)
+      .each(function() {
+        X_LABEL_HEIGHT = this.getBBox().height;
+      })
+      .merge(X_LABEL)
+      .attr("x", WIDTH / 2)
+      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+
+    // Create y axis label
+    Y_LABEL = SVG.selectAll(".y-label").data([DATA]);
+
+    Y_LABEL.enter()
+      .append("text")
+      .classed("y-label", true)
+      .text(METADATA.year)
+      .each(function() {
+        Y_LABEL_HEIGHT = this.getBBox().height;
+      });
+
+    // Init scales with dynamic dimensions
+    createDynamicScales();
+
+    // Create x axis
+    X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
+
+    X_AXIS.enter()
+      .append("g")
+      .classed("x-axis", true)
+      .merge(X_AXIS)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
+          ")"
+      )
+      .call(
+        d3
+          .axisBottom(X_SCALE)
+          .tickValues(
+            getTickValues(
+              0,
+              CENTERED ? MAX_CENTERED : MAX_LEFT,
+              parseInt(CHART_WIDTH / X_TICK_MAX_WIDTH),
+              50
+            )
+          )
+          .tickSizeOuter(0)
+      );
+
+    // Create y axis
+    Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
+
+    Y_AXIS.enter()
+      .append("g")
+      .classed("y-axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + "," + (Y_LABEL_HEIGHT + VERT_PAD) + ")"
+      )
+      .merge(Y_AXIS)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            getTickValues(
+              d3.min(DATA, function(d) {
+                return d.year;
+              }),
+              d3.max(DATA, function(d) {
+                return d.year;
+              }) + 1,
+              parseInt(CHART_HEIGHT / Y_TICK_HEIGHT),
+              1
+            )
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      );
+
+    // Append G_CHART_AREA and save references
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" +
+        (Y_AXIS_WIDTH + Y_AXIS_PAD) +
+        "," +
+        (Y_LABEL_HEIGHT + VERT_PAD) +
+        ")"
+    );
+
+    // Create bar groups and bars for each category + year
+    YEAR_GROUPS = G_CHART_AREA.selectAll(".g-year").data(DATA, function(d) {
+      return d.year;
+    });
+
+    YEAR_GROUPS.enter()
+      .append("g")
+      .classed("g-year", true)
+      .attr("id", function(d) {
+        return "g-year-" + d.year;
+      })
+      .merge(YEAR_GROUPS)
+      .each(function(d) {
+        DATA_BARS = d3
+          .select(this)
+          .selectAll(".data-bar")
+          .data(d.entries, function(d) {
+            return d.category;
+          });
+
+        DATA_BARS.enter()
+          .append("rect")
+          .attr("class", function(d) {
+            return d.categoryNoSpace;
+          })
+          .classed("data-bar", true)
+          .attr("data-d", function(d) {
+            return JSON.stringify(d);
+          })
+          .attr("fill", function(d) {
+            return "url(#" + d.categoryNoSpace + "-gradient)";
+          })
+          .attr("stroke", function(d, i) {
+            return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+          })
+          .attr("stroke-width", "1")
+          .on("click", showTip)
+          .merge(DATA_BARS)
+          .attr("x", function(d) {
+            return CENTERED
+              ? CENTER_GUIDES[d.category].middle - X_SCALE(d.measure / 2)
+              : X_SCALE(d.cumMeasure);
+          })
+          .attr("y", function(d) {
+            return Y_SCALE(d.year);
+          })
+          .attr("width", function(d) {
+            return X_SCALE(d.measure);
+          })
+          .attr("height", function() {
+            return Y_SCALE.bandwidth();
+          });
+      });
+
+    // Move tooltip if present
+    d3.select(".tip")
+      .style("top", function() {
+        return Y_LABEL_HEIGHT + CHART_HEIGHT / 2 - this.height / 2 + "px";
+      })
+      .style("left", function() {
+        return Y_AXIS_WIDTH + CHART_WIDTH / 2 - this.width / 2 + "px";
+      });
+  }
+
+  // Redraw data dependent elements on data change
+  function updateElements() {
+    // Update gradients
+    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
+      return d.key;
+    });
+
+    GRADIENTS.each(function(d, i) {
+      d3.select(this)
+        .selectAll("stop")
+        .attr("stop-color", function() {
+          return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
+        });
+    });
+
+    GRADIENTS.enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.key.replace(/ /g, "_") + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d, i) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+
+    // Use fake scales to determine axes dimensions
+    calculateAxesDimensions();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Update legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_RECTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(i);
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_RECTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
+      d
+    ) {
+      return d.key;
+    });
+
+    LEGEND_TEXTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Use legend height to move legend
+    G_LEGEND.transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+      });
+
+    // Move x-label
+    SVG.selectAll(".x-label")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+
+    // Call helper function to init scales with dynamic dimensions
+    createDynamicScales();
+
+    // Update x axis
+    SVG.selectAll(".x-axis")
+      .transition()
+      .duration(TRANS_TIME)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
+          ")"
+      )
+      .call(
+        d3
+          .axisBottom(X_SCALE)
+          .tickValues(
+            getTickValues(
+              0,
+              CENTERED ? MAX_CENTERED : MAX_LEFT,
+              parseInt(CHART_WIDTH / X_TICK_MAX_WIDTH),
+              50
+            )
+          )
+          .tickSizeOuter(0)
+      );
+
+    // Update y axis
+    Y_AXIS = SVG.selectAll(".y-axis")
+      .transition()
+      .duration(TRANS_TIME)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            getTickValues(
+              d3.min(DATA, function(d) {
+                return d.year;
+              }),
+              d3.max(DATA, function(d) {
+                return d.year;
+              }) + 1,
+              parseInt(CHART_HEIGHT / Y_TICK_HEIGHT),
+              1
+            )
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      );
+
+    // Update data bars
+    YEAR_GROUPS = G_CHART_AREA.selectAll(".g-year").data(DATA, function(d) {
+      return d.year;
+    });
+
+    YEAR_GROUPS.each(function(d) {
+      DATA_BARS = d3
+        .select(this)
+        .selectAll(".data-bar")
+        .data(d.entries, function(d) {
+          return d.category;
+        });
+
+      DATA_BARS.attr("data-d", function(d) {
+        return JSON.stringify(d);
+      })
+        .classed("exiting", false)
+        .transition()
+        .duration(TRANS_TIME)
+        .attr("stroke-width", 1)
+        .attr("x", function(d) {
+          return CENTERED
+            ? CENTER_GUIDES[d.category].middle - X_SCALE(d.measure / 2)
+            : X_SCALE(d.cumMeasure);
+        })
+        .attr("y", function(d) {
+          return Y_SCALE(d.year);
+        })
+        .attr("width", function(d) {
+          return X_SCALE(d.measure);
+        })
+        .attr("height", function() {
+          return Y_SCALE.bandwidth();
+        });
+
+      DATA_BARS.enter()
+        .append("rect")
+        .attr("class", function(d) {
+          return d.categoryNoSpace;
+        })
+        .classed("data-bar", true)
+        .attr("data-d", function(d) {
+          return JSON.stringify(d);
+        })
+        .attr("x", function() {
+          // Get previous element
+          const prev = getNeighborElement(this, "previousElementSibling");
+
+          if (!prev) {
+            // Return 0 if no previous element
+            return 0;
+          } else {
+            // Otherwise, use stored data to determine return
+            const prevD = JSON.parse(d3.select(prev).attr("data-d"));
+
+            if (CENTERED) {
+              // Iterate to find max from previous category, then return right edge of max
+              const prevArr = d3.selectAll("." + prevD.categoryNoSpace).nodes();
+              let max = prevArr[0];
+
+              for (let i = 1; i < prevArr.length; i++) {
+                if (prevArr[i].width.baseVal.value > max.width.baseVal.value) {
+                  max = prevArr[i];
+                }
+              }
+
+              return max.x.baseVal.value + max.width.baseVal.value + 1;
+            } else {
+              // Return right edge position of previous
+              return prev.x.baseVal.value + prev.width.baseVal.value + 1;
+            }
+          }
+        })
+        .attr("y", function() {
+          // Get y value for neighboring data-bar
+          const neighbor = getNeighborElement(this);
+
+          return neighbor.y.baseVal.value;
+        })
+        .attr("width", 0)
+        .attr("height", function() {
+          // Get height value for neighboring data-bar
+          const neighbor = getNeighborElement(this);
+
+          return neighbor.height.baseVal.value;
+        })
+        .attr("fill", function(d) {
+          return "url(#" + d.categoryNoSpace + "-gradient)";
+        })
+        .attr("stroke-width", 0)
+        .attr("stroke", function(d, i) {
+          return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+        })
+        .on("click", showTip)
+        .transition()
+        .duration(TRANS_TIME)
+        .attr("stroke-width", 1)
+        .attr("x", function(d) {
+          return CENTERED
+            ? CENTER_GUIDES[d.category].middle - X_SCALE(d.measure / 2)
+            : X_SCALE(d.cumMeasure);
+        })
+        .attr("y", function(d) {
+          return Y_SCALE(d.year);
+        })
+        .attr("width", function(d) {
+          return X_SCALE(d.measure);
+        })
+        .attr("height", function() {
+          return Y_SCALE.bandwidth();
+        });
+
+      DATA_BARS.exit()
+        .classed("exiting", true)
+        .transition()
+        .duration(TRANS_TIME)
+        .attr("stroke-width", 0)
+        .attr("x", function(d) {
+          // Get previous non-exiting element
+          const prev = getNeighborElement(
+            this,
+            "previousElementSibling",
+            function(node) {
+              return node.classList.contains("exiting");
+            }
+          );
+
+          if (!prev) {
+            // Return 0 if no previous element
+            return 0;
+          } else {
+            // Otherwise, use stored data to determine return
+            const prevD = JSON.parse(d3.select(prev).attr("data-d"));
+            return prevD.year != d.year
+              ? 0
+              : CENTERED
+                ? CENTER_GUIDES[prevD.category].right
+                : X_SCALE(prevD.cumMeasure + prevD.measure);
+          }
+        })
+        .attr("y", function(d) {
+          return Y_SCALE(d.year);
+        })
+        .attr("width", 0)
+        .attr("height", function() {
+          return Y_SCALE.bandwidth();
+        })
+        .remove();
+    });
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Use fake scales to determine axes dimensions
+  function calculateAxesDimensions() {
+    // Initialize scales with fake ranges
+    X_SCALE = d3
+      .scaleLinear()
+      .domain([0, CENTERED ? MAX_CENTERED : MAX_LEFT])
+      .rangeRound([0, 10]);
+
+    Y_SCALE = d3
+      .scaleBand()
+      .padding(0.05)
+      .domain(
+        d3.range(
+          d3.min(DATA, function(d) {
+            return d.year;
+          }),
+          d3.max(DATA, function(d) {
+            return d.year;
+          }) + 1,
+          1
+        )
+      )
+      .rangeRound([0, 10]);
+
+    // Use dummy axes with fake scales to obtain dimensions
+    SVG.append("g")
+      .classed("y-axis", true)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            d3
+              .map(DATA, function(d) {
+                return d.year;
+              })
+              .keys()
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      )
+      .each(function() {
+        Y_TICK_HEIGHT = d3
+          .select(this)
+          .select("text")
+          .node()
+          .getBBox().height;
+        Y_AXIS_WIDTH = this.getBBox().width;
+        this.remove();
+      });
+
+    SVG.append("g")
+      .classed("x-axis", true)
+      .call(d3.axisBottom(X_SCALE).tickSizeOuter(0))
+      .each(function() {
+        d3.select(this)
+          .selectAll("text")
+          .each(function() {
+            X_TICK_MAX_WIDTH = Math.max(
+              X_TICK_MAX_WIDTH,
+              this.getComputedTextLength() + 2 * X_TICK_PAD
+            );
+          });
+        X_AXIS_HEIGHT = this.getBBox().height;
+        this.remove();
+      });
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(CATEGORIES)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG_RECT_WIDTH +
+          LEG_RECT_PAD +
+          LEG_TEXT_PAD <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG_EL_POS = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG_EL_POS.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG_EL_POS[i - 1].x +
+              textWidths[i - 1] +
+              LEG_RECT_WIDTH +
+              LEG_RECT_PAD +
+              LEG_TEXT_PAD,
+        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+      });
+    }
+
+    // Set legend height
+    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
+  }
+
+  // Use maximums and chart dimensions to create dynamic scales
+  function createDynamicScales() {
+    // Calculate chart dimensions
+    CHART_WIDTH = WIDTH - Y_AXIS_PAD - Y_AXIS_WIDTH;
+    CHART_HEIGHT =
+      HEIGHT -
+      LEG_HEIGHT -
+      X_LABEL_HEIGHT -
+      VERT_PAD -
+      X_AXIS_HEIGHT -
+      VERT_PAD -
+      Y_LABEL_HEIGHT;
+
+    // Update scales using new MAX_CENTERED and calculated dimensions
+    X_SCALE = d3
+      .scaleLinear()
+      .domain([0, CENTERED ? MAX_CENTERED : MAX_LEFT])
+      .rangeRound([0, CHART_WIDTH]);
+
+    Y_SCALE = d3
+      .scaleBand()
+      .padding(0.05)
+      .domain(
+        d3.range(
+          d3.min(DATA, function(d) {
+            return d.year;
+          }),
+          d3.max(DATA, function(d) {
+            return d.year;
+          }) + 1,
+          1
+        )
+      )
+      .rangeRound([0, CHART_HEIGHT]);
+
+    // Use country maximums to determine center and right border for centered bars
+    CENTER_GUIDES = {};
+    let runningTotal = 0;
+    for (const country in MAXIMUMS) {
+      CENTER_GUIDES[country] = {
+        middle: X_SCALE(runningTotal + MAXIMUMS[country] / 2),
+        right: X_SCALE(runningTotal + MAXIMUMS[country])
+      };
+      runningTotal += MAXIMUMS[country];
+    }
+  }
+
+  // Compute array of readable tick values between min (inclusive) and max (exclusive) of length less than count
+  function getTickValues(min, max, count, minInterval) {
+    const pattern = [5, 2, 1];
+    let tickValues;
+    let range = max - min;
+    let pow = Math.floor(Math.log10(range));
+    let p = 0;
+    let interval = pattern[p] * Math.pow(10, pow);
+
+    do {
+      tickValues = d3.range(min, max, interval);
+
+      if (p == 2) {
+        p = 0;
+        pow--;
+      } else {
+        p++;
+      }
+
+      interval = pattern[p] * Math.pow(10, pow);
+    } while (d3.range(min, max, interval).length <= count && interval >= minInterval);
+
+    return tickValues;
+  }
+
+  // Get neighbor (previous or next) element
+  function getNeighborElement(el, direction, condition) {
+    if (direction) {
+      // If direction given, select element in given direction
+      // Select first neighbor in given direction
+      let neighbor = el[direction];
+
+      // If condition passed, iterate until condition false
+      if (condition) {
+        while (neighbor && condition(neighbor)) {
+          neighbor = neighbor[direction];
+        }
+      }
+
+      return neighbor;
+    } else {
+      // Otherwise try previous, else next
+      return getNeighborElement(el, "previousElementSibling", condition)
+        ? getNeighborElement(el, "previousElementSibling", condition)
+        : getNeighborElement(el, "nextElementSibling", condition);
+    }
+  }
+
+  // Create and fade in tooltip
+  function showTip(d) {
+    // Prevent event from falling through to underlying elements
+    d3.event.stopPropagation();
+
+    // Use rect dimensions to set enter/exit location for tip
+    d.x =
+      Y_AXIS_WIDTH +
+      parseInt(this.x.baseVal.value) +
+      parseInt(this.width.baseVal.value) / 2;
+    d.y =
+      Y_LABEL_HEIGHT +
+      parseInt(this.y.baseVal.value) +
+      parseInt(this.height.baseVal.value) / 2;
+
+    // Update tooltips based on clicked data point
+    TIPS = d3
+      .select("body")
+      .selectAll(".tip")
+      .data([d], function(d) {
+        return d.category + "-" + d.year;
+      });
+
+    TIPS.transition()
+      .duration(TIP_TRANS_TIME)
+      .style("top", function(d) {
+        return d.y + "px";
+      })
+      .style("left", function(d) {
+        return d.x + "px";
+      })
+      .style("width", "0px")
+      .style("height", "0px")
+      .remove();
+
+    TIPS.enter()
+      .append("div")
+      .classed("tip", true)
+      .html(function() {
+        return (
+          "<i class='tip-close fas fa-times'></i>" +
+          "<table class='tip-content'> <tr> <td> " +
+          METADATA.year +
+          ":\t</td> <td>" +
+          d.year +
+          "</td> </tr>" +
+          "<tr> <td> " +
+          METADATA.category +
+          ":\t</td> <td>" +
+          d.category +
+          "</td> </tr>" +
+          "<tr> <td> " +
+          METADATA.measure +
+          ":\t</td> <td>" +
+          d.measure +
+          "</td> </tr> </table>"
+        );
+      })
+      .style("top", function(d) {
+        return d.y + "px";
+      })
+      .style("left", function(d) {
+        return d.x + "px";
+      })
+      .each(function() {
+        this.width = this.clientWidth;
+        this.height = this.clientHeight;
+      })
+      .style("width", "0px")
+      .style("height", "0px")
+      .transition()
+      .duration(TIP_TRANS_TIME)
+      .style("top", function() {
+        return Y_LABEL_HEIGHT + CHART_HEIGHT / 2 - this.height / 2 + "px";
+      })
+      .style("left", function() {
+        return Y_AXIS_WIDTH + CHART_WIDTH / 2 - this.width / 2 + "px";
+      })
+      .style("width", function() {
+        return this.width + "px";
+      })
+      .style("height", function() {
+        return this.height + "px";
+      })
+      .on("end", function() {
+        d3.select(this)
+          .select(".tip-close")
+          .on("click", hideTip);
+      });
+
+    TIPS.exit()
+      .transition()
+      .duration(TIP_TRANS_TIME)
+      .style("top", function(d) {
+        return d.y + "px";
+      })
+      .style("left", function(d) {
+        return d.x + "px";
+      })
+      .style("width", "0px")
+      .style("height", "0px")
+      .remove();
+  }
+
+  // Fade out and remove tooltip
+  function hideTip() {
+    d3.select(".tip")
+      .transition()
+      .duration(TIP_TRANS_TIME)
+      .style("top", function(d) {
+        return d.y + "px";
+      })
+      .style("left", function(d) {
+        return d.x + "px";
+      })
+      .style("width", "0px")
+      .style("height", "0px")
+      .remove();
+  }
+});
+</script>
+</body>
+</html>

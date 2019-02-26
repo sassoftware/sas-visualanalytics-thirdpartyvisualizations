@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+	<meta charset="utf-8">
+	<script src="https://d3js.org/d3.v4.min.js"></script>
+	<!-- Import utilities  -->
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
+</head>
+	
+<body>
+	<style>
+		html {
+			overflow: hidden;
+		}
+		
+		html, body, #chart, svg {
+			margin: 0px;
+			padding: 0px;
+			height: 100%;
+			width: 100%;
+			overflow: hidden;
+		}
+	
+		text {
+			font: 10px sans-serif;
+			text-anchor: middle;
+		}
+
+		.node--hover circle {
+			stroke: #000;
+			stroke-width: 1.2px;
+		}
+
+		.node--selected circle {
+			stroke: darkgreen;
+			stroke-dasharray: 2.0;	
+			stroke-width: 2.0px; 
+		}
+	</style>
+
+<div id="chart">
+	<svg id="circles">
+		<g></g>
+	</svg>		
+</div>
+
+<script>
+"use strict"; // just a best practice
+
+const SAMPLE_MESSAGE = {
+	version: "1",
+	resultName: "result",
+	rowCount: 6,
+	availableRowCount: 6,
+	data: [
+	  ["US", "Northeast", "New York", 1800],
+	  ["US", "Northeast", "Massachusetts", 500],
+	  ["US", "Northeast", "Connecticut", 500],
+	  ["US", "Northeast", "New Jersey", 600],
+	  ["US", "Southeast", "North Carolina", 1700],
+	  ["US", "Southeast", "Virginia", 900],
+	  ["US", "Southeast", "Florida", 1500],
+	  ["US", "Southwest", "Arizona", 600],
+	  ["US", "Southwest", "New Mexico", 400]
+	],
+	columns: [
+	  {
+		name: "column",
+		label: "Level1",
+		type: "string"
+	  },
+	  {
+		name: "column",
+		label: "Level2",
+		type: "string"
+	  },
+  {
+		name: "column",
+		label: "Level3",
+		type: "string"
+	  },
+	  {
+		name: "bi78",
+		label: "Value",
+		type: "number",
+		usage: "quantitative",
+		aggregation: "totalCount",
+		format: {
+		  name: "COMMA",
+		  width: 12,
+		  precision: 0,
+		  formatString: "COMMA12."
+		}
+	  }
+	]
+}; // Sample data message to render graph outside of VA for debugging
+
+var g_sampleData = [
+	  {id:"US", value:""},
+	  {id:"US.Northeast", value:""},
+	  {id:"US.Northeast.New York", value:1800},
+	  {id:"US.Northeast.Massachusetts", value:500},
+	  {id:"US.Northeast.Connecticut", value:500},
+	  {id:"US.Northeast.New Jersey", value:600},
+	  {id:"US.Southeast", value:""},
+	  {id:"US.Southeast.North Carolina", value:1700},
+	  {id:"US.Southeast.Virginia", value:900},
+	  {id:"US.Southeast.Florida", value:1500},
+	  {id:"US.Southwest", value:""},
+	  {id:"US.Southwest.Arizona", value:600},
+	  {id:"US.Southwest.New Mexico", value:400}
+];
+
+/*var g_sampleData = [];
+g_sampleData.push({id:"US", value:""});
+g_sampleData.push({id:"US.Northeast", value:""});
+g_sampleData.push({id:"US.Northeast.New York", value:1800});
+g_sampleData.push({id:"US.Northeast", ""],
+g_sampleData.push({id:"US.Northeast.New York", 1800],
+g_sampleData.push({id:"US.Northeast.Massachusetts", 500],
+g_sampleData.push({id:"US.Northeast.Connecticut", 500],
+g_sampleData.push({id:"US.Northeast.New Jersey", 600],
+g_sampleData.push({id:"US.Southeast", ""],
+g_sampleData.push({id:"US.Southeast.North Carolina", 1700],
+g_sampleData.push({id:"US.Southeast.Virginia", 900],
+g_sampleData.push({id:"US.Southeast.Florida", 1500],
+g_sampleData.push({id:"US.Southwest", ""],
+g_sampleData.push({id:"US.Southwest.Arizona", 600],
+	  ["US.Southwest.New Mexico", 400]
+];
+*/
+
+
+var g_VAMessage = null; 	// this will become a pointer to event.data coming from VA
+var g_dataTable	; 	// this will hold the data as an array of ordered objects 
+var g_selections = [];		// this will contain the linked selections (brush) coming from VA
+var g_selectedId = -1;
+var g_selectedCircle = null;
+var margin = {top: 10, right: 10, bottom: 10, left: 10};
+
+// If not being rendered in iFrame (outside VA), render with sample data
+if (!inIframe()) {
+	onDataReceived(SAMPLE_MESSAGE);
+}
+
+function initChart() {
+	// Listen for resize event
+	va.contentUtil.setupResizeListener(updateChart);	
+}
+						
+function updateChart() {
+	d3.selectAll('g').remove();
+
+    var width = window.innerWidth - margin.left - margin.right;
+    var height = window.innerHeight - margin.top - margin.bottom;	
+	
+	width = Math.min(width, height);
+	height = width;
+	
+	var _width = Math.max(width, 5);
+	var _height = _width;
+
+	var chart = d3.select("div#chart");
+	
+	
+	var svg = chart.select("svg#circles")
+        .attr("transform", "translate(" + (margin.left) + "," + (margin.top) + ")")
+		.append("g");
+
+	var dataTable = (g_dataTable ? g_dataTable : g_sampleData);
+
+	draw(dataTable, _width, _height);
+	
+	if (g_selections && g_selections.length)  {
+		var arrayData = g_VAMessage.data;
+		var selectionDataItem = arrayData[g_selections[0].row];
+		var selectionData = g_prefix+"."+selectionDataItem[0]+"."+selectionDataItem[1];
+		var node = svg.select("g").selectAll("g");
+		var gArray = node._groups[0];
+		for (var i=0; i<gArray.length; i++)  {
+			var data = gArray[i].__data__.data.id
+			if (data == selectionData)  {
+				clicked(gArray[i].__data__, i, false);
+			}
+		}
+	}
+	else {
+		if (g_selectedCircle)  {
+			clicked(g_selectedCircle, g_selectedId, false);
+		}
+	}
+}
+	
+
+function draw(data, width, height) {
+    var svg = d3.select("svg");
+	var format = d3.format("$,.0f");
+	var color = d3.scaleSequential(d3.interpolateMagma)
+		.domain([-4, 4]);
+
+	var stratify = d3.stratify()
+		.parentId(function(d) { return d.id.substring(0, d.id.lastIndexOf(".")); });
+
+	var pack = d3.pack()
+		.size([width - 2, height - 2])
+		.padding(3);
+
+	var root = stratify(data)
+		.sum(function(d) { return d.value })
+		.sort(function(a, b) { return b.value - a.value; });
+					
+	pack(root);
+
+	var node = svg.select("g")
+		.datum({isClicked: false})
+		.selectAll("g")
+		.data(root.descendants())
+		.enter().append("g")
+		.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+		.attr("class", function(d) { return "node" + (!d.children ? " node--leaf" : d.depth ? "" : " node--root"); })
+		.each(function(d) { d.node = this; })
+		.on("mousemove", function(d,i) { d.isClicked = false; }) //"isClicked" is used as a work-around for the issue with mouseclick firing a mouseout: https://stackoverflow.com/questions/38541966/prevent-mouseout-action-after-click-on-an-element-with-d3-js
+		.on("mouseover", function(d,i) { hoverOn(d, i); })
+		.on("mouseout", function(d,i) { hoverOff(d, i); })
+		.on("click", function(d,i) { clicked(d, i, true); });
+						
+	node.append("circle")
+		.attr("id", function(d) { return "node-" + d.id; })
+		.attr("r", function(d) { return d.r; })
+		.style("fill", function(d) { return color(d.depth); });
+	
+	var leaf = node.filter(function(d) { return !d.children; });
+
+	leaf.append("clipPath")
+		.attr("id", function(d) { return "clip-" + d.id; })
+		.append("use")
+		.attr("xlink:href", function(d) { return "#node-" + d.id + ""; });
+
+	leaf.append("text")
+		.attr("clip-path", function(d) { return "url(#clip-" + d.id + ")"; })
+		.selectAll("tspan")
+		.data(function(d) { return d.id.substring(d.id.lastIndexOf(".") + 1).split(/(?=[A-Z][^A-Z])/g); })
+		.enter().append("tspan")
+		.attr("x", 0)
+		.attr("y", function(d, i, nodes) { return 13 + (i - nodes.length / 2 - 0.5) * 10; })
+		.text(function(d) { return d; });
+
+	node.append("title")
+		.text(function(d) { return d.id + "\n" + format(d.value); });
+
+	node.exit().remove();
+}
+
+function clicked(d, id, onclick) {
+	d.isClicked = true;
+	if (d3.event && d3.event.ctrlKey)  {  //multi-select
+		g_selectedId = id;
+		g_selectedCircle = d;
+		d3.select(d.node).classed("node--selected", true);
+		if (onclick) { makeSelection(d); }
+	}
+	else  {
+		if (g_selectedId != id) { // if new circle has been selected.
+			if (g_selectedCircle) { d3.select(g_selectedCircle.node).classed("node--selected", false); }
+			d3.select(d.node).classed("node--selected", true);
+			d3.select(d.node).classed("node--hover", true);
+			if (g_selectedCircle) { d3.select(g_selectedCircle.node).classed("node--hover", false); }
+			if (onclick) { makeSelection(d); } // if we got here from a click on a circle, then make a selection in VA.
+			g_selectedId = id;
+			g_selectedCircle = d;
+		}
+		else  { // the same circle was clicked - unselect.
+			g_selectedId = -1;
+			g_selectedCircle = null;
+			d3.select(d.node).classed("node--selected", false);
+			if (onclick) { // if we got here from a click on a circle, then unselect and turn on hover.
+				makeSelection(null); // unselect current selection in VA.
+				d3.select(d.node).classed("node--hover", true);
+			}
+		}
+	}
+}
+
+function makeSelection(d)  {
+	var sourceData = (g_VAMessage? g_VAMessage.data: null);		
+	var selectionArray = []; 			
+	var selectionParts = [];
+
+	if (!sourceData) { return; }
+	if (d)  {
+	    if (d.data.row) {
+            for (var i=0; i<d.data.row.length; i++) {
+                selectionArray.push({row: d.data.row[i]});
+            }
+        }
+	}
+	va.messagingUtil.postSelectionMessage(g_VAMessage.resultName, selectionArray);
+}
+
+function hoverOn(d, id) {
+	d3.select(d.node).classed("node--hover", true);
+}
+
+function hoverOff(d, id) {
+	if (d.isClicked || id == g_selectedId) { return; }
+
+	d3.select(d.node).classed("node--hover", false);
+}
+
+function convertData(arrayData, columnsInfo) {
+	var len = arrayData.length;
+	var reg1 = null;
+	var reg2 = null;
+	var reg3 = null;
+	var startCol = 1;
+	var reg1 = arrayData[0][0];
+	var allRows = [];
+
+	for (var i = 0; i < len; i++) {
+		if (arrayData[i][0] != reg1) {
+			reg1 = "Regions";
+			startCol = 0;
+			break;
+		}
+	}
+
+    var rows2;
+    var rows3;
+	g_dataTable = [];
+	g_dataTable.push({id:reg1, value:"", row:allRows});
+
+	for (var i = 0; i < len; i++) {
+        allRows.push(i);
+		if (arrayData[i][0])
+			arrayData[i][0] = arrayData[i][0].replace(".","_");
+		if (arrayData[i][1])
+			arrayData[i][1] = arrayData[i][1].replace(".","_"); 
+		if (arrayData[i][2])
+			arrayData[i][2] = arrayData[i][2].replace(".","_"); 
+	
+		if (reg2 != arrayData[i][startCol]) {
+			reg2 = arrayData[i][startCol];
+			rows2 = [i];
+			g_dataTable.push({id:reg1+"."+reg2, value:"", row: rows2});
+		}
+		else
+		{
+		    rows2.push(i);
+		}
+
+		if (startCol == 0 && reg3 != arrayData[i][startCol+1]) {
+			reg3 = arrayData[i][startCol+1];
+			rows3 = [i];
+			g_dataTable.push({id:reg1+"."+reg2+"."+reg3, value:"", row: rows3});
+		}
+        else
+        {
+            if (!rows3)
+                rows3 = [];
+            rows3.push(i);
+        }
+
+		if (startCol == 0)
+			g_dataTable.push({id:reg1+"."+reg2+"."+reg3+"."+arrayData[i][startCol+2], value:arrayData[i][startCol+3], row: [i]});
+		else
+			g_dataTable.push({id:reg1+"."+reg2+"."+arrayData[i][startCol+1], value:arrayData[i][startCol+2], row: [i]});
+	}			
+}
+
+function eventHandlerFromVA(messageFromVA) {
+	g_selectedCircle = null;
+	g_selectedId = -1;
+	
+	// Saves the message for eventual Google Chart event handlers
+	g_VAMessage = messageFromVA;
+
+	// arrayData points to the real data object, so any changes to it will affect the data object
+	var arrayData = messageFromVA.data;			
+	var columnsInfo = messageFromVA.columns;
+
+	// Extract selections (if any) and reformat the data to eliminate the column that indicates "brush"
+	createSelections (arrayData, columnsInfo);
+
+	// Validate message contains right attributes
+	if (!validateRoles(columnsInfo, ["string", "string", "string", "number"], [])) {
+		va.messagingUtil.postInstructionalMessage( messageFromVA.resultName, "This Circle-Packing chart expects columns to be assigned in this order:\n" +
+			" 1. Level 1 (string)\n" +
+			" 2. Level 2 (string)\n" +
+			" 3. Level 3 (string)\n" +
+			" 4. Value (numeric)\n");
+		return;
+	}
+	
+	convertData(arrayData, columnsInfo);
+	
+	// Refresh chart
+	updateChart();
+}
+
+// Extract selections into g_selections and reformat the data to eliminate the column that indicates items being "brushed"
+function createSelections (arrayData, columnsInfo) {
+	g_selections = []; // <-- if g_selections is not empty, how do I release used memory?
+	for (var c = 0; c < columnsInfo.length; c++) {
+		var colInfo = columnsInfo[c];
+		if (columnsInfo[c].usage) {
+			if (columnsInfo[c].usage === "brush") {
+				// remove the column info
+				columnsInfo.splice(c,1);
+				// for each row of data, check the brush column for indication of row selection
+				for (var r = 0; r < arrayData.length; r++) {
+					if (arrayData[r][c] !== 0) {
+						// row r has been selected
+						g_selections.push({row: r, column: null});
+					}
+					// remove the value of the brush column from the row being processed
+					arrayData[r].splice(c,1);
+				}
+				return;
+			}
+		}				
+	}
+}
+
+// Determine whether or not page is being rendered in iFrame
+function inIframe() {
+	try {
+	  return window.self !== window.top;
+	} catch (e) {
+	  return true;
+	}
+}
+
+function validateRoles(columnsInfo, expectedTypes, expectedOptionalTypes) {
+	// Check the required columns 
+	if (columnsInfo.length < expectedTypes.length) return false;
+	for (var c = 0; c < expectedTypes.length; c++) {
+		if (columnsInfo[c].type !== expectedTypes[c]) return false;
+	}
+	// Check the optional columns (if any)
+	if (columnsInfo.length > expectedTypes.length) {
+		for (var c = expectedTypes.length, i = 0; c < columnsInfo.length; c++, i++) {
+			if (columnsInfo[c].type !== expectedOptionalTypes[i]) return false;
+		}
+	}
+	return true;
+}
+
+// Hook for retrieve data and begin processing
+function onDataReceived(event) {
+	if (event && event.hasOwnProperty("data") && event.hasOwnProperty("columns") && event.hasOwnProperty("resultName") && event.data) {
+		// Process event.data
+		// Because data will dynamically change, we need an event handler to to redraw the chart
+		eventHandlerFromVA(event);
+	}
+}
+
+// Attach event for data message from VA
+va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+initChart();
+updateChart();
+
+</script>
+</body>
+</html>

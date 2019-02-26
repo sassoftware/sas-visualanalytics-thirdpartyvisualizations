@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import lodash.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .data-arc {
+    cursor: pointer;
+    stroke-width: 2px;
+    stroke: #FFF;
+  }
+
+  .legend-rect {
+    stroke-width: 1px;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    alignment-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    alignment-baseline: hanging;
+  }
+
+  .trail-text, .trail-end-text {
+    font-size: .9em;
+    alignment-baseline: middle;
+  }
+
+  .key-value-text {
+    fill: #696969;
+    text-anchor: middle;
+    alignment-baseline: middle;
+  }
+</style>
+
+<script>
+
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "sunburst"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd26",
+    rowCount: 16,
+    availableRowCount: 16,
+    data: [
+      [167, "Africa", "(missing)", "(missing)"],
+      [10, "Antarctica", "(missing)", "(missing)"],
+      [179, "Asia", "China", "(missing)"],
+      [205, "Asia", "India", "(missing)"],
+      [97, "Central America", "(missing)", "(missing)"],
+      [111, "Europe", "France", "(missing)"],
+      [133, "Europe", "Germany", "(missing)"],
+      [103, "Europe", "United Kingdom", "(missing)"],
+      [37, "North America", "Canada", "British Columbia"],
+      [80, "North America", "Canada", "Ontario"],
+      [59, "North America", "United States", "North Carolina"],
+      [17, "North America", "United States", "North Dakota"],
+      [21, "North America", "United States", "South Carolina"],
+      [13, "North America", "United States", "South Dakota"],
+      [77, "Oceania", "Australia", "(missing)"],
+      [317, "South America", "(missing)", "(missing)"]
+    ],
+    columns: [
+      {
+        name: "bi615",
+        label: "Value",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi616",
+        label: "Region",
+        type: "string"
+      },
+      {
+        name: "bi617",
+        label: "Country",
+        type: "string"
+      },
+      {
+        name: "bi618",
+        label: "State/Providence",
+        type: "string"
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+  const FILL = {
+    North_America: "#21b9b7",
+    Central_America: "#4141e0",
+    South_America: "#7db71a",
+    Europe: "#8e2f8a",
+    Asia: "#d38506",
+    Africa: "#0abf85",
+    Oceania: "#2f90ec",
+    Antarctica: "#db3851"
+  }; // Fill colors keyed to labels
+  const STROKE = {
+    North_America: "#1d9992",
+    Central_America: "#2222bc",
+    South_America: "#6a9617",
+    Europe: "#6d256d",
+    Asia: "#ba7006",
+    Africa: "#0a9e69",
+    Oceania: "#07689e",
+    Antarctica: "#a50a2f"
+  }; // Stroke colors keyed to categories
+  const UNFOCUS_OPACITY = .2;
+  const MISSING = "(missing)";
+  const NUM_OPTIONAL_CATEGORIES = 5;
+  const DARK_THRESHOLD = 100;
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let DATA; // Data to be parsed from VA data message
+  let OLD_DATA;
+  let PRESERVE_HOVER = false;
+  let TRAIL_END;
+  let LAST_TRANSITION_END = Date.now();
+
+  // Static dimension variables
+  const TRANS_TIME = 500; // Duration of transitions
+  const HEIGHT_CHANGE_DELAY = 200;
+  const HOVER_TRANS_TIME = 100; // Duration of focus transitions
+  const LEG_TOP_PAD = 5; // Padding between chart and legend title
+  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
+  const LEG_ROW_PAD = 3; // Padding between legend rows
+  const LEG_RECT_WIDTH = 12; // Width of legend rects
+  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
+  const LEG_TEXT_PAD = 5; // Padding after legend text
+  const TRAIL_TEXT_TOP_PAD = 5;
+  const TRAIL_TEXT_SIDE_PAD = 5;
+  const TRAIL_MARKER_SIDE_PAD = 5;
+  const TRAIL_MARKER_BOTTOM_PAD = 5;
+  const ARROW_WIDTH = 15;
+  const KEY_VALUE_TEXT_PAD = 5;
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let LEG_EL_POS; // Positions of legend text elements
+  let LEG_HEIGHT; // Height allocated for legend
+  let TRAIL_HEIGHT; // Height allocated for trail markers and text
+  let RADIUS; // Outermost radius of sunburst
+  let INNER_RADIUS; // Innermost radius of sunburst
+
+  // Selection and d3 variables
+  d3.color.prototype.isDark = function() {
+    const luma = 0.2126 * this.r + 0.7152 * this.g + 0.0722 * this.b;
+    return luma < DARK_THRESHOLD;
+  };
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeDark2); // Ordinal color scale as backup
+  const PARSE_DATE = d3.timeParse("%m/%d/%Y");
+  const FORMAT_PERCENT = d3.format(".2%");
+  let SVG; // SVG selection
+  let G_TRAIL_AREA; // Trail area group Selection
+  let G_LEGEND; // Legend group selection
+  let LEGEND_TITLE; // Legend title data-join
+  let LEGEND_RECTS; // Legend rects data-join
+  let LEGEND_TEXTS; // Legend texts data-join
+  let PARTITION;
+  let OLD_PARTITION;
+  let ROOT;
+  let OLD_ROOT;
+  let ROOT_OLD_PARTITION;
+  let OLD_ROOT_NEW_PARTITION;
+  let G_CHART_AREA; // Chart area group selection
+  let ARC; // Arc generator to create arc paths from arc data
+  let ARC_TWEEN;
+  let DATA_ARCS; // Data Arcs data-join
+  let TRAIL_GROUPS; // Trail group data-join to contain trail path and trail trail texts
+  let TRAIL_END_TEXT; // Trail end text data-join for text at end of trail
+  let KEY_VALUE_TEXT;
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(handleCallback);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Use timeouts to debounce update events
+  function handleCallback(messageFromVA) {
+    // Prevent duplicate data messages that come from nested filters
+    if (VA_MESSAGE && _.isEqual(messageFromVA, VA_MESSAGE)) {
+      return;
+    }
+
+    if (LAST_TRANSITION_END > Date.now()) {
+      setTimeout(function() {
+        onDataReceived(messageFromVA);
+      }, LAST_TRANSITION_END - Date.now());
+      LAST_TRANSITION_END = LAST_TRANSITION_END + TRANS_TIME + 50;
+    } else {
+      onDataReceived(messageFromVA);
+      LAST_TRANSITION_END = Date.now() + TRANS_TIME + 50;
+    }
+  }
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+
+    // Create array of optional columns
+    const optional = [];
+    let optionalString = "";
+    for (let i=0; i<NUM_OPTIONAL_CATEGORIES; i++) {
+      optional.push("string")
+      optionalString += " " + (i+3) + ". Category (string) [optional]\n";
+    }
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(messageFromVA, [
+        "number",
+        "string"
+      ], optional)) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Sunburst Chart expects columns to be assigned in this order:\n" +
+          " 1. Measure (number)\n" +
+          " 2. Category (string)\n" +
+          optionalString
+      );
+      return;
+    }
+
+    // Extract metadata from data message
+    METADATA = {
+      value: {
+        label: VA_MESSAGE.columns[0].label,
+        format: VA_MESSAGE.columns[0].format
+      },
+      categories: []
+    };
+
+    for(let i=1; i<VA_MESSAGE.columns.length; i++) {
+      METADATA.categories.push(VA_MESSAGE.columns[i].label)
+    }
+
+    // Create nested data structure from data message
+    OLD_DATA = Object.assign({}, DATA);
+    DATA = nestLayer(
+      {
+        id: "Root",
+        depth: 0,
+        children: []
+      }
+    );
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .on("click", function() {
+        // Turn off preserve hover
+        PRESERVE_HOVER = false;
+
+        // Reset opacities and remove hovered nodes
+        handleUnhoverUnclick();
+      });
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append/update trail area group and save reference
+    SVG.selectAll(".g-trail-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-trail-area", true);
+
+    G_TRAIL_AREA = SVG.select(".g-trail-area");
+
+    // Append dummy text to determine height for trail markers
+    SVG.selectAll(".dummyText")
+      .data([DATA])
+      .enter()
+      .append("text")
+      .classed("trail-text", true)
+      .text("TEST")
+      .each(function() {
+        TRAIL_HEIGHT = this.getBBox().height + 2*TRAIL_TEXT_TOP_PAD;
+        this.remove();
+      });
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    G_LEGEND = SVG.select(".g-legend");
+
+    // Create legend title
+    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
+
+    LEGEND_TITLE.enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(METADATA.categories[0])
+      .merge(LEGEND_TITLE)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA.children, function(d) {
+      return d.id;
+    });
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return d.color;
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.id];
+      })
+      .merge(LEGEND_RECTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Create legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA.children, function(d) {
+      return d.id;
+    });
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.label;
+      })
+      .merge(LEGEND_TEXTS)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      });
+
+    // Determine radius and move legend
+    G_LEGEND.attr("transform", function() {
+      RADIUS =
+        Math.min(
+          WIDTH,
+          HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
+        ) / 2;
+      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    });
+
+    // Create d3 hierarchy from nested data
+    ROOT = d3.hierarchy(DATA).sum(function(d) {
+      return d.value;
+    });
+
+    // Create partition for nested data
+    PARTITION = d3.partition().size([2 * Math.PI, RADIUS * RADIUS]);
+
+    // Apply partition to root
+    PARTITION(ROOT);
+
+    // Set inner radius
+    INNER_RADIUS = Math.sqrt(ROOT.y1);
+
+    // Create arc generators
+    ARC = d3
+      .arc()
+      .startAngle(function(d) {
+        return d.x0;
+      })
+      .endAngle(function(d) {
+        return d.x1;
+      })
+      .innerRadius(function(d) {
+        return Math.sqrt(d.y0);
+      })
+      .outerRadius(function(d) {
+        return Math.sqrt(d.y1);
+      });
+
+    ARC_TWEEN = d3
+      .arc()
+      .startAngle(function(d) {
+        return d.x0tween;
+      })
+      .endAngle(function(d) {
+        return d.x1tween;
+      })
+      .innerRadius(function(d) {
+        return Math.sqrt(d.y0tween);
+      })
+      .outerRadius(function(d) {
+        return Math.sqrt(d.y1tween);
+      });
+
+    // Append/update trail area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area")
+      .attr("transform", "translate(" + WIDTH / 2 + ", " + (TRAIL_HEIGHT + TRAIL_MARKER_BOTTOM_PAD + RADIUS) + ")");
+
+    // Append groups for each arc, then draw arcs
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(ROOT.descendants(), function(d) {
+        return d.data.id;
+      })
+
+    DATA_ARCS.enter()
+      .append("path")
+      .classed("data-arc", true)
+      .attr("id", function(d) {
+        return d.data.id;
+      })
+      .attr("display", function(d) {
+        return d.depth ? null : "none";
+      })
+      .attr("fill", function(d) {
+        return d.data.color;
+      })
+      .on("mouseover", function(d) {
+        if (!PRESERVE_HOVER) {
+          // Set opacities and create trail nodes based on the hovered node
+          handleHoverClick(d);
+        }
+      })
+      .on("mouseout", function() {
+        if (!PRESERVE_HOVER) {
+          // Reset opacities and remove hovered nodes
+          handleUnhoverUnclick();
+        }
+      })
+      .on("click", function(d) {
+        // Prevent event from falling through to underlying elements
+        d3.event.stopPropagation();
+
+        // Turn on preserve hover
+        PRESERVE_HOVER = true;
+
+        // Set opacities and create trail nodes based on the clicked node
+        handleHoverClick(d);
+      })
+      .merge(DATA_ARCS)
+      .attr("d", ARC);
+
+    // Create key value text
+    KEY_VALUE_TEXT = G_CHART_AREA.selectAll(".key-value-text").data([DATA]);
+
+    KEY_VALUE_TEXT.enter()
+      .append("text")
+      .classed("key-value-text", true)
+      .text("Total " + METADATA.value.label + ": " + ROOT.value)
+      .merge(KEY_VALUE_TEXT)
+      .style("font-size", "1em")
+      .style("font-size", function() {
+        return (2 * INNER_RADIUS - 2 * KEY_VALUE_TEXT_PAD) / this.getComputedTextLength() + "em";
+      });
+  }
+
+  // Redraw data dependent elements on data changedIndex
+  function updateElements() {
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Update legend rects
+    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA.children, function(
+      d
+    ) {
+      return d.id;
+    });
+
+    LEGEND_RECTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_RECTS.enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG_RECT_WIDTH)
+      .attr("height", LEG_RECT_WIDTH)
+      .attr("fill", function(d) {
+        return d.color;
+      })
+      .attr("stroke", function(d, i) {
+        return STROKE[d.id];
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_RECTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA.children, function(
+      d
+    ) {
+      return d.id;
+    });
+
+    LEGEND_TEXTS.transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.label;
+      })
+      .attr("x", function(d, i) {
+        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
+      })
+      .attr("y", function(d, i) {
+        return LEG_EL_POS[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEGEND_TEXTS.exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Move legend
+    G_LEGEND
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+      });
+
+    // Move G_CHART_AREA
+    G_CHART_AREA
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", "translate(" + WIDTH / 2 + ", " + (TRAIL_HEIGHT + TRAIL_MARKER_BOTTOM_PAD + RADIUS) + ")");
+
+    // Create/update roots
+    ROOT = d3.hierarchy(DATA).sum(function(d) {
+      return d.value;
+    });
+    OLD_ROOT = d3.hierarchy(OLD_DATA).sum(function(d) {
+      return d.value;
+    });
+    ROOT_OLD_PARTITION = d3.hierarchy(DATA).sum(function(d) {
+      return d.value;
+    });
+    OLD_ROOT_NEW_PARTITION = d3.hierarchy(OLD_DATA).sum(function(d) {
+      return d.value;
+    });
+
+    // Apply old partition
+    PARTITION(OLD_ROOT);
+    PARTITION(ROOT_OLD_PARTITION);
+
+    // Update radius and partition
+    RADIUS =
+      Math.min(
+        WIDTH,
+        HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
+      ) / 2;
+    PARTITION = d3.partition().size([2 * Math.PI, RADIUS * RADIUS]);
+
+    // Apply updated partition
+    PARTITION(ROOT);
+    PARTITION(OLD_ROOT_NEW_PARTITION);
+
+    // Set inner radius
+    INNER_RADIUS = Math.sqrt(ROOT.y1);
+
+    // Determine if element is being entered or removed
+    const entered = ROOT.descendants().length > OLD_ROOT.descendants().length;
+
+    // Determine if update changes height
+    const heightChanged = ROOT.height != OLD_ROOT.descendants()[0].height;
+
+    // Update data arcs
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(ROOT.descendants(), function(d) {
+      return d.data.id;
+    });
+
+    // Mark exiting and entering elements
+    DATA_ARCS.exit()
+      .classed("exiting", true)
+      .each(function(d) {
+        if (TRAIL_END && d.data.id == TRAIL_END.data.id) {
+          PRESERVE_HOVER = false;
+          handleUnhoverUnclick();
+        }
+      });
+
+    // Update
+    DATA_ARCS.transition()
+      .delay(function() {
+        return heightChanged && !entered ? HEIGHT_CHANGE_DELAY : 0;
+      })
+      .duration(TRANS_TIME - HEIGHT_CHANGE_DELAY)
+      .attr("fill", function(d) {
+        return d.data.color;
+      })
+      .attrTween("d", function(d, i) {
+        const old = findDescendant(OLD_ROOT.descendants(), d.data.id);
+        return arcTween(
+          d,
+          old.x0,
+          d.x0,
+          old.x1,
+          d.x1,
+          old.y0,
+          d.y0,
+          old.y1,
+          d.y1
+        );
+      });
+
+    DATA_ARCS.enter()
+      .append("path")
+      .classed("data-arc", true)
+      .classed("entering", true)
+      .attr("id", function(d) {
+        return d.data.id;
+      })
+      .attr("display", function(d) {
+        return d.depth ? null : "none";
+      })
+      .attr("fill", function(d) {
+        return d.data.color;
+      })
+      .style("opacity", function() {
+        return PRESERVE_HOVER ? UNFOCUS_OPACITY : 1;
+      })
+      .on("mouseover", function(d) {
+        if (!PRESERVE_HOVER) {
+          // Set opacities and create trail nodes based on the hovered node
+          handleHoverClick(d);
+        }
+      })
+      .on("mouseout", function() {
+        if (!PRESERVE_HOVER) {
+          // Reset opacities and remove hovered nodes
+          handleUnhoverUnclick();
+        }
+      })
+      .on("click", function(d) {
+        // Prevent event from falling through to underlying elements
+        d3.event.stopPropagation();
+
+        // Turn on preserve hover
+        PRESERVE_HOVER = true;
+
+        // Set opacities and create trail nodes based on the clicked node
+        handleHoverClick(d);
+      })
+      .transition()
+      .delay(function() {
+        return heightChanged ? HEIGHT_CHANGE_DELAY : 0;
+      })
+      .duration(TRANS_TIME - HEIGHT_CHANGE_DELAY)
+      .attrTween("d", function(d) {
+        const currentOld = findDescendant(ROOT_OLD_PARTITION.descendants(), d.data.id);
+        const prevNew = findPrevDescendant(ROOT.descendants(), d.data.id);
+        const prevOld = prevNew ? findDescendant(OLD_ROOT.descendants(), prevNew.data.id) : {x1: 0};
+
+        return arcTween(
+          d,
+          prevOld.x1,
+          d.x0,
+          prevOld.x1,
+          d.x1,
+          currentOld.y0,
+          d.y0,
+          currentOld.y1,
+          d.y1
+        );
+      })
+      .on("end", function(d) {
+        d3.select(this)
+          .classed("entering", false);
+      });
+
+    DATA_ARCS.exit()
+      .transition()
+      .duration(TRANS_TIME - HEIGHT_CHANGE_DELAY)
+      .attrTween("d", function(d) {
+        const currentNew = findDescendant(OLD_ROOT_NEW_PARTITION.descendants(), d.data.id);
+        const prevOld = findPrevDescendant(OLD_ROOT.descendants(), d.data.id);
+        const prevNew = prevOld ? findDescendant(ROOT.descendants(), prevOld.data.id) : {x1: 0};
+
+        return arcTween(
+          d,
+          d.x0,
+          prevNew.x1,
+          d.x1,
+          prevNew.x1,
+          d.y0,
+          currentNew.y0,
+          d.y1,
+          currentNew.y1
+        );
+      })
+      .remove();
+
+    // Use dummy text to get font size for transition
+    let fontSize;
+    G_CHART_AREA.append("text")
+      .classed("key-value-text", true)
+      .text("Total " + METADATA.value.label + ": " + ROOT.value)
+      .style("font-size", "1em")
+      .style("font-size", function() {
+        fontSize = (2 * INNER_RADIUS - 2 * KEY_VALUE_TEXT_PAD) / this.getComputedTextLength() + "em";
+        return fontSize;
+      })
+      .each(function() {
+        this.remove();
+      });
+
+    // Update key value text
+    G_CHART_AREA.select(".key-value-text")
+      .transition()
+      .delay(function(d) {
+        return heightChanged && !entered ? HEIGHT_CHANGE_DELAY : 0;
+      })
+      .duration(TRANS_TIME/2)
+      .tween("text", function() {
+        const that = d3.select(this);
+        const oldVal = OLD_ROOT.descendants()[0].value;
+        const newVal = ROOT.value;
+        const i = d3.interpolateNumber(oldVal, newVal);
+        return function(t) {
+          that.text("Total " + METADATA.value.label + ": " + parseInt(i(t)));
+        };
+      })
+      .style("font-size", fontSize);
+
+    // Update trail end text
+    G_TRAIL_AREA.select(".trail-end-text")
+      .transition()
+      .delay(function(d) {
+        return heightChanged && !entered ? HEIGHT_CHANGE_DELAY : 0;
+      })
+      .duration(TRANS_TIME/2)
+      .tween("text", function() {
+        const that = d3.select(this);
+        const oldVal = TRAIL_END.value / OLD_ROOT.descendants()[0].value;
+        const newVal = TRAIL_END.value / ROOT.value;
+        const i = d3.interpolateNumber(oldVal, newVal);
+        return function(t) {
+          that.text(TRAIL_END.value + " (" + FORMAT_PERCENT(i(t)) + ")");
+        };
+      });
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Recursive function call to create nested data structure
+  function nestLayer(nestedData) {
+    const data = VA_MESSAGE.data;
+    const pushedCategories = {};
+    const catIndex = nestedData.depth + 1;
+    let dataId, testId, datum;
+    let color = nestedData.color;
+    let initColor;
+
+    // Iterate over all data elements
+    for (let i = 0; i < data.length; i++) {
+      // Create id for data element
+      dataId = "";
+      for (let j=1; j<=catIndex; j++) {
+        dataId += (j==1 ? "" : "-");
+        dataId += data[i][j].replace(/ /g, "_");
+      }
+
+      // Create test id to compare data id
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/ /g, "_");
+
+      // Initialize color / iterate to new version
+      initColor = FILL[dataId] ? FILL[dataId] : COLOR_SCALE(dataId);
+      color = catIndex==1 ? d3.color(initColor).darker(.5) : color;
+
+      if (catIndex == 1 || // If category is top level or...
+        dataId == testId // element should be a child of nestedData
+      ) {
+        if (catIndex == data[i].length - 1 || // If category is last level or...
+          data[i][catIndex + 1] == MISSING // next category is missing
+        ) {
+          // Push on data element as leaf
+          color = color.brighter(.25)
+          datum = {
+            id: dataId,
+            label: data[i][catIndex],
+            color: color,
+            value: data[i][0]
+          };
+          nestedData.children.push(datum);
+        } else if (!pushedCategories[data[i][catIndex]]) { // Otherwise if we haven't recursed for this category...
+          // Push result of recursing to data elements children
+          pushedCategories[data[i][catIndex]] = true;
+          color = color.brighter(.25)
+          nestedData.children.push(
+            nestLayer(
+              {
+                id: dataId,
+                label: data[i][catIndex],
+                color: color,
+                depth: nestedData.depth + 1,
+                children: []
+              }
+            )
+          );
+        }
+      }
+    }
+
+    return nestedData;
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(DATA.children)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.label;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG_RECT_WIDTH +
+          LEG_RECT_PAD +
+          LEG_TEXT_PAD <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG_EL_POS = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG_EL_POS.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG_EL_POS[i - 1].x +
+              textWidths[i - 1] +
+              LEG_RECT_WIDTH +
+              LEG_RECT_PAD +
+              LEG_TEXT_PAD,
+        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+      });
+    }
+
+    // Set legend height
+    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
+  }
+
+  // Set opacity of data arcs and remove trail nodes on unhover or svg clicked
+  function handleUnhoverUnclick() {
+    // Set opacity of all elements back to 1
+    G_CHART_AREA.selectAll(".data-arc")
+      .transition("select")
+      .duration(HOVER_TRANS_TIME)
+      .style("opacity", 1);
+
+    // Remove all elements from trail area
+    G_TRAIL_AREA.selectAll("*").remove();
+  }
+
+  // Set opacity of data arcs and draw trail nodes according to which element is clicked or moused over
+  function handleHoverClick(d) {
+    // Change all data arcs to unfocus opacity
+    G_CHART_AREA.selectAll(".data-arc")
+      .transition("select")
+      .duration(HOVER_TRANS_TIME)
+      .style("opacity", UNFOCUS_OPACITY);
+
+    // Iterate from current element up to root
+    let current = d;
+    let key, text;
+    const nodes = [];
+
+    while (current.data.id!="Root") {
+      // Use ID to change opacity of current element
+      d3.select("#" + current.data.id)
+        .transition("select")
+        .duration(HOVER_TRANS_TIME)
+        .style("opacity", 1);
+
+      // Determine width of text string for current node
+      SVG.selectAll(".dummyText")
+        .data([current.data.label])
+        .enter()
+        .append("text")
+        .classed("trail-text", true)
+        .text(function(d) {
+          return d;
+        })
+        .each(function() {
+          current.width = ARROW_WIDTH + TRAIL_TEXT_SIDE_PAD + this.getComputedTextLength();
+          this.remove();
+        });
+
+      // Add node to array and iterate to next node
+      nodes.unshift(current);
+      current = current.parent;
+    }
+
+    // Append/remove trail markers
+    TRAIL_GROUPS = G_TRAIL_AREA.selectAll(".trail-group").data(nodes, function(d) {
+      return d.data.id;
+    });
+
+    G_TRAIL_AREA.selectAll(".trail-end-text").remove();
+
+    TRAIL_GROUPS.exit()
+      .remove();
+
+    const enter = TRAIL_GROUPS.enter()
+      .append("g")
+      .classed("trail-group", true)
+      .attr("transform", function(d) {
+        const prev = this.previousElementSibling;
+        const dx = prev ? parseInt(d3.select(prev).attr("x")) + TRAIL_MARKER_SIDE_PAD : 0;
+        d3.select(this).attr("x", dx + d.width);
+        return "translate(" + dx + ",0)";
+      });
+
+    // Append trail markers
+    enter
+      .append("path")
+      .classed("trail-marker", true)
+      .attr("d", function(d, i) {
+        return getTrailMarkerPath(d, i);
+      })
+      .attr("fill", function(d) {
+        return d.data.color;
+      });
+
+    // Append trail texts
+    enter
+      .append("text")
+      .classed("trail-text", true)
+      .attr("dx", function(d, i) {
+        return i==0 ? TRAIL_TEXT_SIDE_PAD : ARROW_WIDTH + TRAIL_TEXT_SIDE_PAD;
+      })
+      .attr("dy", TRAIL_HEIGHT/2)
+      .attr("fill", function(d) {
+        return d.data.color.isDark() ? "#FFF" : "#000";
+      })
+      .text(function(d) {
+        return d.data.label;
+      });
+
+    // Append/update trail end texts
+    TRAIL_END_TEXT = G_TRAIL_AREA.selectAll(".trail-end-text").data([nodes[nodes.length - 1]]);
+
+    TRAIL_END_TEXT.enter()
+      .append("text")
+      .classed("trail-end-text", true)
+      .merge(TRAIL_END_TEXT)
+      .attr("dx", function() {
+        return parseInt(d3.select(this.previousElementSibling).attr("x")) + ARROW_WIDTH + TRAIL_TEXT_SIDE_PAD;
+      })
+      .attr("dy", TRAIL_HEIGHT/2)
+      .text(function(d) {
+        TRAIL_END = d;
+        return d.value + " (" + FORMAT_PERCENT(d.value/ROOT.value) + ")";
+      });
+  }
+
+  // Generate path for trail marker
+  function getTrailMarkerPath(d, i) {
+    const base =  "M 0,0" +
+                " l " + d.width + ",0" +
+                " l " + ARROW_WIDTH + "," + TRAIL_HEIGHT/2 +
+                " l " + -ARROW_WIDTH + "," + TRAIL_HEIGHT/2 +
+                " l " + -d.width + ",0";
+
+    return i==0 ? base + " Z" : base + " l " + ARROW_WIDTH + "," + -TRAIL_HEIGHT/2 + " Z";
+  }
+
+  // Tween function to create interpolators for arc segments
+  function arcTween(d, origX0, finalX0, origX1, finalX1, origY0, finalY0, origY1, finalY1) {
+    const interpolateX0 = d3.interpolate(origX0, finalX0);
+    const interpolateX1 = d3.interpolate(origX1, finalX1);
+    const interpolateY0 = d3.interpolate(origY0, finalY0);
+    const interpolateY1 = d3.interpolate(origY1, finalY1);
+    return function(t) {
+      d.x0tween = interpolateX0(t);
+      d.x1tween = interpolateX1(t);
+      d.y0tween = interpolateY0(t);
+      d.y1tween = interpolateY1(t);
+      return ARC_TWEEN(d);
+    };
+  }
+
+  // Return element if present in descendents
+  function findDescendant(descendants, id) {
+    return descendants.find(function(element) {
+      return element.data.id == id;
+    });
+  }
+
+  // Return previous element, or previous parent element if present in descendants
+  function findPrevDescendant(descendants, id) {
+    // Find current descendant
+    const current = findDescendant(descendants, id);
+    let movedBack = false;
+
+    // Iterate to either parent or previous element until an adjacent, non-exiting, non-entering element is found
+    let prev = current;
+    let prevId = "#" + prev.data.id;
+    let prevIndex = descendants.findIndex(function(element) {
+      return element.data.id == prev.data.id;
+    });
+
+    while (prevIndex >= 1  && (d3.select(prevId).classed("exiting") || d3.select(prevId).classed("entering") || !movedBack)) {
+      if (descendants[prevIndex - 1].x1 == prev.x0) { // Iterate to previous if adjacent
+        prev = descendants[--prevIndex];
+        prevId = "#" + prev.data.id;
+        if (!d3.select(prevId).classed("exiting")) {
+          movedBack = true;
+        }
+      }
+      else { // Else, iterate to parent
+        prev = prev.parent;
+        prevId = "#" + prev.data.id;
+        prevIndex = descendants.findIndex(function(element) {
+          return element.data.id == prev.data.id;
+        });
+      }
+    }
+
+    return !movedBack || prevIndex == 0 ? undefined : prev;
+  }
+});
+
+</script>
+</body>
+</html>
