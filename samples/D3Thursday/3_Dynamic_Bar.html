@@ -156,7 +156,8 @@ document.addEventListener("DOMContentLoaded", function() {
     for (let i = 0; i < VA_MESSAGE.data.length; i++) {
       DATA.push({
         x: VA_MESSAGE.data[i][0],
-        y: VA_MESSAGE.data[i][1]
+        y: VA_MESSAGE.data[i][1],
+        index: i
       });
     }
 
@@ -273,8 +274,8 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("rect")
       .classed("data-bar", true)
       .classed("selectable", true)
-      .on("click", function(d, i) {
-        selectElement(i, this);
+      .on("click", function() {
+        selectElement(this);
       })
       .merge(DATA_BARS)
       .attr("x", function(d) {
@@ -293,9 +294,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data change
   function updateElements() {
-    // Deselect all elements on data update
-    deselectAllElements();
-
     // Update x scale
     X_SCALE = d3
       .scaleBand()
@@ -357,8 +355,8 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("rect")
       .classed("data-bar", true)
       .classed("selectable", true)
-      .on("click", function(d, i) {
-        selectElement(i, this);
+      .on("click", function() {
+        selectElement(this);
       })
       .attr("x", function(d) {
         return X_SCALE(d.x);
@@ -405,10 +403,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Post message to VA
     va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
+    console.log("Posting empty selection message");
   }
 
   // Handle selection on element
-  function selectElement(index, el) {
+  function selectElement(el) {
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
 
@@ -416,27 +415,26 @@ document.addEventListener("DOMContentLoaded", function() {
     if (d3.event.ctrlKey) {
       // Toggle selection on clicked element
       d3.select(el).classed("selected", !d3.select(el).classed("selected"));
-
-      // Build array of selected elements
-      const selections = [];
-      d3.selectAll(".selectable").each(function(d, i) {
-        if (d3.select(this).classed("selected")) {
-          selections.push({ row: i });
-        }
-      });
-
-      // Post message to VA
-      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
     } else {
       // Deselect all elements
       d3.selectAll(".selectable").classed("selected", false);
 
       // Select clicked element
       d3.select(el).classed("selected", true);
-
-      // Post message to VA
-      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{ row: index }]);
     }
+
+    // Build array of selected elements
+    const selections = [];
+    d3.selectAll(".selectable").each(function(d, i) {
+      if (d3.select(this).classed("selected")) {
+        selections.push({ row: d.index });
+      }
+    });
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+    console.log("Posting selections: ")
+    console.log(selections);
   }
 });
 </script>
