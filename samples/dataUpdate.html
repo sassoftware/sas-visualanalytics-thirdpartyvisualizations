@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+  <head>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+  </head>
+  
+  <body>
+    <div>
+      <h3 id="form-label" style="font-family: verdana;">[placeholder: title will change based on parameters]</h3>
+      <!--input type="text" id="form-input1" name="fdata"-->
+	  <textarea id="text-input" rows="4" cols="50"></textarea>
+      <button id="submit-button" type="button">Submit</button>
+    </div>
+    <script>
+        "use strict";
+		//
+		// This implementation requires a source object to brush the data-driven content (linked action).
+		// The data-driven content object must have one role assingment: the id that can be used to uniquely identify the row to be updated.
+		// Only the in-memory table will be updated, but sample code for allowing write-back to *disk* (PATH library) has been provided (just uncomment the block).
+		// If write-back to other source than disk is needed, you must adapt the commented code.
+		//
+		// Paramters to this data-driven content URL:
+		//   caslib - the CAS library containing the table to be updated (e.g. public)
+		//   castab - the name of the table to be updated
+		//   target_column_name - the column to be updated with the input text
+		//   id_column_name - the column that contains the row id
+		//
+		var _idVal, _idType, _resultName, _selections;
+
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  
+		function getUrlParams( name ) {
+		// If name is a parameter --> return name's value
+		// If name is not a parameter --> return null
+		// If name is not informed --> return object with all parameters: {name1:"value1", name2:"value2", name3:"value3, ...}
+			var params = {};
+			var search = window.location.search.slice( window.location.search.indexOf( '?' ) + 1 );
+			var name_value = search.split( '&' );
+
+			name_value.forEach( function( pair, key ) {
+				if (pair.indexOf('=') === -1) {
+					params[ pair ] = "";
+				}
+				else {
+					params[ decodeURIComponent(pair.substr(0,pair.indexOf('='))) ] = decodeURIComponent(pair.substr(pair.indexOf('=')+1));
+				}
+			} );
+
+			return name ? (name in params ? params[name] : null) : params;
+		}	
+		
+		console.log(">>>>>>>>>>>> Parameters from URL (BEGIN) >>>>>>>>>>>"); 
+		var urlParams = getUrlParams();
+		Object.keys(urlParams).forEach(function(key) {
+			console.log(key+"="+urlParams[key]);
+		});	
+
+		var _caslib = getUrlParams("caslib");							// source caslib
+		var _castab = getUrlParams("castab");							// source cas table name
+		var _target_column_name = getUrlParams("target_column_name");	// column to be updated (column name, not label)
+		var _id_column_name = getUrlParams("id_column_name");			// column containing unique id of row to be updated (column name, not label)
+		
+		// Changes the form title
+		document.getElementById('form-label').innerHTML="Update " + _target_column_name;
+		
+		// Retrieve row's unique id from selection and fill in the text box input with current value
+		function onDataReceived(resultData) {
+			console.log(resultData);
+			_resultName = resultData.resultName;
+			_selections = va.contentUtil.initializeSelections(resultData);
+			
+			if (!_caslib || !_castab || !_target_column_name || !_id_column_name) {
+				var msg = 	"Check URL input parameters for:\n" +
+							"caslib = source table CAS library\n" +
+							"castab = source table\n" +
+							"target_column_name = column to be updated (column name, not label)\n" +
+							"id_column_name = column containing unique id of row to be updated (column name, not label)";
+				va.messagingUtil.postInstructionalMessage(_resultName, msg);
+				disableDataEntry();
+				return;
+			}
+	  
+			if (resultData.columns.length !== 1 ) {
+				var msg = 	"This object accepts only one role assignment:\n" +
+							"1. unique id of row to be updated";
+				va.messagingUtil.postInstructionalMessage(_resultName, msg);
+				disableDataEntry();
+				return;
+			}
+			
+			if (_selections.length !== 1) { // || resultData.columns.length !== 1 ) {
+				console.log("There is no row selected (or more than one was selected)");
+				var textarea = document.getElementById('text-input');
+				textarea.value = "Please, select one row";
+				disableDataEntry();
+				return;
+			}
+			
+			enableDataEntry();
+			
+			if (_selections[0]) {
+				var rowId = _selections[0].row;
+				_idVal = resultData.data[rowId][0];
+			}
+			
+			console.log("_id_column_name:",_id_column_name);
+			console.log("_idVal:",_idVal);
+			_idType = resultData.columns[0].type;
+			fetchData();
+		}
+
+		function disableDataEntry() {
+			var textarea = document.getElementById('text-input');
+			var button = document.getElementById('submit-button');
+			if (!textarea.hasAttribute('disabled')) {
+				var att = document.createAttribute("disabled");
+				textarea.setAttributeNode(att);
+				att = document.createAttribute("disabled");
+				button.setAttributeNode(att);
+			}
+		}
+
+		function enableDataEntry() {
+			var textarea = document.getElementById('text-input');
+			var button = document.getElementById('submit-button');
+			if (textarea.hasAttribute('disabled')) {
+				textarea.removeAttribute('disabled');
+				button.removeAttribute('disabled');
+			}
+		}
+		
+    </script>
+    <script>
+		window.jq = window.parent.$;
+
+		function getCsrfToken(_url) {
+
+			return jq.ajax({
+				url: _url,
+				method: "GET",
+				headers: {"X-CSRF-TOKEN": "Fetch"}
+			}).then(function(data, status, xhr){
+				return xhr.getResponseHeader("X-CSRF-TOKEN");
+			});
+		}
+
+		function getCasServerName() {
+
+			return jq.get("/casManagement/servers").then(function(data){
+			  
+				var serverList = [], casServer = {};
+
+				if (data && data.items) {
+					serverList = data.items;
+					casServer = serverList[0] || {};
+				}
+
+				window.serverName = casServer.name;
+
+				return casServer.name;
+
+			});
+		}
+
+		function createCasSession(serverName, headers) {
+
+			return jq.ajax({
+				url: ("/casProxy/servers/" + serverName + "/cas/sessions"), 
+				headers: headers, 
+				method: "POST"
+			}).then(function (data) {
+				return data.session;
+			});
+
+		}
+
+		function casAction(serverName, sessId, action, data) {
+
+			return jq.ajax({
+				url: ("/casProxy/servers/" + serverName + "/cas/sessions/" + sessId + "/actions/" + action),
+				method: "POST",
+				contentType: 'application/json',
+				data: data
+			}).then(function(data) {
+				return data;
+			});
+
+		}
+
+		function startSession() {
+
+			return getCasServerName().then(function(casServerName) {
+				console.log("casServerName: ");
+				console.log(casServerName);
+
+				return getCsrfToken('/casProxy').then(function(proxyToken) {
+					console.log("proxyToken: ");
+					console.log(proxyToken);
+					var requestHeaders = {
+						"X-CSRF-TOKEN": proxyToken,
+						"Accept": "application/json"
+					};
+
+					return createCasSession(casServerName, requestHeaders).then(function(sessionId) {
+						console.log("sessionId: ");
+						console.log(sessionId);
+						return sessionId;
+					});
+
+				});
+
+			});
+
+		}
+
+		var _currentSessionId;
+
+		startSession().then(function(sessionId){
+			_currentSessionId = sessionId;
+			if (!_currentSessionId) {
+				alert("Write-back Data-driven content failed to obtain the session ID\nPlease refresh/re-open the report");
+			}
+		});
+
+		jq(document).ready(function() {
+			var submitButton1 = document.getElementById('submit-button');
+
+			jq(submitButton1).click(function() {
+				console.log('clicked');
+				var serverName = window.serverName;
+
+				var textVal = document.getElementById('text-input').value;
+				console.log("New value:",textVal);
+
+				if (_idVal) {
+					var whereExpression = _id_column_name + ' = ';
+					if (_idType == 'string') {
+						whereExpression = whereExpression + "'" + _idVal + "'";
+					}
+					else {
+						whereExpression = whereExpression + _idVal;
+					}
+					var actionPostData = {
+						"table": {
+							"name":_castab, 
+							"caslib":_caslib, 
+							"where": whereExpression
+						}, 
+						"set": [
+							{"var":_target_column_name, "value": '"' + textVal + '"'}
+						]
+					};
+					console.log("actionPostData (update):", actionPostData);
+					casAction(serverName, _currentSessionId, "update", JSON.stringify(actionPostData))
+					.then(function(response) {
+						// refreshes the object to display updated field
+						va.messagingUtil.postSelectionMessage(_resultName,[]);
+						
+						// re-selects the data in the source object after 1 second (timer needed to allow VA to refresh - empyric)
+						setTimeout(function(){
+							va.messagingUtil.postSelectionMessage(_resultName,_selections);
+						}, 1000);
+						
+						console.log(response);
+						//****************************************
+						// this block saves the table to disk (uncomment it if needed)
+						/*
+						var actionPostData = {
+							"name":_castab.toUpperCase(),  // file names in Linux are case sensitive: make sure to utilize the proper casing
+							"caslib":_caslib,
+							"replace":true,
+							"exportOptions": {fileType:'AUTO'}, 	// change this to BASESAS, EXCEL, etc. as needed
+							// you may want to change "permission":"GROUPREAD" | "GROUPWRITE" | "GROUPWRITEPUBLICREAD" | "PRIVATE" | "PUBLICREAD" | "PUBLICWRITE (see documentation for details)
+							"table": {
+								"name":_castab, 
+								"caslib":_caslib
+							}
+						};
+						console.log("actionPostData (save):", actionPostData);
+						casAction(serverName, _currentSessionId, "save", JSON.stringify(actionPostData))
+						.then(function(response) {
+							console.log(response);
+						});
+						*/
+						//****************************************
+					});
+				}
+
+			});
+		});
+		  
+		function fetchData() {
+			if (_idVal) {
+				var serverName = window.serverName;
+				var whereExpression = _id_column_name + ' = ';
+				if (_idType == 'string') {
+					whereExpression = whereExpression + "'" + _idVal + "'";
+				}
+				else {
+					whereExpression = whereExpression + _idVal;
+				}
+				var actionPostData = {
+					"table": {
+						"name":_castab, 
+						"caslib":_caslib, 
+						"where": whereExpression
+					}, 
+					"fetchVars": [
+						{"name":_target_column_name}
+					]
+				};
+				console.log("actionPostData:", actionPostData);
+				casAction(serverName, _currentSessionId, "fetch", JSON.stringify(actionPostData))
+				.then(function(response) {
+					//if (response.status == 0) {
+					document.getElementById('text-input').value = response.results.Fetch.rows[0][1];
+					//}
+					console.log(response);
+				});
+			}
+		}
+        
+    </script>
+  </body>
+</html>
