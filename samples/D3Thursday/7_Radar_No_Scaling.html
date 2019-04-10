@@ -190,42 +190,42 @@ document.addEventListener("DOMContentLoaded", function() {
   const SVG_ID = "radar"; // ID of SVG element
   const SAMPLE_MESSAGE = {
     version: "1",
-    resultName: "dd55",
+    resultName: "dd282",
     rowCount: 18,
     availableRowCount: 18,
     data: [
-      ["Hybrid", "Cylinders", 3.6666666666666665, "BEST12.2"],
-      ["Hybrid", "MPG (City)", 55, "BEST12.2"],
-      ["Hybrid", "MSRP", 19920, "DOLLAR12.2"],
-      ["Sedan", "Cylinders", 5.580152671755725, "BEST12.2"],
-      ["Sedan", "MPG (City)", 21.083969465648856, "BEST12.2"],
-      ["Sedan", "MSRP", 29773.618320610687, "DOLLAR12.2"],
-      ["Sports", "Cylinders", 6.340425531914893, "BEST12.2"],
-      ["Sports", "MPG (City)", 18.408163265306122, "BEST12.2"],
-      ["Sports", "MSRP", 53387.06122448979, "DOLLAR12.2"],
-      ["SUV", "Cylinders", 6.566666666666666, "BEST12.2"],
-      ["SUV", "MPG (City)", 16.1, "BEST12.2"],
-      ["SUV", "MSRP", 34790.25, "DOLLAR12.2"],
-      ["Truck", "Cylinders", 6.25, "BEST12.2"],
-      ["Truck", "MPG (City)", 16.5, "BEST12.2"],
-      ["Truck", "MSRP", 24941.375, "DOLLAR12.2"],
-      ["Wagon", "Cylinders", 5.3, "BEST12.2"],
-      ["Wagon", "MPG (City)", 21.1, "BEST12.2"],
-      ["Wagon", "MSRP", 28840.533333333333, "DOLLAR12.2"]
+      ["Hybrid", "Cool Factor", 3, "BEST12."],
+      ["Hybrid", "Cost Efficiency", 6, "BEST12."],
+      ["Hybrid", "Utility", 3, "BEST12."],
+      ["Sedan", "Cool Factor", 4, "BEST12."],
+      ["Sedan", "Cost Efficiency", 4, "BEST12."],
+      ["Sedan", "Utility", 2, "BEST12."],
+      ["Sports", "Cool Factor", 6, "BEST12."],
+      ["Sports", "Cost Efficiency", 3, "BEST12."],
+      ["Sports", "Utility", 1, "BEST12."],
+      ["SUV", "Cool Factor", 2, "BEST12."],
+      ["SUV", "Cost Efficiency", 1, "BEST12."],
+      ["SUV", "Utility", 5, "BEST12."],
+      ["Truck", "Cool Factor", 1, "BEST12."],
+      ["Truck", "Cost Efficiency", 2, "BEST12."],
+      ["Truck", "Utility", 6, "BEST12."],
+      ["Wagon", "Cool Factor", 5, "BEST12."],
+      ["Wagon", "Cost Efficiency", 5, "BEST12."],
+      ["Wagon", "Utility", 4, "BEST12."]
     ],
     columns: [
       {
-        name: "bi173",
+        name: "bi284",
         label: "Type",
         type: "string"
       },
       {
-        name: "bi174",
+        name: "bi285",
         label: "Metric",
         type: "string"
       },
       {
-        name: "bi175",
+        name: "bi286",
         label: "Measure",
         type: "number",
         usage: "quantitative",
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       },
       {
-        name: "bi176",
+        name: "bi287",
         label: "Format",
         type: "string"
       }
@@ -256,6 +256,7 @@ document.addEventListener("DOMContentLoaded", function() {
       unfocus: 0.2
     }
   }; // Various opacity values used during rendering
+  const MEASURE_MAXIMUM = 6; // Maximum possible value for measures
 
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
@@ -284,7 +285,6 @@ document.addEventListener("DOMContentLoaded", function() {
   let SIDE_PAD; // Horizontal padding for measure labels
 
   // Selection and d3 variables
-  const SCALED_FORMAT = d3.format("3.0f"); // Format for scaled version of measure displayed in tooltip
   d3.selection.prototype.moveToFront = function() {
     return this.each(function() {
       this.parentNode.appendChild(this);
@@ -472,14 +472,7 @@ document.addEventListener("DOMContentLoaded", function() {
       METADATA.metrics[nestedData[i].key] = {
         metric: nestedData[i].key,
         angle: i * DELTA_ANGLE,
-        format: translateFormat(VA_MESSAGE.data[i][3]),
-        maximum: d3.max(VA_MESSAGE.data, function(d) {
-          if (d[1] == nestedData[i].key) {
-            return d[2];
-          } else {
-            return Number.MIN_VALUE;
-          }
-        })
+        format: translateFormat(VA_MESSAGE.data[i][3])
       };
     }
 
@@ -501,8 +494,7 @@ document.addEventListener("DOMContentLoaded", function() {
           metric: VA_MESSAGE.data[i * numMeasures + j][1],
           measure: VA_MESSAGE.data[i * numMeasures + j][2],
           scaledMeasure:
-            VA_MESSAGE.data[i * numMeasures + j][2] /
-            METADATA.metrics[VA_MESSAGE.data[i * numMeasures + j][1]].maximum
+            VA_MESSAGE.data[i * numMeasures + j][2] / MEASURE_MAXIMUM
         };
 
         datum.metrics.push(metric);
@@ -567,11 +559,6 @@ document.addEventListener("DOMContentLoaded", function() {
               d.metric +
               ":\t</td> <td>" +
               METADATA.metrics[d.metric].format(d.measure) +
-              "</td> </tr>" +
-              "<tr> <td> " +
-              d.metric +
-              " Scaled:\t</td> <td>" +
-              SCALED_FORMAT(d.scaledMeasure * 100) +
               "</td> </tr> </table>"
             );
           });
@@ -748,9 +735,7 @@ document.addEventListener("DOMContentLoaded", function() {
         let x, y;
         for (let j = 0; j < dPath.metrics.length; j++) {
           x =
-            RADIUS *
-            dPath.metrics[j].scaledMeasure *
-            Math.sin(j * DELTA_ANGLE);
+            RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
             dPath.metrics[j].scaledMeasure *
@@ -1030,8 +1015,7 @@ document.addEventListener("DOMContentLoaded", function() {
             for (let j = 0; j < oldData.length; j++) {
               if (d.changedIndex == j + 1) {
                 x = RADIUS * oldData[j].scaledMeasure * Math.sin(j * oldDelta);
-                y =
-                  -RADIUS * oldData[j].scaledMeasure * Math.cos(j * oldDelta);
+                y = -RADIUS * oldData[j].scaledMeasure * Math.cos(j * oldDelta);
 
                 path += x + "," + y + " L ";
               }
@@ -1073,9 +1057,7 @@ document.addEventListener("DOMContentLoaded", function() {
           }
 
           x =
-            RADIUS *
-            dPath.metrics[j].scaledMeasure *
-            Math.sin(j * DELTA_ANGLE);
+            RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
             dPath.metrics[j].scaledMeasure *
@@ -1166,9 +1148,7 @@ document.addEventListener("DOMContentLoaded", function() {
             let x, y;
             for (let j = 0; j < d.metrics.length; j++) {
               x =
-                RADIUS *
-                d.metrics[j].scaledMeasure *
-                Math.sin(j * DELTA_ANGLE);
+                RADIUS * d.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
               y =
                 -RADIUS *
                 d.metrics[j].scaledMeasure *
@@ -1214,9 +1194,7 @@ document.addEventListener("DOMContentLoaded", function() {
           path += "0,0" + (j == d.metrics.length - 1 ? " Z" : " L ");
 
           x =
-            RADIUS *
-            dPath.metrics[j].scaledMeasure *
-            Math.sin(j * DELTA_ANGLE);
+            RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
             dPath.metrics[j].scaledMeasure *
@@ -1278,9 +1256,7 @@ document.addEventListener("DOMContentLoaded", function() {
         let x, y;
         for (let j = 0; j < dPath.metrics.length; j++) {
           x =
-            RADIUS *
-            dPath.metrics[j].scaledMeasure *
-            Math.sin(j * DELTA_ANGLE);
+            RADIUS * dPath.metrics[j].scaledMeasure * Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
             dPath.metrics[j].scaledMeasure *

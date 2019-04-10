@@ -38,12 +38,19 @@ limitations under the License.
   }
 
   .legend-title {
-    alignment-baseline: hanging;
+    font-size: .9em;
+    font-weight: bold;
     text-anchor: middle;
+    dominant-baseline: hanging;
   }
 
   .legend-text {
-    alignment-baseline: hanging;
+    font-size: .8em;
+    dominant-baseline: central;
+  }
+
+  .legend-rect {
+    stroke-width: 1px;
   }
 </style>
 
@@ -93,37 +100,42 @@ document.addEventListener("DOMContentLoaded", function() {
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
-  let SELECTED; // Selected rows passed in from VA
   let METADATA; // Metadata to be parsed from VA data message
   let DATA; // Data to be parsed from VA data message
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of transitions
+  const TRANS_TIME = 2500; // Duration of transitions
   const EDGE_PADDING = 5; // Padding around exterior of donut
-  const LEG_TOP_PAD = 20; // Padding between chart and legend title
-  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
-  const LEG_ROW_PAD = 3; // Padding between legend rows
-  const LEG_RECT_WIDTH = 12; // Width of legend rects
-  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
-  const LEG_TEXT_PAD = 5; // Padding after legend text
+  const RING_WIDTH_RATIO = 0.3; // Proportion of radius to use as donut width
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
   let HEIGHT; // Height of SVG element
-  let LEG_EL_POS; // Positions of legend text elements
-  let LEG_HEIGHT; // Height allocated for legend
   let RADIUS; // Radius of pie/donut
 
   // Selection and d3 variables
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale to determine arc fill color scale
+  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeDark2); // Ordinal color scale to determine arc fill color scale
   let SVG; // SVG selection
-  let G_LEGEND; // Legend group selection
-  let LEGEND_TITLE; // Legend title data-join
-  let LEGEND_RECTS; // Legend rects data-join
-  let LEGEND_TEXTS; // Legend texts data-join
   let G_CHART_AREA; // Chart area group selection
-  let PATH; // Path generator to create arc paths from arc data
   let DATA_ARCS; // Data Arcs data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
@@ -145,11 +157,14 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
-    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
     // Validate data roles
     if (
-      !va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["string", "number"],
+        ["number"]
+      )
     ) {
       va.messagingUtil.postInstructionalMessage(
         VA_RESULT_NAME,
@@ -170,46 +185,27 @@ document.addEventListener("DOMContentLoaded", function() {
     const total = d3.sum(VA_MESSAGE.data, function(d) {
       return d[1];
     });
-    let category,
-      id,
-      measure,
-      currentData,
-      finalStartAngle,
-      finalEndAngle,
-      startAngle,
-      endAngle;
+    let startAngle;
     DATA = [];
+
     for (let i = 0; i < VA_MESSAGE.data.length; i++) {
-      category = VA_MESSAGE.data[i][0];
-      id = category;
-      measure = VA_MESSAGE.data[i][1];
-
-      currentData = d3.select("#" + id);
-
-      finalStartAngle = i == 0 ? 0 : DATA[i - 1].finalEndAngle;
-      finalEndAngle =
-        i == 0
-          ? (measure / total) * 2 * Math.PI
-          : DATA[i - 1].finalEndAngle + (measure / total) * 2 * Math.PI;
-
-      startAngle = currentData.empty()
-        ? finalStartAngle
-        : JSON.parse(currentData.attr("data-d")).startAngle;
-      endAngle = currentData.empty()
-        ? finalEndAngle
-        : JSON.parse(currentData.attr("data-d")).endAngle;
+      startAngle = i == 0 ? 0 : DATA[i - 1].endAngle;
 
       DATA.push({
-        id: id,
-        category: category,
-        measure: measure,
-        finalStartAngle: finalStartAngle,
-        finalEndAngle: finalEndAngle,
+        category: VA_MESSAGE.data[i][0],
+        measure: VA_MESSAGE.data[i][1],
+        selected: VA_MESSAGE.data[i][2],
         startAngle: startAngle,
-        endAngle: endAngle
+        endAngle: startAngle + (VA_MESSAGE.data[i][1] / total) * 2 * Math.PI,
+        index: i
       });
     }
 
+    // Assign data variables for legend
+    LEG.title = METADATA.category;
+    LEG.data = DATA.map(function(d) {
+      return d.category;
+    });
 
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
@@ -217,14 +213,6 @@ document.addEventListener("DOMContentLoaded", function() {
     } else {
       updateElements();
     }
-
-    // Apply selections
-    d3.selectAll(".selectable")
-      .classed("selected", function(d, i) {
-        return SELECTED.find(function(selection) {
-          return selection.row == i;
-        });
-      });
   }
 
   // Draw elements for first time and on resize event
@@ -255,70 +243,20 @@ document.addEventListener("DOMContentLoaded", function() {
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Append/update legend group and save reference
-    SVG.selectAll(".g-legend")
-      .data([DATA])
-      .enter()
-      .append("g")
-      .classed("g-legend", true);
+    // Draw legend elements
+    drawLegend();
 
-    G_LEGEND = SVG.select(".g-legend");
+    // Determine radius now that legend height has been determined
+    RADIUS =
+      Math.min(
+        WIDTH - 2 * EDGE_PADDING,
+        HEIGHT - LEG.height - LEG.topPad - EDGE_PADDING
+      ) / 2;
 
-    // Create legend title
-    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-    LEGEND_TITLE.enter()
-      .append("text")
-      .classed("legend-title", true)
-      .text(METADATA.category)
-      .merge(LEGEND_TITLE)
-      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
-
-    // Create legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) {
-      return d.category;
-    });
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
-      .merge(LEGEND_RECTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Create legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) {
-      return d.category;
-    });
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.category;
-      })
-      .merge(LEGEND_TEXTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Use legend height to determine radius and move legend
-    G_LEGEND.attr("transform", function() {
-      LEG_HEIGHT = this.getBBox().height;
-      RADIUS = Math.min(WIDTH - 2 * EDGE_PADDING, HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - EDGE_PADDING) / 2;
-      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
+    // Assign radii to data
+    DATA.forEach(function(d) {
+      d.innerRadius = (1 - RING_WIDTH_RATIO) * RADIUS;
+      d.outerRadius = RADIUS;
     });
 
     // Append/update chart-area group and save reference
@@ -333,12 +271,6 @@ document.addEventListener("DOMContentLoaded", function() {
       "translate(" + WIDTH / 2 + ", " + (RADIUS + EDGE_PADDING) + ")"
     );
 
-    // Create path generator
-    PATH = d3
-      .arc()
-      .outerRadius(RADIUS)
-      .innerRadius(0.7 * RADIUS);
-
     // Create data arcs
     DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) {
       return d.category;
@@ -348,194 +280,126 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("path")
       .classed("data-arc", true)
       .classed("selectable", true)
-      .attr("id", function(d) {
-        return d.id;
+      .classed("selected", function(d) {
+        return d.selected;
       })
-      .attr("data-d", function(d) {
-        return JSON.stringify(d);
+      .attr("fill", function(d) {
+        return COLOR_SCALE(d.category);
       })
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
-      .on("click", function(d, i) {
-        selectElement(i, this);
-      })
+      .on("click", selectElement)
       .merge(DATA_ARCS)
-      .attr("d", function(d) {
-        return PATH({ startAngle: d.startAngle, endAngle: d.endAngle });
+      .attr("d", d3.arc())
+      .each(function(d) {
+        // Initialize current values for arc
+        this._current = {
+          startAngle: d.startAngle,
+          endAngle: d.endAngle,
+          innerRadius: d.innerRadius,
+          outerRadius: d.outerRadius
+        };
       });
   }
 
   // Redraw data dependent elements on data change
   function updateElements() {
-    // Deselect all elements on data update
-    deselectAllElements();
-
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Update legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA, function(d) {
-      return d.category;
+    // Update legend elements
+    updateLegend();
+
+    // Update dimensions
+    RADIUS =
+      Math.min(
+        WIDTH - 2 * EDGE_PADDING,
+        HEIGHT - LEG.height - LEG.topPad - EDGE_PADDING
+      ) / 2;
+
+    // Assign radii to data
+    DATA.forEach(function(d) {
+      d.innerRadius = (1 - RING_WIDTH_RATIO) * RADIUS;
+      d.outerRadius = RADIUS;
     });
 
-    LEGEND_RECTS.transition()
+    // Update chart-area group position
+    G_CHART_AREA.transition()
       .duration(TRANS_TIME)
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_RECTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
-
-    // Update legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA, function(d) {
-      return d.category;
-    });
-
-    LEGEND_TEXTS.transition()
-      .duration(TRANS_TIME)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.category;
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
+      .attr(
+        "transform",
+        "translate(" + WIDTH / 2 + ", " + (RADIUS + EDGE_PADDING) + ")"
+      );
 
     // Update data arcs
     DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(DATA, function(d) {
       return d.category;
     });
 
-    DATA_ARCS.classed("exiting", false)
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
+    DATA_ARCS.classed("selected", function(d) {
+      return d.selected;
+    })
       .transition()
       .duration(TRANS_TIME)
-      .attrTween("d", function(d) {
-        d3.select("#" + d.id).attr(
-          "data-d",
-          JSON.stringify(d)
-        );
-
-        return arcTween(
-          d,
-          d.startAngle,
-          d.finalStartAngle,
-          d.endAngle,
-          d.finalEndAngle
-        );
-      });
+      .attrTween("d", arcTween);
 
     DATA_ARCS.enter()
       .append("path")
       .classed("data-arc", true)
       .classed("selectable", true)
-      .attr("id", function(d) {
-        return d.id;
+      .classed("selected", function(d) {
+        return d.selected;
       })
-      .attr("data-d", function(d) {
-        return JSON.stringify(d);
+      .attr("fill", function(d) {
+        return COLOR_SCALE(d.category);
       })
-      .attr("fill", function(d, i) {
-        return COLOR_SCALE(i);
-      })
-      .on("click", function(d, i) {
-        selectElement(i, this);
+      .on("click", selectElement)
+      .each(function() {
+        // Assign current angles for entered arc to transition from
+        // If prev defined, use prev's current end angle, else use 0
+        const prev = this.previousElementSibling;
+
+        this._current = prev
+          ? {
+              startAngle: prev._current.endAngle,
+              endAngle: prev._current.endAngle
+            }
+          : {
+              startAngle: 0,
+              endAngle: 0
+            };
+
+        // Assign radii to enter at using sibling arc with current defined
+        const sibling = getNeighborElement(this, null, function(d) {
+          return !d._current;
+        });
+        this._current.innerRadius = sibling._current.innerRadius;
+        this._current.outerRadius = sibling._current.outerRadius;
       })
       .transition()
       .duration(TRANS_TIME)
-      .attrTween("d", function(d) {
-        const prev = d3.select(this.previousElementSibling);
-        const prevD = prev.node()
-          ? JSON.parse(prev.attr("data-d"))
-          : { endAngle: 0 };
-
-        return arcTween(
-          d,
-          prevD.endAngle,
-          d.finalStartAngle,
-          prevD.endAngle,
-          d.finalEndAngle
-        );
-      });
+      .attrTween("d", arcTween);
 
     DATA_ARCS.exit()
-      .attr("fill", "#000")
-      .classed("exiting", true)
+      .classed("selected", false)
+      .each(function(d) {
+        // Assign final angle for exited arc to transition to
+        // If prev defined, use prev's final end angle, else use 0
+        const prev = this.previousElementSibling;
+
+        if (prev) {
+          d.startAngle = d3.select(prev).datum().endAngle;
+          d.endAngle = d3.select(prev).datum().endAngle;
+        } else {
+          d.startAngle = 0;
+          d.endAngle = 0;
+        }
+
+        // Assign new radii to exit to
+        d.innerRadius = (1 - RING_WIDTH_RATIO) * RADIUS;
+        d.outerRadius = RADIUS;
+      })
       .transition()
       .duration(TRANS_TIME)
-      .attrTween("d", function(d) {
-        let prev = d3.select(this.previousElementSibling);
-        while (prev.node() && prev.classed("exiting")) {
-          prev = d3.select(prev.node().previousElementSibling);
-        }
-        const prevD = prev.node()
-          ? JSON.parse(prev.attr("data-d"))
-          : { finalEndAngle: 0 };
-
-        return arcTween(
-          d,
-          d.startAngle,
-          prevD.finalEndAngle,
-          d.endAngle,
-          prevD.finalEndAngle
-        );
-      })
+      .attrTween("d", arcTween)
       .remove();
   }
 
@@ -560,35 +424,32 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Handle selection on element
-  function selectElement(index, el) {
+  function selectElement() {
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
 
     // If control is held toggle selected on click preserving array, otherwise select only clicked element
     if (d3.event.ctrlKey) {
       // Toggle selection on clicked element
-      d3.select(el).classed("selected", !d3.select(el).classed("selected"));
-
-      // Build array of selected elements
-      const selections = [];
-      d3.selectAll(".selectable").each(function(d, i) {
-        if (d3.select(this).classed("selected")) {
-          selections.push({ row: i });
-        }
-      });
-
-      // Post message to VA
-      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+      d3.select(this).classed("selected", !d3.select(this).classed("selected"));
     } else {
       // Deselect all elements
       d3.selectAll(".selectable").classed("selected", false);
 
       // Select clicked element
-      d3.select(el).classed("selected", true);
-
-      // Post message to VA
-      va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, [{ row: index }]);
+      d3.select(this).classed("selected", true);
     }
+
+    // Build array of selected elements
+    const selections = [];
+    d3.selectAll(".selectable").each(function(d) {
+      if (d3.select(this).classed("selected")) {
+        selections.push({ row: d.index });
+      }
+    });
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
   }
 
   // Determine coordinates for dynamic legend
@@ -607,12 +468,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const textWidths = [];
     let textHeight;
     SVG.selectAll(".dummyText")
-      .data(DATA)
+      .data(LEG.data)
       .enter()
       .append("text")
       .classed("legend-text", true)
       .text(function(d) {
-        return d.category;
+        return d;
       })
       .each(function() {
         textHeight = this.getBBox().height;
@@ -626,19 +487,19 @@ document.addEventListener("DOMContentLoaded", function() {
     let rowSum;
     let row = 0;
     for (let i = 0; i < textWidths.length; i++) {
-      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
       rows.push(row);
       while (
         rowSum +
           textWidths[i + 1] +
-          LEG_RECT_WIDTH +
-          LEG_RECT_PAD +
-          LEG_TEXT_PAD <=
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
           WIDTH &&
         i + 1 < textWidths.length
       ) {
         i++;
-        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
         rows.push(row);
       }
       rowSums.push(rowSum);
@@ -646,36 +507,231 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Calculate x and y coordinates for legend elements
-    LEG_EL_POS = [];
+    LEG.elPos = [];
     for (let i = 0; i < textWidths.length; i++) {
-      LEG_EL_POS.push({
+      LEG.elPos.push({
         x:
           i == 0 || rows[i - 1] != rows[i]
             ? WIDTH / 2 - rowSums[rows[i]] / 2
-            : LEG_EL_POS[i - 1].x +
+            : LEG.elPos[i - 1].x +
               textWidths[i - 1] +
-              LEG_RECT_WIDTH +
-              LEG_RECT_PAD +
-              LEG_TEXT_PAD,
-        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
       });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return COLOR_SCALE(d);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Update legend on data change
+  function updateLegend() {
+    // Update legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d;
+      });
+
+    LEG.rectsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return COLOR_SCALE(d);
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d;
+      });
+
+    LEG.textsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      })
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d;
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend position
+    LEG.groupSelection
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG.height) + ")";
+      });
+  }
+
+  // Get neighbor (previous or next) element
+  function getNeighborElement(el, direction, condition) {
+    if (direction) {
+      // If direction given, select element in given direction
+      // Select first neighbor in given direction
+      let neighbor = el[direction];
+
+      // If condition passed, iterate until condition false
+      if (condition) {
+        while (neighbor && condition(neighbor)) {
+          neighbor = neighbor[direction];
+        }
+      }
+
+      return neighbor;
+    } else {
+      // Otherwise try previous, else next
+      return getNeighborElement(el, "previousElementSibling", condition)
+        ? getNeighborElement(el, "previousElementSibling", condition)
+        : getNeighborElement(el, "nextElementSibling", condition);
     }
   }
 
   // Tween function to create interpolators for arc segments
-  function arcTween(d, origStart, finalStart, origEnd, finalEnd) {
-    const interpolateStart = d3.interpolate(origStart, finalStart);
-    const interpolateEnd = d3.interpolate(origEnd, finalEnd);
+  function arcTween(d) {
+    const i = d3.interpolate(this._current, d);
+    this._current = i(0);
     return function(t) {
-      d.startAngle = interpolateStart(t);
-      d.finalStartAngle = finalStart;
-      d.endAngle = interpolateEnd(t);
-      d.finalEndAngle = finalEnd;
-      d3.select("#" + d.id).attr(
-        "data-d",
-        JSON.stringify(d)
-      );
-      return PATH(d);
+      return d3.arc()(i(t));
     };
   }
 });

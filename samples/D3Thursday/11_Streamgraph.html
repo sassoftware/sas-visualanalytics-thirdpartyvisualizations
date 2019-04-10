@@ -48,24 +48,24 @@ limitations under the License.
   .x-label {
     font-size: .9em;
     text-anchor: Middle;
-    alignment-baseline: ideographic;
+    dominant-baseline: ideographic;
   }
 
   .y-label {
     font-size: .9em;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
   }
 
   .legend-title {
     font-size: .9em;
     font-weight: bold;
     text-anchor: middle;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
   }
 
   .legend-text {
     font-size: .8em;
-    alignment-baseline: hanging;
+    dominant-baseline: central;
   }
 
   .legend-rect {
@@ -373,26 +373,6 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     ]
   }; // Sample data message to render graph outside of VA for debugging
-  const FILL = {
-    Andorra: "#21b9b7",
-    Belgium: "#4141e0",
-    Mexico: "#7db71a",
-    Syria: "#8e2f8a",
-    "United Arab Emirates": "#d38506",
-    "United Kingdom": "#0abf85",
-    "United States": "#2f90ec",
-    Zimbabwe: "#db3851"
-  }; // Fill colors keyed to labels
-  const STROKE = {
-    Andorra: "#1d9992",
-    Belgium: "#2222bc",
-    Mexico: "#6a9617",
-    Syria: "#6d256d",
-    "United Arab Emirates": "#ba7006",
-    "United Kingdom": "#0a9e69",
-    "United States": "#07689e",
-    Zimbabwe: "#a50a2f"
-  }; // Stroke colors keyed to labels
 
   // Dynamic data variables
   let VA_MESSAGE; // Result name required to send messages back to VA
@@ -400,18 +380,13 @@ document.addEventListener("DOMContentLoaded", function() {
   let METADATA; // Metadata to be parsed from VA data message
   let CATEGORIES; // Categories present in DATA
   let DATA; // Data to be parsed from VA data message
-  let STACK; //
+  let STACK; // Stack generator to create stacked dataset
   let STACKED_DATA; // Data arranged in stack to create streamgraph
-  let OLD_STACKED_DATA; //
-  let LAST_TRANSITION_END = Date.now(); //
+  let OLD_STACKED_DATA; // Previous data
+  let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of transitions
-  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
-  const LEG_ROW_PAD = 3; // Padding between legend rows
-  const LEG_RECT_WIDTH = 12; // Width of legend rects
-  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
-  const LEG_TEXT_PAD = 5; // Padding after legend text
+  const TRANS_TIME = 2500; // Duration of transitions
   const VERT_PAD = 5; // Vertical padding between elements
   const Y_AXIS_PAD = 2; // Padding between y-axis and chart area (prevent bar stroke overlapping axis)
   const RIGHT_AXIS_PAD = 50; // Padding on right axis to give user space to release brush event
@@ -423,51 +398,138 @@ document.addEventListener("DOMContentLoaded", function() {
   let HEIGHT; // Height of SVG element
   let CHART_WIDTH; // Width of chart area for bars
   let CHART_HEIGHT; // Height of chart area for bars
-  let OLD_CHART_HEIGHT;
+  let OLD_CHART_HEIGHT; // Previous chart height
   let Y_AXIS_WIDTH; // Width of y-axis
   let X_AXIS_HEIGHT; // Height of x-axis
-  let LEG_EL_POS; // Positions of legend text elements
-  let LEG_HEIGHT; // Height allocated for legend
   let X_LABEL_HEIGHT; // Height of x-axis label
   let Y_LABEL_HEIGHT; // Height of y-axis label
-  let Y_TICK_HEIGHT;
-  let X_TICK_MAX_WIDTH = 10;
+  let Y_TICK_HEIGHT; // Height of y-ticks texts
+  let X_TICK_MAX_WIDTH = 10; // Maximum pixel width allowed for x-tick texts
 
   // Selection and d3 variables
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
   let SVG; // SVG selection
-  let DEFS; // Defs element selection
-  let GRADIENTS; // Gradients data-join
   let X_SCALE; // Linear time scale for chart area
   let X_SCALE_CONTEXT; // Linear time scale context area
   let Y_SCALE; // Linear scale for chart area path heights
-  let OLD_Y_SCALE; //
+  let OLD_Y_SCALE; // Previous y-scale
   let Y_SCALE_CONTEXT; // Linear scale for context area path heights
-  let G_LEGEND; // Legend group selection
-  let LEGEND_TITLE; // Legend title data-join
-  let LEGEND_RECTS; // Legend rects data-join
-  let LEGEND_TEXTS; // Legend texts data-join
   let X_LABEL; // X label data-join
   let Y_LABEL; // Y label data-join
   let X_AXIS; // X axis group data-join
   let X_AXIS_CONTEXT; // Context x axis group data-join
   let Y_AXIS; // Y axis group data join
-  let BRUSH;
-  let ZOOM;
+  let BRUSH; // Brush data-join
+  let ZOOM; // Zoom data-join
   let G_CLIP; // Clip group selection - must tether clipPath to absolutely positioned group,
   // otherwise clipping area will inherit transforms of object it is tethered to
   let G_CHART_AREA; // Chart area group selection
-  let AREA;
-  let OLD_AREA; //
-  let CLIP_PATH;
-  let CLIP_PATH_RECT;
-  let DATA_PATHS; //
-  let ZOOM_RECT;
+  let AREA; // Area generator to create paths from stack
+  let OLD_AREA; // Previous area generator
+  let CLIP_PATH; // Clip path data-join to prevent overflow from zoom/brush
+  let CLIP_PATH_RECT; // Clip path rect data-join
+  let DATA_PATHS; // Data paths data-join
+  let ZOOM_RECT; // Zoom rect data-join
   let G_CONTEXT_AREA; // Context area group selection
-  let CONTEXT_AREA;
-  let DATA_PATHS_CONTEXT;
-  let BRUSH_GROUP;
+  let CONTEXT_AREA; // Area generator to create paths from stack for context area
+  let DATA_PATHS_CONTEXT; // Context chart data paths data-join
+  let BRUSH_GROUP; // Brush group selection
 
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {
+      Andorra: "#21b9b7",
+      Belgium: "#4141e0",
+      Mexico: "#7db71a",
+      Syria: "#8e2f8a",
+      "United Arab Emirates": "#d38506",
+      "United Kingdom": "#0abf85",
+      "United States": "#2f90ec",
+      Zimbabwe: "#db3851"
+    }, // Fill colors by key
+    stroke: {
+      Andorra: "#1d9992",
+      Belgium: "#2222bc",
+      Mexico: "#6a9617",
+      Syria: "#6d256d",
+      "United Arab Emirates": "#ba7006",
+      "United Kingdom": "#0a9e69",
+      "United States": "#07689e",
+      Zimbabwe: "#a50a2f"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]), // Backup ordinal scale for strokes
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
@@ -511,11 +573,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Validate data roles
     if (
-      !va.contentUtil.validateRoles(messageFromVA, [
-        "date",
-        "string",
-        "number"
-      ])
+      !va.contentUtil.validateRoles(messageFromVA, ["date", "string", "number"])
     ) {
       va.messagingUtil.postInstructionalMessage(
         VA_RESULT_NAME,
@@ -544,31 +602,60 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Restructure data from 2d array format into associative array format
     DATA = [];
-    let datum;
-    for (let i = 0, length = VA_MESSAGE.data.length; i < length; i += CATEGORIES.length) {
+    let k, datum;
+    let i = 0;
+    while (i < VA_MESSAGE.data.length) {
+      k = 0;
       datum = {
         total: 0,
         date: VA_MESSAGE.data[i][0]
       };
       for (let j = 0; j < CATEGORIES.length; j++) {
-        datum[VA_MESSAGE.data[i + j][1]] = VA_MESSAGE.data[i + j][2];
-        datum.total += VA_MESSAGE.data[i + j][2];
+        // Freq for this date and category present
+        if (VA_MESSAGE.data[i + k][1] == CATEGORIES[j].key) {
+          datum[CATEGORIES[j].key] = VA_MESSAGE.data[i + k][2];
+          datum.total += VA_MESSAGE.data[i + k][2];
+          k++;
+        }
+        // 0 freq for this date and category
+        else {
+          datum[CATEGORIES[j].key] = 0;
+        }
       }
 
+      i += k;
       DATA.push(datum);
     }
 
     // Create data stack
-    STACK = d3.stack()
-      .keys(CATEGORIES.map(function(d) {
-        return d.key;
-      }))
+    STACK = d3
+      .stack()
+      .keys(
+        CATEGORIES.map(function(d) {
+          return d.key;
+        })
+      )
       .offset(d3.stackOffsetWiggle);
 
     OLD_STACKED_DATA = STACKED_DATA;
     STACKED_DATA = STACK(DATA);
 
-    // console.log(STACKED_DATA);
+    // Add id to stacked data
+    STACKED_DATA.forEach(function(d) {
+      d.id = d.key.replace(/\W/g, "_");
+    });
+
+    // Assign data variables for legend
+    LEG.title = METADATA.category;
+    LEG.data = STACKED_DATA.map(function(d) {
+      return {
+        key: d.key,
+        id: d.id
+      };
+    });
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
 
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
@@ -595,57 +682,21 @@ document.addEventListener("DOMContentLoaded", function() {
       .data([DATA])
       .enter()
       .append("svg")
-      .attr("id", SVG_ID)
-      .on("mouseout", function() {
-        // console.log(this);
-        // console.log(d3.event);
-      });
+      .attr("id", SVG_ID);
 
     SVG = d3.select("#" + SVG_ID);
 
     // Append defs and save reference
-    SVG.selectAll("defs")
+    SVG.selectAll(".gradient-defs")
       .data([DATA])
       .enter()
-      .append("defs");
+      .append("defs")
+      .classed("gradient-defs", true);
 
-    DEFS = SVG.select("defs");
+    GRAD.defsSelection = SVG.select(".gradient-defs");
 
-    // Create gradients
-    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
-      return d.key;
-    });
-
-    GRADIENTS.enter()
-      .append("linearGradient")
-      .classed("gradient", true)
-      .attr("id", function(d) {
-        return d.key.replace(/ /g, "_") + "-gradient";
-      })
-      .attr("x1", "0%")
-      .attr("x2", "100%")
-      .attr("y1", "50%")
-      .attr("y2", "50%")
-      .each(function(d, i) {
-        // Append color stops
-        d3.select(this)
-          .append("stop")
-          .attr("class", "start")
-          .attr("offset", "0%")
-          .attr("stop-color", function() {
-            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 1);
-
-        d3.select(this)
-          .append("stop")
-          .attr("class", "end")
-          .attr("offset", "100%")
-          .attr("stop-color", function() {
-            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", .7);
-      });
+    // Create gradient definitions
+    defineGradients();
 
     // Use fake scales to determine axes dimensions
     calculateAxesDimensions();
@@ -653,76 +704,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Append/update legend group and save reference
-    SVG.selectAll(".g-legend")
-      .data([DATA])
-      .enter()
-      .append("g")
-      .classed("g-legend", true);
-
-    G_LEGEND = SVG.select(".g-legend");
-
-    // Create legend title
-    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-    LEGEND_TITLE.enter()
-      .append("text")
-      .classed("legend-title", true)
-      .text(METADATA.category)
-      .merge(LEGEND_TITLE)
-      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
-
-    // Create legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
-      d
-    ) {
-      return d.key;
-    });
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
-      })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(i);
-      })
-      .merge(LEGEND_RECTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Create legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
-      d
-    ) {
-      return d.key;
-    });
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.key;
-      })
-      .merge(LEGEND_TEXTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Use legend height to move legend
-    G_LEGEND.attr("transform", function() {
-      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-    });
+    // Draw legend elements
+    drawLegend();
 
     // Create x axis label
     X_LABEL = SVG.selectAll(".x-label").data([DATA]);
@@ -736,7 +719,7 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .merge(X_LABEL)
       .attr("x", WIDTH / 2)
-      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+      .attr("y", HEIGHT - LEG.height - VERT_PAD);
 
     // Create y axis label
     Y_LABEL = SVG.selectAll(".y-label").data([DATA]);
@@ -754,7 +737,7 @@ document.addEventListener("DOMContentLoaded", function() {
     OLD_CHART_HEIGHT = CHART_HEIGHT;
     CHART_HEIGHT =
       HEIGHT -
-      LEG_HEIGHT -
+      LEG.height -
       X_LABEL_HEIGHT -
       VERT_PAD -
       X_AXIS_HEIGHT -
@@ -765,26 +748,42 @@ document.addEventListener("DOMContentLoaded", function() {
       Y_LABEL_HEIGHT;
 
     // Initialize scales using chart dimensions
-    X_SCALE = d3.scaleTime()
-      .domain(d3.extent(DATA, function(d) {
-        return d.date;
-      }))
+    X_SCALE = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
       .rangeRound([0, CHART_WIDTH]);
 
-    X_SCALE_CONTEXT = d3.scaleTime()
-      .domain(d3.extent(DATA, function(d) {
-        return d.date;
-      }))
+    X_SCALE_CONTEXT = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
       .rangeRound([0, CHART_WIDTH]);
 
     Y_SCALE = d3
       .scaleLinear()
-      .domain([0, d3.max(DATA, function(d) { return d.total })])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
       .rangeRound([CHART_HEIGHT, 0]);
 
     Y_SCALE_CONTEXT = d3
       .scaleLinear()
-      .domain([0, d3.max(DATA, function(d) { return d.total })])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
       .rangeRound([CONTEXT_HEIGHT, 0]);
 
     // Create x axis
@@ -802,11 +801,7 @@ document.addEventListener("DOMContentLoaded", function() {
           (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
           ")"
       )
-      .call(
-        d3
-          .axisBottom(X_SCALE)
-          .tickSizeOuter(0)
-      );
+      .call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
 
     // Create context x axis
     X_AXIS_CONTEXT = SVG.selectAll(".x-axis-context").data([DATA]);
@@ -820,14 +815,10 @@ document.addEventListener("DOMContentLoaded", function() {
         "translate(" +
           Y_AXIS_WIDTH +
           "," +
-          (HEIGHT - LEG_HEIGHT - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT) +
+          (HEIGHT - LEG.height - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT) +
           ")"
       )
-      .call(
-        d3
-          .axisBottom(X_SCALE_CONTEXT)
-          .tickSizeOuter(0)
-      );
+      .call(d3.axisBottom(X_SCALE_CONTEXT).tickSizeOuter(0));
 
     // Create y axis
     Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
@@ -858,12 +849,14 @@ document.addEventListener("DOMContentLoaded", function() {
       );
 
     // Create brush for context graph
-    BRUSH = d3.brushX()
+    BRUSH = d3
+      .brushX()
       .extent([[0, 0], [CHART_WIDTH, CONTEXT_HEIGHT]])
       .on("brush end", brushed);
 
     // Create zoom for primary graph
-    ZOOM = d3.zoom()
+    ZOOM = d3
+      .zoom()
       .scaleExtent([1, Infinity])
       .translateExtent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
       .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
@@ -896,63 +889,75 @@ document.addEventListener("DOMContentLoaded", function() {
     );
 
     // Create area generator
-    AREA = d3.area()
-      .x(function(d) { return X_SCALE(d.data.date); })
-      .y0(function(d) { return Y_SCALE(d[1]); })
-      .y1(function(d) { return Y_SCALE(d[0]); })
+    AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE(d.data.date);
+      })
+      .y0(function(d) {
+        return Y_SCALE(d[1]);
+      })
+      .y1(function(d) {
+        return Y_SCALE(d[0]);
+      })
       .curve(d3.curveBasis);
 
     // Create clip path
-    CLIP_PATH = DEFS.selectAll("clipPath")
+    CLIP_PATH = SVG.select("defs")
+      .selectAll("clipPath")
       .data([DATA]);
 
-    CLIP_PATH
-      .enter()
+    CLIP_PATH.enter()
       .append("clipPath")
       .attr("id", "clip");
 
     // Create clip path rect
-    CLIP_PATH_RECT = DEFS.select("#clip").selectAll("rect")
+    CLIP_PATH_RECT = SVG.select("defs")
+      .select("#clip")
+      .selectAll("rect")
       .data([DATA]);
 
-    CLIP_PATH_RECT
-      .enter()
+    CLIP_PATH_RECT.enter()
       .append("rect")
       .classed("clip-path-rect", true)
       .merge(CLIP_PATH_RECT)
-      .attr("x", (Y_AXIS_WIDTH + Y_AXIS_PAD))
-      .attr("y", (Y_LABEL_HEIGHT + VERT_PAD))
+      .attr("x", Y_AXIS_WIDTH + Y_AXIS_PAD)
+      .attr("y", Y_LABEL_HEIGHT + VERT_PAD)
       .attr("width", CHART_WIDTH)
       .attr("height", CHART_HEIGHT);
 
     // Create data paths
-    DATA_PATHS = G_CHART_AREA.selectAll("path")
-      .data(STACKED_DATA, function(d) {
-        return d.key;
-      });
+    DATA_PATHS = G_CHART_AREA.selectAll("path").data(STACKED_DATA, function(d) {
+      return d.id;
+    });
 
-    DATA_PATHS
-      .enter()
+    DATA_PATHS.enter()
       .append("path")
       .attr("id", function(d) {
-        return d.key;
+        return d.id;
       })
       .classed("data-path", true)
       .merge(DATA_PATHS)
-      .attr("transform",
-        "translate(0, " + (CHART_HEIGHT - Y_SCALE(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CHART_HEIGHT -
+            Y_SCALE(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", AREA)
       .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+        return "url(#" + d.id + "-gradient)";
       });
 
     // Create zoom rect
-    ZOOM_RECT = G_CLIP.selectAll(".zoom")
-      .data([DATA]);
+    ZOOM_RECT = G_CLIP.selectAll(".zoom").data([DATA]);
 
-    ZOOM_RECT
-      .enter()
+    ZOOM_RECT.enter()
       .append("rect")
       .classed("zoom", true)
       .merge(ZOOM_RECT)
@@ -980,42 +985,61 @@ document.addEventListener("DOMContentLoaded", function() {
       "translate(" +
         (Y_AXIS_WIDTH + Y_AXIS_PAD) +
         ", " +
-        (HEIGHT - LEG_HEIGHT - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT - CONTEXT_HEIGHT) +
+        (HEIGHT -
+          LEG.height -
+          X_LABEL_HEIGHT -
+          VERT_PAD -
+          X_AXIS_HEIGHT -
+          CONTEXT_HEIGHT) +
         ")"
     );
 
     // Create context area generator
-    CONTEXT_AREA = d3.area()
-      .x(function(d) { return X_SCALE_CONTEXT(d.data.date); })
-      .y0(function(d) { return Y_SCALE_CONTEXT(d[1]); })
-      .y1(function(d) { return Y_SCALE_CONTEXT(d[0]); })
+    CONTEXT_AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE_CONTEXT(d.data.date);
+      })
+      .y0(function(d) {
+        return Y_SCALE_CONTEXT(d[1]);
+      })
+      .y1(function(d) {
+        return Y_SCALE_CONTEXT(d[0]);
+      })
       .curve(d3.curveBasis);
 
     // Create context data paths
-    DATA_PATHS_CONTEXT = G_CONTEXT_AREA.selectAll("path")
-      .data(STACKED_DATA, function(d) {
-        return d.key;
-      });
+    DATA_PATHS_CONTEXT = G_CONTEXT_AREA.selectAll("path").data(
+      STACKED_DATA,
+      function(d) {
+        return d.id;
+      }
+    );
 
-    DATA_PATHS_CONTEXT
-      .enter()
+    DATA_PATHS_CONTEXT.enter()
       .append("path")
       .classed("data-path-context", true)
       .merge(DATA_PATHS_CONTEXT)
-      .attr("transform",
-        "translate(0, " + (CONTEXT_HEIGHT - Y_SCALE_CONTEXT(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CONTEXT_HEIGHT -
+            Y_SCALE_CONTEXT(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", CONTEXT_AREA)
       .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+        return "url(#" + d.id + "-gradient)";
       });
 
     // Create brush group
-    BRUSH_GROUP = G_CONTEXT_AREA.selectAll("g")
-      .data([DATA]);
+    BRUSH_GROUP = G_CONTEXT_AREA.selectAll("g").data([DATA]);
 
-    BRUSH_GROUP
-      .enter()
+    BRUSH_GROUP.enter()
       .append("g")
       .classed("brush", true)
       .merge(BRUSH_GROUP)
@@ -1025,158 +1049,27 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data changedIndex
   function updateElements() {
-    // Update gradients
-    GRADIENTS = DEFS.selectAll(".gradient").data(CATEGORIES, function(d) {
-      return d.key;
-    });
-
-    GRADIENTS.each(function(d, i) {
-      d3.select(this)
-        .selectAll("stop")
-        .attr("stop-color", function() {
-          return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
-        });
-    });
-
-    GRADIENTS.enter()
-      .append("linearGradient")
-      .classed("gradient", true)
-      .attr("id", function(d) {
-        return d.key.replace(/ /g, "_") + "-gradient";
-      })
-      .attr("x1", "0%")
-      .attr("x2", "100%")
-      .attr("y1", "50%")
-      .attr("y2", "50%")
-      .each(function(d, i) {
-        // Append color stops
-        d3.select(this)
-          .append("stop")
-          .attr("class", "start")
-          .attr("offset", "0%")
-          .attr("stop-color", function() {
-            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 1);
-
-        d3.select(this)
-          .append("stop")
-          .attr("class", "end")
-          .attr("offset", "100%")
-          .attr("stop-color", function() {
-            return FILL[d.key] ? FILL[d.key] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 0.7);
-      });
+    // Create gradient definitions
+    defineGradients();
 
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Update legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(CATEGORIES, function(
-      d
-    ) {
-      return d.key;
-    });
-
-    LEGEND_RECTS.transition()
-      .duration(TRANS_TIME)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
-      })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.key] ? STROKE[d.key] : COLOR_SCALE(i);
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_RECTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
-
-    // Update legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(CATEGORIES, function(
-      d
-    ) {
-      return d.key;
-    });
-
-    LEGEND_TEXTS.transition()
-      .duration(TRANS_TIME)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.key;
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
-
-    // Move legend
-    G_LEGEND
-      .transition()
-      .duration(TRANS_TIME)
-      .attr("transform", function() {
-        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-      });
+    // Update legend elements
+    updateLegend();
 
     // Move x axis label
     SVG.select(".x-label")
       .transition()
       .duration(TRANS_TIME)
-      .attr("y", HEIGHT - LEG_HEIGHT - VERT_PAD);
+      .attr("y", HEIGHT - LEG.height - VERT_PAD);
 
     // Calculate chart dimensions
     CHART_WIDTH = WIDTH - RIGHT_AXIS_PAD - Y_AXIS_PAD - Y_AXIS_WIDTH;
     OLD_CHART_HEIGHT = CHART_HEIGHT;
     CHART_HEIGHT =
       HEIGHT -
-      LEG_HEIGHT -
+      LEG.height -
       X_LABEL_HEIGHT -
       VERT_PAD -
       X_AXIS_HEIGHT -
@@ -1190,12 +1083,22 @@ document.addEventListener("DOMContentLoaded", function() {
     OLD_Y_SCALE = Y_SCALE;
     Y_SCALE = d3
       .scaleLinear()
-      .domain([0, d3.max(DATA, function(d) { return d.total })])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
       .rangeRound([CHART_HEIGHT, 0]);
 
     Y_SCALE_CONTEXT = d3
       .scaleLinear()
-      .domain([0, d3.max(DATA, function(d) { return d.total })])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
       .rangeRound([CONTEXT_HEIGHT, 0]);
 
     // Update y axis
@@ -1240,15 +1143,22 @@ document.addEventListener("DOMContentLoaded", function() {
         "translate(" +
           Y_AXIS_WIDTH +
           "," +
-          (HEIGHT - LEG_HEIGHT - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT) +
+          (HEIGHT - LEG.height - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT) +
           ")"
       );
 
     // Create old area generator
-    OLD_AREA = d3.area()
-      .x(function(d) { return X_SCALE(d.data.date); })
-      .y0(function(d) { return OLD_Y_SCALE(d[1]); })
-      .y1(function(d) { return OLD_Y_SCALE(d[0]); })
+    OLD_AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE(d.data.date);
+      })
+      .y0(function(d) {
+        return OLD_Y_SCALE(d[1]);
+      })
+      .y1(function(d) {
+        return OLD_Y_SCALE(d[0]);
+      })
       .curve(d3.curveBasis);
 
     // Update clip path rect height
@@ -1258,47 +1168,58 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("height", CHART_HEIGHT);
 
     // Update data paths
-    DATA_PATHS = G_CHART_AREA.selectAll("path")
-      .data(STACKED_DATA, function(d) {
-        return d.key;
-      });
+    DATA_PATHS = G_CHART_AREA.selectAll("path").data(STACKED_DATA, function(d) {
+      return d.id;
+    });
 
-    DATA_PATHS
+    DATA_PATHS.classed("entering", false)
       .transition()
       .duration(TRANS_TIME)
-      .attr("transform",
-        "translate(0, " + (CHART_HEIGHT - Y_SCALE(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CHART_HEIGHT -
+            Y_SCALE(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", AREA);
 
-    DATA_PATHS
-      .enter()
+    DATA_PATHS.enter()
       .append("path")
+      .classed("entering", true)
       .attr("id", function(d) {
-        return d.key;
+        return d.id;
       })
       .classed("data-path", true)
       .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+        return "url(#" + d.id + "-gradient)";
       })
-      .attr("transform",
-        "translate(0, " + (OLD_CHART_HEIGHT - OLD_Y_SCALE(d3.min(OLD_STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (OLD_CHART_HEIGHT -
+            OLD_Y_SCALE(
+              d3.min(OLD_STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", function() {
-        let neighborId, index;
-        if (this.previousElementSibling) {
-          neighborId = this.previousElementSibling.id;
-          index = 1;
-        }
-        else {
-          neighborId = this.nextElementSibling.id;
-          index = 0;
-        }
-
-        let neighborIndex = OLD_STACKED_DATA.findIndex(function(element) {
-          return element.key == neighborId;
+        const neighbor = getNeighborElement(this, null, function(el) {
+          return d3.select(el).classed("entering");
         });
-        let neighborDatum = OLD_STACKED_DATA[neighborIndex];
+        const index = neighbor.dir == "previousElementSibling" ? 1 : 0;
+        const neighborDatum =
+          OLD_STACKED_DATA[
+            OLD_STACKED_DATA.findIndex(function(element) {
+              return element.id == neighbor.el.id;
+            })
+          ];
 
         const datum = [];
         for (let i = 0; i < neighborDatum.length; i++) {
@@ -1313,33 +1234,45 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .transition()
       .duration(TRANS_TIME)
-      .attr("transform",
-        "translate(0, " + (CHART_HEIGHT - Y_SCALE(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CHART_HEIGHT -
+            Y_SCALE(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", AREA);
 
-    DATA_PATHS
-      .exit()
+    DATA_PATHS.exit()
+      .classed("exiting", true)
       .transition()
       .duration(TRANS_TIME)
-      .attr("transform",
-        "translate(0, " + (CHART_HEIGHT - Y_SCALE(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CHART_HEIGHT -
+            Y_SCALE(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", function() {
-        let neighborId, index;
-        if (this.previousElementSibling) {
-          neighborId = this.previousElementSibling.id;
-          index = 1;
-        }
-        else {
-          neighborId = this.nextElementSibling.id;
-          index = 0;
-        }
-
-        let neighborIndex = STACKED_DATA.findIndex(function(element) {
-          return element.key == neighborId;
+        const neighbor = getNeighborElement(this, null, function(el) {
+          return d3.select(el).classed("exiting");
         });
-        let neighborDatum = STACKED_DATA[neighborIndex];
+        const index = neighbor.dir == "previousElementSibling" ? 1 : 0;
+        const neighborDatum =
+          STACKED_DATA[
+            STACKED_DATA.findIndex(function(element) {
+              return element.id == neighbor.el.id;
+            })
+          ];
 
         const datum = [];
         for (let i = 0; i < neighborDatum.length; i++) {
@@ -1369,37 +1302,50 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("height", CHART_HEIGHT);
 
     // Move context area group
-    G_CONTEXT_AREA
-      .transition()
+    G_CONTEXT_AREA.transition()
       .duration(TRANS_TIME)
       .attr(
         "transform",
         "translate(" +
           (Y_AXIS_WIDTH + Y_AXIS_PAD) +
           ", " +
-          (HEIGHT - LEG_HEIGHT - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT - CONTEXT_HEIGHT) +
+          (HEIGHT -
+            LEG.height -
+            X_LABEL_HEIGHT -
+            VERT_PAD -
+            X_AXIS_HEIGHT -
+            CONTEXT_HEIGHT) +
           ")"
       );
 
     // Remove and recreate context data paths
     G_CONTEXT_AREA.selectAll(".data-path-context").remove();
 
-    DATA_PATHS_CONTEXT = G_CONTEXT_AREA.selectAll("path")
-      .data(STACKED_DATA, function(d) {
-        return d.key;
-      });
+    DATA_PATHS_CONTEXT = G_CONTEXT_AREA.selectAll("path").data(
+      STACKED_DATA,
+      function(d) {
+        return d.id;
+      }
+    );
 
-    DATA_PATHS_CONTEXT
-      .enter()
+    DATA_PATHS_CONTEXT.enter()
       .append("path")
       .classed("data-path-context", true)
       .merge(DATA_PATHS_CONTEXT)
-      .attr("transform",
-        "translate(0, " + (CONTEXT_HEIGHT - Y_SCALE_CONTEXT(d3.min(STACKED_DATA[0], function(d) { return d[0]; }))) + ")"
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CONTEXT_HEIGHT -
+            Y_SCALE_CONTEXT(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
       )
       .attr("d", CONTEXT_AREA)
       .attr("fill", function(d) {
-        return "url(#" + d.key.replace(/ /g, "_") + "-gradient)";
+        return "url(#" + d.id + "-gradient)";
       });
   }
 
@@ -1417,15 +1363,23 @@ document.addEventListener("DOMContentLoaded", function() {
   // Use fake scales to determine axes dimensions
   function calculateAxesDimensions() {
     // Initialize scales with fake ranges
-    X_SCALE = d3.scaleTime()
-      .domain(d3.extent(DATA, function(d) {
-        return d.date;
-      }))
+    X_SCALE = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
       .rangeRound([0, 10]);
 
     Y_SCALE = d3
       .scaleLinear()
-      .domain([0, d3.max(DATA, function(d) { return d.total })])
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
       // .domain([0, d3.max(STACKED_DATA, function(layer) { return d3.max(layer, function(d){ return d[0] + d[1];}); })])
       .rangeRound([0, 10]);
 
@@ -1460,80 +1414,6 @@ document.addEventListener("DOMContentLoaded", function() {
       });
   }
 
-  // Determine coordinates for dynamic legend
-  function calculateLegendDimensions() {
-    // Create dummy text variable to get legend title height
-    let titleHeight;
-    SVG.append("text")
-      .classed("legend-text", true)
-      .text("TEST")
-      .each(function() {
-        titleHeight = this.getBBox().height;
-        this.remove();
-      });
-
-    // Create dummy text variables to get legend text height/widths
-    const textWidths = [];
-    let textHeight;
-    SVG.selectAll(".dummyText")
-      .data(CATEGORIES)
-      .enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.key;
-      })
-      .each(function() {
-        textHeight = this.getBBox().height;
-        textWidths.push(this.getComputedTextLength());
-        this.remove();
-      });
-
-    // Determine which row each element will sit in and how long each row is
-    const rows = [];
-    const rowSums = [];
-    let rowSum;
-    let row = 0;
-    for (let i = 0; i < textWidths.length; i++) {
-      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-      rows.push(row);
-      while (
-        rowSum +
-          textWidths[i + 1] +
-          LEG_RECT_WIDTH +
-          LEG_RECT_PAD +
-          LEG_TEXT_PAD <=
-          WIDTH &&
-        i + 1 < textWidths.length
-      ) {
-        i++;
-        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-        rows.push(row);
-      }
-      rowSums.push(rowSum);
-      row++;
-    }
-
-    // Calculate x and y coordinates for legend elements
-    LEG_EL_POS = [];
-    for (let i = 0; i < textWidths.length; i++) {
-      LEG_EL_POS.push({
-        x:
-          i == 0 || rows[i - 1] != rows[i]
-            ? WIDTH / 2 - rowSums[rows[i]] / 2
-            : LEG_EL_POS[i - 1].x +
-              textWidths[i - 1] +
-              LEG_RECT_WIDTH +
-              LEG_RECT_PAD +
-              LEG_TEXT_PAD,
-        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
-      });
-    }
-
-    // Set legend height
-    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
-  }
-
   // Compute array of readable tick values between min (inclusive) and max (exclusive) of length less than count
   function getTickValues(min, max, count, minInterval) {
     const pattern = [5, 2, 1];
@@ -1559,6 +1439,7 @@ document.addEventListener("DOMContentLoaded", function() {
     return tickValues;
   }
 
+  // Handle brush events
   function brushed() {
     if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
     var s = d3.event.selection || X_SCALE_CONTEXT.range(); // use entire range if selection is null
@@ -1567,19 +1448,19 @@ document.addEventListener("DOMContentLoaded", function() {
     X_SCALE.domain(s.map(X_SCALE_CONTEXT.invert, X_SCALE_CONTEXT));
 
     // Update x axis of main chart using updated scale
-    SVG.select(".x-axis").call(
-      d3.axisBottom(X_SCALE).tickSizeOuter(0)
-    );
+    SVG.select(".x-axis").call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
 
     // Update paths of main chart
     G_CHART_AREA.selectAll("path").attr("d", AREA);
 
     // Update zoom to point to same location as brush
-    G_CLIP.select(".zoom").call(ZOOM.transform, d3.zoomIdentity
-        .scale(CHART_WIDTH / (s[1] - s[0]))
-        .translate(-s[0], 0));
+    G_CLIP.select(".zoom").call(
+      ZOOM.transform,
+      d3.zoomIdentity.scale(CHART_WIDTH / (s[1] - s[0])).translate(-s[0], 0)
+    );
   }
 
+  // Handle zoom events
   function zoomed() {
     if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
     var t = d3.event.transform;
@@ -1588,15 +1469,341 @@ document.addEventListener("DOMContentLoaded", function() {
     X_SCALE.domain(t.rescaleX(X_SCALE_CONTEXT).domain());
 
     // Update x axis of main chart using updated scale
-    SVG.select(".x-axis").call(
-      d3.axisBottom(X_SCALE).tickSizeOuter(0)
-    );
+    SVG.select(".x-axis").call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
 
     // Update paths of main chart
     G_CHART_AREA.selectAll("path").attr("d", AREA);
 
     // Update brush to point to same location as zoom
-    G_CONTEXT_AREA.select(".brush").call(BRUSH.move, X_SCALE.range().map(t.invertX, t));
+    G_CONTEXT_AREA.select(".brush").call(
+      BRUSH.move,
+      X_SCALE.range().map(t.invertX, t)
+    );
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(LEG.data)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG.elPos[i - 1].x +
+              textWidths[i - 1] +
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Update legend on data change
+  function updateLegend() {
+    // Update legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      })
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend position
+    LEG.groupSelection
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG.height) + ")";
+      });
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+  }
+
+  // Get neighbor (previous or next) element
+  function getNeighborElement(el, direction, condition) {
+    if (direction) {
+      // If direction given, select element in given direction
+      // Select first neighbor in given direction
+      let neighbor = el[direction];
+
+      // If condition passed, iterate until condition false
+      if (condition) {
+        while (neighbor && condition(neighbor)) {
+          neighbor = neighbor[direction];
+        }
+      }
+
+      return { el: neighbor, dir: direction };
+    } else {
+      // Otherwise try previous, else next
+      const prev = getNeighborElement(el, "previousElementSibling", condition);
+      const next = getNeighborElement(el, "nextElementSibling", condition);
+      return prev.el ? prev : next;
+    }
   }
 });
 </script>

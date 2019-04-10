@@ -192,42 +192,42 @@ document.addEventListener("DOMContentLoaded", function() {
   const SVG_ID = "split-radar"; // ID of SVG element
   const SAMPLE_MESSAGE = {
     version: "1",
-    resultName: "dd260",
+    resultName: "dd395",
     rowCount: 18,
     availableRowCount: 18,
     data: [
-      ["Hybrid", "Cylinders", 3.6666666666666665, "BEST12.", "Split", 1],
-      ["Hybrid", "MPG (City)", 55, "BEST12.", "Split", 1],
-      ["Hybrid", "MSRP", 19920, "DOLLAR8.", "Split", 1],
-      ["Sedan", "Cylinders", 5.580152671755725, "BEST12.", "Split", 1],
-      ["Sedan", "MPG (City)", 21.083969465648856, "BEST12.", "Split", 1],
-      ["Sedan", "MSRP", 29773.618320610687, "DOLLAR8.", "Split", 1],
-      ["Sports", "Cylinders", 6.340425531914893, "BEST12.", "Single", 0],
-      ["Sports", "MPG (City)", 18.408163265306122, "BEST12.", "Single", 0],
-      ["Sports", "MSRP", 53387.06122448979, "DOLLAR8.", "Single", 0],
-      ["SUV", "Cylinders", 6.566666666666666, "BEST12.", "Single", 0],
-      ["SUV", "MPG (City)", 16.1, "BEST12.", "Single", 0],
-      ["SUV", "MSRP", 34790.25, "DOLLAR8.", "Single", 0],
-      ["Truck", "Cylinders", 6.25, "BEST12.", "Split", 1],
-      ["Truck", "MPG (City)", 16.5, "BEST12.", "Split", 1],
-      ["Truck", "MSRP", 24941.375, "DOLLAR8.", "Split", 1],
-      ["Wagon", "Cylinders", 5.3, "BEST12.", "Single", 0],
-      ["Wagon", "MPG (City)", 21.1, "BEST12.", "Single", 0],
-      ["Wagon", "MSRP", 28840.533333333333, "DOLLAR8.", "Single", 0]
+      ["Hybrid", "Cool Factor", 3, "BEST12.", "Split", 1],
+      ["Hybrid", "Cost Efficiency", 6, "BEST12.", "Split", 1],
+      ["Hybrid", "Utility", 3, "BEST12.", "Split", 1],
+      ["Sedan", "Cool Factor", 4, "BEST12.", "Split", 1],
+      ["Sedan", "Cost Efficiency", 4, "BEST12.", "Split", 1],
+      ["Sedan", "Utility", 2, "BEST12.", "Split", 1],
+      ["Sports", "Cool Factor", 6, "BEST12.", "Single", 0],
+      ["Sports", "Cost Efficiency", 3, "BEST12.", "Single", 0],
+      ["Sports", "Utility", 1, "BEST12.", "Single", 0],
+      ["SUV", "Cool Factor", 2, "BEST12.", "Single", 0],
+      ["SUV", "Cost Efficiency", 1, "BEST12.", "Single", 0],
+      ["SUV", "Utility", 5, "BEST12.", "Single", 0],
+      ["Truck", "Cool Factor", 1, "BEST12.", "Split", 1],
+      ["Truck", "Cost Efficiency", 2, "BEST12.", "Split", 1],
+      ["Truck", "Utility", 6, "BEST12.", "Split", 1],
+      ["Wagon", "Cool Factor", 5, "BEST12.", "Single", 0],
+      ["Wagon", "Cost Efficiency", 5, "BEST12.", "Single", 0],
+      ["Wagon", "Utility", 4, "BEST12.", "Single", 0]
     ],
     columns: [
       {
-        name: "bi261",
+        name: "bi694",
         label: "Type",
         type: "string"
       },
       {
-        name: "bi262",
+        name: "bi695",
         label: "Metric",
         type: "string"
       },
       {
-        name: "bi263",
+        name: "bi696",
         label: "Measure",
         type: "number",
         usage: "quantitative",
@@ -240,12 +240,12 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       },
       {
-        name: "bi264",
+        name: "bi697",
         label: "Format",
         type: "string"
       },
       {
-        name: "bi265",
+        name: "bi698",
         label: "View",
         type: "string"
       },
@@ -274,6 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
       unfocus: 0.2
     }
   }; // Various opacity values used during rendering
+  const MEASURE_MAXIMUM = 6; // Maximum possible value for measures
 
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
@@ -309,7 +310,6 @@ document.addEventListener("DOMContentLoaded", function() {
   let SIDE_PAD; // Horizontal padding for measure labels
 
   // Selection and d3 variables
-  const SCALED_FORMAT = d3.format("3.0f"); // Format for scaled version of measure displayed in tooltip
   d3.selection.prototype.moveToFront = function() {
     return this.each(function() {
       this.parentNode.appendChild(this);
@@ -536,8 +536,7 @@ document.addEventListener("DOMContentLoaded", function() {
           metric: VA_MESSAGE.data[i * numMeasures + j][1],
           measure: VA_MESSAGE.data[i * numMeasures + j][2],
           scaledMeasure:
-            VA_MESSAGE.data[i * numMeasures + j][2] /
-            METADATA.metrics[VA_MESSAGE.data[i * numMeasures + j][1]].maximum
+            VA_MESSAGE.data[i * numMeasures + j][2] / MEASURE_MAXIMUM
         };
 
         datum.metrics.push(metric);
@@ -602,11 +601,6 @@ document.addEventListener("DOMContentLoaded", function() {
               d.metric +
               ":\t</td> <td>" +
               METADATA.metrics[d.metric].format(d.measure) +
-              "</td> </tr>" +
-              "<tr> <td> " +
-              d.metric +
-              " Scaled:\t</td> <td>" +
-              SCALED_FORMAT(d.scaledMeasure * 100) +
               "</td> </tr> </table>"
             );
           });
