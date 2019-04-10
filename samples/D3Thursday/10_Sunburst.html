@@ -53,28 +53,27 @@ limitations under the License.
     font-size: .9em;
     font-weight: bold;
     text-anchor: middle;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
   }
 
   .legend-text {
     font-size: .8em;
-    alignment-baseline: hanging;
+    dominant-baseline: central;
   }
 
   .trail-text, .trail-end-text {
     font-size: .9em;
-    alignment-baseline: middle;
+    dominant-baseline: middle;
   }
 
   .key-value-text {
     fill: #696969;
     text-anchor: middle;
-    alignment-baseline: middle;
+    dominant-baseline: middle;
   }
 </style>
 
 <script>
-
 "use strict";
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -136,63 +135,36 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     ]
   }; // Sample data message to render graph outside of VA for debugging
-  const FILL = {
-    North_America: "#21b9b7",
-    Central_America: "#4141e0",
-    South_America: "#7db71a",
-    Europe: "#8e2f8a",
-    Asia: "#d38506",
-    Africa: "#0abf85",
-    Oceania: "#2f90ec",
-    Antarctica: "#db3851"
-  }; // Fill colors keyed to labels
-  const STROKE = {
-    North_America: "#1d9992",
-    Central_America: "#2222bc",
-    South_America: "#6a9617",
-    Europe: "#6d256d",
-    Asia: "#ba7006",
-    Africa: "#0a9e69",
-    Oceania: "#07689e",
-    Antarctica: "#a50a2f"
-  }; // Stroke colors keyed to categories
-  const UNFOCUS_OPACITY = .2;
-  const MISSING = "(missing)";
-  const NUM_OPTIONAL_CATEGORIES = 5;
-  const DARK_THRESHOLD = 100;
+  const UNFOCUS_OPACITY = .2; // Opacity for non-focused arcs
+  const MISSING = "(missing)"; // Text value used for missing values from VA
+  const NUM_OPTIONAL_CATEGORIES = 5; // Number of optional category columns to allow
+  const DARK_THRESHOLD = 100; // Luma threshold used to determine trail text color
 
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
   let METADATA; // Metadata to be parsed from VA data message
   let DATA; // Data to be parsed from VA data message
-  let OLD_DATA;
-  let PRESERVE_HOVER = false;
-  let TRAIL_END;
-  let LAST_TRANSITION_END = Date.now();
+  let OLD_DATA; // Previous data set
+  let PRESERVE_HOVER = false; // Boolean toggle used to preserve hover effect on click
+  let TRAIL_END; // Data for last node of trail
+  let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of transitions
-  const HEIGHT_CHANGE_DELAY = 200;
+  const TRANS_TIME = 2500; // Duration of transitions
+  const HEIGHT_CHANGE_DELAY = 200; // Delay duration for when height of hierarchy changes
   const HOVER_TRANS_TIME = 100; // Duration of focus transitions
-  const LEG_TOP_PAD = 5; // Padding between chart and legend title
-  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
-  const LEG_ROW_PAD = 3; // Padding between legend rows
-  const LEG_RECT_WIDTH = 12; // Width of legend rects
-  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
-  const LEG_TEXT_PAD = 5; // Padding after legend text
-  const TRAIL_TEXT_TOP_PAD = 5;
-  const TRAIL_TEXT_SIDE_PAD = 5;
-  const TRAIL_MARKER_SIDE_PAD = 5;
-  const TRAIL_MARKER_BOTTOM_PAD = 5;
-  const ARROW_WIDTH = 15;
-  const KEY_VALUE_TEXT_PAD = 5;
+  const EDGE_PADDING = 5; // Padding around exterior of sunburst
+  const TRAIL_TEXT_TOP_PAD = 5; // Padding above and below trail text in marker
+  const TRAIL_TEXT_SIDE_PAD = 5; // Padding beside trail text in marker
+  const TRAIL_MARKER_SIDE_PAD = 5; // Padding between trail markers
+  const TRAIL_MARKER_BOTTOM_PAD = 5; // Padding between trail markers and top of sunburst
+  const ARROW_WIDTH = 15; // Pixel width of arrow on trail markers
+  const KEY_VALUE_TEXT_PAD = 5; // Padding on either side of key value
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
   let HEIGHT; // Height of SVG element
-  let LEG_EL_POS; // Positions of legend text elements
-  let LEG_HEIGHT; // Height allocated for legend
   let TRAIL_HEIGHT; // Height allocated for trail markers and text
   let RADIUS; // Outermost radius of sunburst
   let INNER_RADIUS; // Innermost radius of sunburst
@@ -201,29 +173,119 @@ document.addEventListener("DOMContentLoaded", function() {
   d3.color.prototype.isDark = function() {
     const luma = 0.2126 * this.r + 0.7152 * this.g + 0.0722 * this.b;
     return luma < DARK_THRESHOLD;
-  };
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeDark2); // Ordinal color scale as backup
-  const PARSE_DATE = d3.timeParse("%m/%d/%Y");
-  const FORMAT_PERCENT = d3.format(".2%");
+  }; // Return whether d3 colors luma is below dark threshold
+  const FORMAT_PERCENT = d3.format(".2%"); // Percentage format for trail end text
   let SVG; // SVG selection
   let G_TRAIL_AREA; // Trail area group Selection
-  let G_LEGEND; // Legend group selection
-  let LEGEND_TITLE; // Legend title data-join
-  let LEGEND_RECTS; // Legend rects data-join
-  let LEGEND_TEXTS; // Legend texts data-join
-  let PARTITION;
-  let OLD_PARTITION;
-  let ROOT;
-  let OLD_ROOT;
-  let ROOT_OLD_PARTITION;
-  let OLD_ROOT_NEW_PARTITION;
+  let PARTITION; // Partition to generate angles and radii for hierarchy
+  let ROOT; // Current root of hierarchy
+  let OLD_ROOT; // Previous root of hierarchy
+  let ROOT_OLD_PARTITION; // Current root of hierarchy with old roots partition
+  let OLD_ROOT_NEW_PARTITION; // Previous root of hierarchy with new roots partition
   let G_CHART_AREA; // Chart area group selection
   let ARC; // Arc generator to create arc paths from arc data
-  let ARC_TWEEN;
+  let ARC_TWEEN; // Arc generator to create tweening arc paths
   let DATA_ARCS; // Data Arcs data-join
   let TRAIL_GROUPS; // Trail group data-join to contain trail path and trail trail texts
   let TRAIL_END_TEXT; // Trail end text data-join for text at end of trail
-  let KEY_VALUE_TEXT;
+  let KEY_VALUE_TEXT; // Key value text data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {
+      Africa: "#21b9b7",
+      Antarctica: "#4141e0",
+      Asia: "#7db71a",
+      "Central America": "#8e2f8a",
+      Europe: "#d38506",
+      "North America": "#0abf85",
+      Oceania: "#2f90ec",
+      "South America": "#db3851"
+    }, // Fill colors by key
+    stroke: {
+      Africa: "#1d9992",
+      Antarctica: "#2222bc",
+      Asia: "#6a9617",
+      "Central America": "#6d256d",
+      Europe: "#ba7006",
+      "North America": "#0a9e69",
+      Oceania: "#07689e",
+      "South America": "#a50a2f"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]), // Backup ordinal scale for strokes
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
@@ -312,6 +374,18 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     );
 
+    // Assign data variables for legend
+    LEG.title = METADATA.categories[0];
+    LEG.data = DATA.children.map(function(d) {
+      return {
+        key: d.category,
+        id: d.id
+      };
+    });
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
+
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
@@ -372,80 +446,30 @@ document.addEventListener("DOMContentLoaded", function() {
         this.remove();
       });
 
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    GRAD.defsSelection = SVG.select(".gradient-defs");
+
+    // Create gradient definitions
+    defineGradients();
+
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Append/update legend group and save reference
-    SVG.selectAll(".g-legend")
-      .data([DATA])
-      .enter()
-      .append("g")
-      .classed("g-legend", true);
+    // Draw legend elements
+    drawLegend();
 
-    G_LEGEND = SVG.select(".g-legend");
-
-    // Create legend title
-    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-    LEGEND_TITLE.enter()
-      .append("text")
-      .classed("legend-title", true)
-      .text(METADATA.categories[0])
-      .merge(LEGEND_TITLE)
-      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
-
-    // Create legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA.children, function(d) {
-      return d.id;
-    });
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return d.color;
-      })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.id];
-      })
-      .merge(LEGEND_RECTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Create legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA.children, function(d) {
-      return d.id;
-    });
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.label;
-      })
-      .merge(LEGEND_TEXTS)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      });
-
-    // Determine radius and move legend
-    G_LEGEND.attr("transform", function() {
-      RADIUS =
-        Math.min(
-          WIDTH,
-          HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
-        ) / 2;
-      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-    });
+    // Determine radius now that legend height has been determined
+    RADIUS =
+      Math.min(
+        WIDTH - 2 * EDGE_PADDING,
+        HEIGHT - LEG.height - LEG.topPad - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
+      ) / 2;
 
     // Create d3 hierarchy from nested data
     ROOT = d3.hierarchy(DATA).sum(function(d) {
@@ -560,101 +584,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Redraw data dependent elements on data changedIndex
   function updateElements() {
+    // Create gradient definitions
+    defineGradients();
+
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Update legend rects
-    LEGEND_RECTS = G_LEGEND.selectAll(".legend-rect").data(DATA.children, function(
-      d
-    ) {
-      return d.id;
-    });
-
-    LEGEND_RECTS.transition()
-      .duration(TRANS_TIME)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_RECTS.enter()
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return d.color;
-      })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.id];
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_RECTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
-
-    // Update legend text
-    LEGEND_TEXTS = G_LEGEND.selectAll(".legend-text").data(DATA.children, function(
-      d
-    ) {
-      return d.id;
-    });
-
-    LEGEND_TEXTS.transition()
-      .duration(TRANS_TIME)
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.label;
-      })
-      .attr("x", function(d, i) {
-        return LEG_EL_POS[i].x + LEG_RECT_WIDTH + LEG_RECT_PAD;
-      })
-      .attr("y", function(d, i) {
-        return LEG_EL_POS[i].y;
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    LEGEND_TEXTS.exit()
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
-
-    // Move legend
-    G_LEGEND
-      .transition()
-      .duration(TRANS_TIME)
-      .attr("transform", function() {
-        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-      });
+    // Update legend elements
+    updateLegend();
 
     // Move G_CHART_AREA
     G_CHART_AREA
@@ -683,8 +620,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // Update radius and partition
     RADIUS =
       Math.min(
-        WIDTH,
-        HEIGHT - LEG_HEIGHT - LEG_TOP_PAD - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
+        WIDTH - 2 * EDGE_PADDING,
+        HEIGHT - LEG.height - LEG.topPad - TRAIL_HEIGHT - TRAIL_MARKER_BOTTOM_PAD
       ) / 2;
     PARTITION = d3.partition().size([2 * Math.PI, RADIUS * RADIUS]);
 
@@ -725,7 +662,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("fill", function(d) {
         return d.data.color;
       })
-      .attrTween("d", function(d, i) {
+      .attrTween("d", function(d) {
         const old = findDescendant(OLD_ROOT.descendants(), d.data.id);
         return arcTween(
           d,
@@ -800,7 +737,7 @@ document.addEventListener("DOMContentLoaded", function() {
           d.y1
         );
       })
-      .on("end", function(d) {
+      .on("end", function() {
         d3.select(this)
           .classed("entering", false);
       });
@@ -844,7 +781,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Update key value text
     G_CHART_AREA.select(".key-value-text")
       .transition()
-      .delay(function(d) {
+      .delay(function() {
         return heightChanged && !entered ? HEIGHT_CHANGE_DELAY : 0;
       })
       .duration(TRANS_TIME/2)
@@ -862,7 +799,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Update trail end text
     G_TRAIL_AREA.select(".trail-end-text")
       .transition()
-      .delay(function(d) {
+      .delay(function() {
         return heightChanged && !entered ? HEIGHT_CHANGE_DELAY : 0;
       })
       .duration(TRANS_TIME/2)
@@ -903,14 +840,14 @@ document.addEventListener("DOMContentLoaded", function() {
       dataId = "";
       for (let j=1; j<=catIndex; j++) {
         dataId += (j==1 ? "" : "-");
-        dataId += data[i][j].replace(/ /g, "_");
+        dataId += data[i][j].replace(/\W/g, "_");
       }
 
       // Create test id to compare data id
-      testId = nestedData.id + "-" + data[i][catIndex].replace(/ /g, "_");
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/\W/g, "_");
 
       // Initialize color / iterate to new version
-      initColor = FILL[dataId] ? FILL[dataId] : COLOR_SCALE(dataId);
+      initColor = GRAD.fill[data[i][1]] ? GRAD.fill[data[i][1]] : GRAD.fillScale(data[i][1]);
       color = catIndex==1 ? d3.color(initColor).darker(.5) : color;
 
       if (catIndex == 1 || // If category is top level or...
@@ -923,7 +860,7 @@ document.addEventListener("DOMContentLoaded", function() {
           color = color.brighter(.25)
           datum = {
             id: dataId,
-            label: data[i][catIndex],
+            category: data[i][catIndex],
             color: color,
             value: data[i][0]
           };
@@ -936,7 +873,7 @@ document.addEventListener("DOMContentLoaded", function() {
             nestLayer(
               {
                 id: dataId,
-                label: data[i][catIndex],
+                category: data[i][catIndex],
                 color: color,
                 depth: nestedData.depth + 1,
                 children: []
@@ -966,12 +903,12 @@ document.addEventListener("DOMContentLoaded", function() {
     const textWidths = [];
     let textHeight;
     SVG.selectAll(".dummyText")
-      .data(DATA.children)
+      .data(LEG.data)
       .enter()
       .append("text")
       .classed("legend-text", true)
       .text(function(d) {
-        return d.label;
+        return d.key;
       })
       .each(function() {
         textHeight = this.getBBox().height;
@@ -985,19 +922,19 @@ document.addEventListener("DOMContentLoaded", function() {
     let rowSum;
     let row = 0;
     for (let i = 0; i < textWidths.length; i++) {
-      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
       rows.push(row);
       while (
         rowSum +
           textWidths[i + 1] +
-          LEG_RECT_WIDTH +
-          LEG_RECT_PAD +
-          LEG_TEXT_PAD <=
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
           WIDTH &&
         i + 1 < textWidths.length
       ) {
         i++;
-        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
         rows.push(row);
       }
       rowSums.push(rowSum);
@@ -1005,23 +942,251 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Calculate x and y coordinates for legend elements
-    LEG_EL_POS = [];
+    LEG.elPos = [];
     for (let i = 0; i < textWidths.length; i++) {
-      LEG_EL_POS.push({
+      LEG.elPos.push({
         x:
           i == 0 || rows[i - 1] != rows[i]
             ? WIDTH / 2 - rowSums[rows[i]] / 2
-            : LEG_EL_POS[i - 1].x +
+            : LEG.elPos[i - 1].x +
               textWidths[i - 1] +
-              LEG_RECT_WIDTH +
-              LEG_RECT_PAD +
-              LEG_TEXT_PAD,
-        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
       });
     }
 
     // Set legend height
-    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Update legend on data change
+  function updateLegend() {
+    // Update legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.rectsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      })
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth/2;
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    LEG.textsDataJoin
+      .exit()
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update legend position
+    LEG.groupSelection
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG.height) + ")";
+      });
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
   }
 
   // Set opacity of data arcs and remove trail nodes on unhover or svg clicked
@@ -1046,7 +1211,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Iterate from current element up to root
     let current = d;
-    let key, text;
     const nodes = [];
 
     while (current.data.id!="Root") {
@@ -1058,7 +1222,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
       // Determine width of text string for current node
       SVG.selectAll(".dummyText")
-        .data([current.data.label])
+        .data([current.data.category])
         .enter()
         .append("text")
         .classed("trail-text", true)
@@ -1118,7 +1282,7 @@ document.addEventListener("DOMContentLoaded", function() {
         return d.data.color.isDark() ? "#FFF" : "#000";
       })
       .text(function(d) {
-        return d.data.label;
+        return d.data.category;
       });
 
     // Append/update trail end texts
@@ -1204,7 +1368,6 @@ document.addEventListener("DOMContentLoaded", function() {
     return !movedBack || prevIndex == 0 ? undefined : prev;
   }
 });
-
 </script>
 </body>
 </html>

@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    float: left;
+    min-width: 500px;
+    min-height: 300px;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .x-axis, .x-axis-context, .y-axis {
+    font-size: .8em;
+  }
+
+  .x-label {
+    font-size: .9em;
+    text-anchor: Middle;
+    dominant-baseline: ideographic;
+  }
+
+  .y-label {
+    font-size: .9em;
+    dominant-baseline: hanging;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    dominant-baseline: central;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
+  }
+
+  .zoom {
+    cursor: move;
+    fill: none;
+    pointer-events: all;
+  }
+
+  .data-path-context {
+    pointer-events: none;
+    stroke-width: 1px;
+    stroke: black;
+  }
+
+  .data-path {
+    stroke-width: 2px;
+    stroke: black;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "streamgraph"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd307",
+    rowCount: 12,
+    availableRowCount: 12,
+    data: [
+      ["1985", " 1", 815],
+      ["1985", " 2", 884],
+      ["1986", " 1", 588],
+      ["1986", " 2", 621],
+      ["1987", " 1", 580],
+      ["1987", " 2", 667],
+      ["1988", " 1", 568],
+      ["1988", " 2", 562],
+      ["1989", " 1", 593],
+      ["1989", " 2", 560],
+      ["1990", " 1", 563],
+      ["1990", " 2", 515]
+    ],
+    columns: [
+      {
+        name: "bi304",
+        label: "Year",
+        type: "date",
+        usage: "categorical",
+        format: {
+          name: "YEAR",
+          width: 4,
+          precision: 0,
+          formatString: "YEAR4"
+        }
+      },
+      {
+        name: "bi305",
+        label: "Cluster ID",
+        type: "string"
+      },
+      {
+        name: "bi308",
+        label: "Frequency",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "totalCount",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 0,
+          formatString: "COMMA12."
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Result name required to send messages back to VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let CATEGORIES; // Categories present in DATA
+  let DATA; // Data to be parsed from VA data message
+  let STACK; // Stack generator to create stacked dataset
+  let STACKED_DATA; // Data arranged in stack to create streamgraph
+
+  // Static dimension variables
+  const VERT_PAD = 5; // Vertical padding between elements
+  const Y_AXIS_PAD = 2; // Padding between y-axis and chart area (prevent bar stroke overlapping axis)
+  const RIGHT_AXIS_PAD = 50; // Padding on right axis to give user space to release brush event
+  const X_TICK_PAD = 10; // Padding between x tick labels to help space them out
+  const CONTEXT_HEIGHT = 75; // Height of context graph at bottom
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let CHART_WIDTH; // Width of chart area for bars
+  let CHART_HEIGHT; // Height of chart area for bars
+  let Y_AXIS_WIDTH; // Width of y-axis
+  let X_AXIS_HEIGHT; // Height of x-axis
+  let X_LABEL_HEIGHT; // Height of x-axis label
+  let Y_LABEL_HEIGHT; // Height of y-axis label
+  let Y_TICK_HEIGHT; // Height of y-ticks texts
+  let X_TICK_MAX_WIDTH = 10; // Maximum pixel width allowed for x-tick texts
+
+  // Selection and d3 variables
+  let SVG; // SVG selection
+  let X_SCALE; // Linear time scale for chart area
+  let X_SCALE_CONTEXT; // Linear time scale context area
+  let Y_SCALE; // Linear scale for chart area path heights
+  let Y_SCALE_CONTEXT; // Linear scale for context area path heights
+  let X_LABEL; // X label data-join
+  let Y_LABEL; // Y label data-join
+  let X_AXIS; // X axis group data-join
+  let X_AXIS_CONTEXT; // Context x axis group data-join
+  let Y_AXIS; // Y axis group data join
+  let BRUSH; // Brush data-join
+  let ZOOM; // Zoom data-join
+  let G_CLIP; // Clip group selection - must tether clipPath to absolutely positioned group,
+  // otherwise clipping area will inherit transforms of object it is tethered to
+  let G_CHART_AREA; // Chart area group selection
+  let AREA; // Area generator to create paths from stack
+  let CLIP_PATH; // Clip path data-join to prevent overflow from zoom/brush
+  let CLIP_PATH_RECT; // Clip path rect data-join
+  let DATA_PATHS; // Data paths data-join
+  let ZOOM_RECT; // Zoom rect data-join
+  let G_CONTEXT_AREA; // Context area group selection
+  let CONTEXT_AREA; // Area generator to create paths from stack for context area
+  let DATA_PATHS_CONTEXT; // Context chart data paths data-join
+  let BRUSH_GROUP; // Brush group selection
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {}, // Empty fill because we want to default to fillScale which we will define below
+    stroke: {}, // Empty stroke because we want to default to fillScale which we will define below
+    fillScale: undefined, // Ordinal fill scale to be defined below
+    strokeScale: undefined, // Ordinal stroke scale to be defined below
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    va.contentUtil.convertDateColumns(messageFromVA);
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(messageFromVA, ["date", "string", "number"])
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Streamgraph expects columns to be assigned in this order:\n" +
+          " 1. Date (date)\n" +
+          " 2. Group By Category (string)\n" +
+          " 3. Measure (number)"
+      );
+      return;
+    }
+
+    // Restructure metadata from data message
+    METADATA = {
+      date: VA_MESSAGE.columns[0].label,
+      category: VA_MESSAGE.columns[1].label,
+      measure: VA_MESSAGE.columns[2].label
+    };
+
+    // Create nest to help process data structure
+    CATEGORIES = d3
+      .nest()
+      .key(function(d) {
+        return d[1];
+      })
+      .entries(VA_MESSAGE.data);
+
+    // Restructure data from 2d array format into associative array format
+    DATA = [];
+    let k, datum;
+    let i = 0;
+    while (i < VA_MESSAGE.data.length) {
+      k = 0;
+      datum = {
+        total: 0,
+        date: VA_MESSAGE.data[i][0]
+      };
+      for (let j = 0; j < CATEGORIES.length; j++) {
+        // Freq for this date and category present
+        if (VA_MESSAGE.data[i + k][1] == CATEGORIES[j].key) {
+          datum[CATEGORIES[j].key] = VA_MESSAGE.data[i + k][2];
+          datum.total += VA_MESSAGE.data[i + k][2];
+          k++;
+        }
+        // 0 freq for this date and category
+        else {
+          datum[CATEGORIES[j].key] = 0;
+        }
+      }
+
+      i += k;
+      DATA.push(datum);
+    }
+
+    // Create data stack
+    STACK = d3
+      .stack()
+      .keys(
+        CATEGORIES.map(function(d) {
+          return d.key;
+        })
+      )
+      .offset(d3.stackOffsetWiggle);
+
+    STACKED_DATA = STACK(DATA);
+
+    // Add id to stacked data
+    STACKED_DATA.forEach(function(d) {
+      d.id = d.key.replace(/\W/g, "_");
+    });
+
+    // Assign data variables for legend
+    LEG.title = METADATA.category;
+    LEG.data = STACKED_DATA.map(function(d) {
+      return {
+        key: d.key,
+        id: d.id
+      };
+    });
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
+
+    // Create color scales
+    const fills = [];
+    const strokes = [];
+    const colorInterp = d3.interpolateRgb("#FF0000", "#FFFF00");
+    let fill;
+
+    for (let i = 0; i < GRAD.data.length; i++) {
+      fill = colorInterp(i / (GRAD.data.length - 1));
+      fills.push(fill);
+      strokes.push(d3.color(fill).darker());
+    }
+
+    GRAD.fillScale = d3.scaleOrdinal(fills);
+    GRAD.strokeScale = d3.scaleOrdinal(strokes);
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = document.body.clientWidth;
+    HEIGHT = document.body.clientHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID);
+
+    SVG = d3.select("#" + SVG_ID);
+
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    GRAD.defsSelection = SVG.select(".gradient-defs");
+
+    // Create gradient definitions
+    defineGradients();
+
+    // Use fake scales to determine axes dimensions
+    calculateAxesDimensions();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Draw legend elements
+    drawLegend();
+
+    // Create x axis label
+    X_LABEL = SVG.selectAll(".x-label").data([DATA]);
+
+    X_LABEL.enter()
+      .append("text")
+      .classed("x-label", true)
+      .text(METADATA.date)
+      .each(function() {
+        X_LABEL_HEIGHT = this.getBBox().height;
+      })
+      .merge(X_LABEL)
+      .attr("x", WIDTH / 2)
+      .attr("y", HEIGHT - LEG.height - VERT_PAD);
+
+    // Create y axis label
+    Y_LABEL = SVG.selectAll(".y-label").data([DATA]);
+
+    Y_LABEL.enter()
+      .append("text")
+      .classed("y-label", true)
+      .text(METADATA.measure)
+      .each(function() {
+        Y_LABEL_HEIGHT = this.getBBox().height;
+      });
+
+    // Calculate chart dimensions
+    CHART_WIDTH = WIDTH - RIGHT_AXIS_PAD - Y_AXIS_PAD - Y_AXIS_WIDTH;
+    CHART_HEIGHT =
+      HEIGHT -
+      LEG.height -
+      X_LABEL_HEIGHT -
+      VERT_PAD -
+      X_AXIS_HEIGHT -
+      CONTEXT_HEIGHT -
+      VERT_PAD -
+      X_AXIS_HEIGHT -
+      VERT_PAD -
+      Y_LABEL_HEIGHT;
+
+    // Initialize scales using chart dimensions
+    X_SCALE = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
+      .rangeRound([0, CHART_WIDTH]);
+
+    X_SCALE_CONTEXT = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
+      .rangeRound([0, CHART_WIDTH]);
+
+    Y_SCALE = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
+      .rangeRound([CHART_HEIGHT, 0]);
+
+    Y_SCALE_CONTEXT = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
+      .rangeRound([CONTEXT_HEIGHT, 0]);
+
+    // Create x axis
+    X_AXIS = SVG.selectAll(".x-axis").data([DATA]);
+
+    X_AXIS.enter()
+      .append("g")
+      .classed("x-axis", true)
+      .merge(X_AXIS)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD + CHART_HEIGHT) +
+          ")"
+      )
+      .call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
+
+    // Create context x axis
+    X_AXIS_CONTEXT = SVG.selectAll(".x-axis-context").data([DATA]);
+
+    X_AXIS_CONTEXT.enter()
+      .append("g")
+      .classed("x-axis-context", true)
+      .merge(X_AXIS_CONTEXT)
+      .attr(
+        "transform",
+        "translate(" +
+          Y_AXIS_WIDTH +
+          "," +
+          (HEIGHT - LEG.height - X_LABEL_HEIGHT - VERT_PAD - X_AXIS_HEIGHT) +
+          ")"
+      )
+      .call(d3.axisBottom(X_SCALE_CONTEXT).tickSizeOuter(0));
+
+    // Create y axis
+    Y_AXIS = SVG.selectAll(".y-axis").data([DATA]);
+
+    Y_AXIS.enter()
+      .append("g")
+      .classed("y-axis", true)
+      .attr(
+        "transform",
+        "translate(" + Y_AXIS_WIDTH + "," + (Y_LABEL_HEIGHT + VERT_PAD) + ")"
+      )
+      .merge(Y_AXIS)
+      .call(
+        d3
+          .axisLeft(Y_SCALE)
+          .tickValues(
+            getTickValues(
+              0,
+              d3.max(DATA, function(d) {
+                return d.total;
+              }) + 1,
+              parseInt(CHART_HEIGHT / Y_TICK_HEIGHT),
+              1
+            )
+          )
+          .tickFormat(d3.format("d"))
+          .tickSizeOuter(0)
+      );
+
+    // Create brush for context graph
+    BRUSH = d3
+      .brushX()
+      .extent([[0, 0], [CHART_WIDTH, CONTEXT_HEIGHT]])
+      .on("brush end", brushed);
+
+    // Create zoom for primary graph
+    ZOOM = d3
+      .zoom()
+      .scaleExtent([1, Infinity])
+      .translateExtent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
+      .extent([[0, 0], [CHART_WIDTH, CHART_HEIGHT]])
+      .on("zoom", zoomed);
+
+    // Append G_CLIP and save references
+    SVG.selectAll(".g-clip")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-clip", true)
+      .attr("clip-path", "url(#clip)");
+
+    G_CLIP = SVG.select(".g-clip");
+
+    // Append G_CHART_AREA and save references
+    G_CLIP.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" +
+        (Y_AXIS_WIDTH + Y_AXIS_PAD) +
+        "," +
+        (Y_LABEL_HEIGHT + VERT_PAD) +
+        ")"
+    );
+
+    // Create area generator
+    AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE(d.data.date);
+      })
+      .y0(function(d) {
+        return Y_SCALE(d[1]);
+      })
+      .y1(function(d) {
+        return Y_SCALE(d[0]);
+      })
+      .curve(d3.curveBasis);
+
+    // Create clip path
+    CLIP_PATH = SVG.select("defs")
+      .selectAll("clipPath")
+      .data([DATA]);
+
+    CLIP_PATH.enter()
+      .append("clipPath")
+      .attr("id", "clip");
+
+    // Create clip path rect
+    CLIP_PATH_RECT = SVG.select("defs")
+      .select("#clip")
+      .selectAll("rect")
+      .data([DATA]);
+
+    CLIP_PATH_RECT.enter()
+      .append("rect")
+      .classed("clip-path-rect", true)
+      .merge(CLIP_PATH_RECT)
+      .attr("x", Y_AXIS_WIDTH + Y_AXIS_PAD)
+      .attr("y", Y_LABEL_HEIGHT + VERT_PAD)
+      .attr("width", CHART_WIDTH)
+      .attr("height", CHART_HEIGHT);
+
+    // Create data paths
+    DATA_PATHS = G_CHART_AREA.selectAll("path").data(STACKED_DATA, function(d) {
+      return d.id;
+    });
+
+    DATA_PATHS.enter()
+      .append("path")
+      .attr("id", function(d) {
+        return d.id;
+      })
+      .classed("data-path", true)
+      .merge(DATA_PATHS)
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CHART_HEIGHT -
+            Y_SCALE(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
+      )
+      .attr("d", AREA)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      });
+
+    // Create zoom rect
+    ZOOM_RECT = G_CLIP.selectAll(".zoom").data([DATA]);
+
+    ZOOM_RECT.enter()
+      .append("rect")
+      .classed("zoom", true)
+      .merge(ZOOM_RECT)
+      .attr(
+        "transform",
+        "translate(" +
+          (Y_AXIS_WIDTH + Y_AXIS_PAD) +
+          "," +
+          (Y_LABEL_HEIGHT + VERT_PAD) +
+          ")"
+      )
+      .attr("width", CHART_WIDTH)
+      .attr("height", CHART_HEIGHT)
+      .call(ZOOM);
+
+    // Append G_CONTEXT_AREA and save references
+    SVG.selectAll(".g-context-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-context-area", true);
+
+    G_CONTEXT_AREA = SVG.select(".g-context-area").attr(
+      "transform",
+      "translate(" +
+        (Y_AXIS_WIDTH + Y_AXIS_PAD) +
+        ", " +
+        (HEIGHT -
+          LEG.height -
+          X_LABEL_HEIGHT -
+          VERT_PAD -
+          X_AXIS_HEIGHT -
+          CONTEXT_HEIGHT) +
+        ")"
+    );
+
+    // Create context area generator
+    CONTEXT_AREA = d3
+      .area()
+      .x(function(d) {
+        return X_SCALE_CONTEXT(d.data.date);
+      })
+      .y0(function(d) {
+        return Y_SCALE_CONTEXT(d[1]);
+      })
+      .y1(function(d) {
+        return Y_SCALE_CONTEXT(d[0]);
+      })
+      .curve(d3.curveBasis);
+
+    // Create context data paths
+    DATA_PATHS_CONTEXT = G_CONTEXT_AREA.selectAll("path").data(
+      STACKED_DATA,
+      function(d) {
+        return d.id;
+      }
+    );
+
+    DATA_PATHS_CONTEXT.enter()
+      .append("path")
+      .classed("data-path-context", true)
+      .merge(DATA_PATHS_CONTEXT)
+      .attr(
+        "transform",
+        "translate(0, " +
+          (CONTEXT_HEIGHT -
+            Y_SCALE_CONTEXT(
+              d3.min(STACKED_DATA[0], function(d) {
+                return d[0];
+              })
+            )) +
+          ")"
+      )
+      .attr("d", CONTEXT_AREA)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      });
+
+    // Create brush group
+    BRUSH_GROUP = G_CONTEXT_AREA.selectAll("g").data([DATA]);
+
+    BRUSH_GROUP.enter()
+      .append("g")
+      .classed("brush", true)
+      .merge(BRUSH_GROUP)
+      .call(BRUSH)
+      .call(BRUSH.move, X_SCALE.range());
+  }
+
+  // Redraw data dependent elements on data changedIndex
+  function updateElements() {
+    // Remove all elements
+    d3.select("#" + SVG_ID)
+      .selectAll("*")
+      .remove();
+
+    // Redraw
+    drawElements();
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Use fake scales to determine axes dimensions
+  function calculateAxesDimensions() {
+    // Initialize scales with fake ranges
+    X_SCALE = d3
+      .scaleTime()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.date;
+        })
+      )
+      .rangeRound([0, 10]);
+
+    Y_SCALE = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return d.total;
+        })
+      ])
+      // .domain([0, d3.max(STACKED_DATA, function(layer) { return d3.max(layer, function(d){ return d[0] + d[1];}); })])
+      .rangeRound([0, 10]);
+
+    // Use dummy axes with fake scales to obtain dimensions
+    SVG.append("g")
+      .classed("y-axis", true)
+      .call(d3.axisLeft(Y_SCALE))
+      .each(function() {
+        Y_TICK_HEIGHT = d3
+          .select(this)
+          .select("text")
+          .node()
+          .getBBox().height;
+        Y_AXIS_WIDTH = this.getBBox().width;
+        this.remove();
+      });
+
+    SVG.append("g")
+      .classed("x-axis", true)
+      .call(d3.axisBottom(X_SCALE))
+      .each(function() {
+        d3.select(this)
+          .selectAll("text")
+          .each(function() {
+            X_TICK_MAX_WIDTH = Math.max(
+              X_TICK_MAX_WIDTH,
+              this.getComputedTextLength() + 2 * X_TICK_PAD
+            );
+          });
+        X_AXIS_HEIGHT = this.getBBox().height;
+        this.remove();
+      });
+  }
+
+  // Compute array of readable tick values between min (inclusive) and max (exclusive) of length less than count
+  function getTickValues(min, max, count, minInterval) {
+    const pattern = [5, 2, 1];
+    let tickValues;
+    let range = max - min;
+    let pow = Math.floor(Math.log10(range));
+    let p = 0;
+    let interval = pattern[p] * Math.pow(10, pow);
+
+    do {
+      tickValues = d3.range(min, max, interval);
+
+      if (p == 2) {
+        p = 0;
+        pow--;
+      } else {
+        p++;
+      }
+
+      interval = pattern[p] * Math.pow(10, pow);
+    } while (d3.range(min, max, interval).length <= count && interval >= minInterval);
+
+    return tickValues;
+  }
+
+  // Handle brush events
+  function brushed() {
+    if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
+    var s = d3.event.selection || X_SCALE_CONTEXT.range(); // use entire range if selection is null
+
+    // Update x scale domain of main chart scale of context chart
+    X_SCALE.domain(s.map(X_SCALE_CONTEXT.invert, X_SCALE_CONTEXT));
+
+    // Update x axis of main chart using updated scale
+    SVG.select(".x-axis").call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
+
+    // Update paths of main chart
+    G_CHART_AREA.selectAll("path").attr("d", AREA);
+
+    // Update zoom to point to same location as brush
+    G_CLIP.select(".zoom").call(
+      ZOOM.transform,
+      d3.zoomIdentity.scale(CHART_WIDTH / (s[1] - s[0])).translate(-s[0], 0)
+    );
+  }
+
+  // Handle zoom events
+  function zoomed() {
+    if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+    var t = d3.event.transform;
+
+    // Update x scale domain of main chart using scale of context chart
+    X_SCALE.domain(t.rescaleX(X_SCALE_CONTEXT).domain());
+
+    // Update x axis of main chart using updated scale
+    SVG.select(".x-axis").call(d3.axisBottom(X_SCALE).tickSizeOuter(0));
+
+    // Update paths of main chart
+    G_CHART_AREA.selectAll("path").attr("d", AREA);
+
+    // Update brush to point to same location as zoom
+    G_CONTEXT_AREA.select(".brush").call(
+      BRUSH.move,
+      X_SCALE.range().map(t.invertX, t)
+    );
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(LEG.data)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG.elPos[i - 1].x +
+              textWidths[i - 1] +
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+  }
+});
+</script>
+</body>
+</html>

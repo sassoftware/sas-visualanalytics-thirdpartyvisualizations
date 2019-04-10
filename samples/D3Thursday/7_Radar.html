@@ -19,8 +19,8 @@ limitations under the License.
   <!-- Import D3.js -->
   <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
 
-  <!-- Import font awesome -->
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
 
   <!-- Import utilities  -->
   <script type="text/javascript" src="../../util/messagingUtil.js"></script>
@@ -29,9 +29,7 @@ limitations under the License.
 <body>
 <style type="text/css">
   html, body, svg {
-    float: left;
-    min-width: 300px;
-    min-height: 200px;
+    overflow: hidden;
     margin: 0px;
     width: 100%;
     height: 100%;
@@ -41,29 +39,24 @@ limitations under the License.
     font-family: Verdana, sans-serif;
   }
 
-  .data-path {
-    pointer-events: none;
-    stroke-width: 2;
-  }
-
-  .data-point {
-    cursor: pointer;
-  }
-
   .legend-title {
     font-size: .9em;
     font-weight: bold;
     text-anchor: middle;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    dominant-baseline: central;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
   }
 
   .g-legend-entry {
     cursor: pointer;
-  }
-
-  .legend-text, .measure-label {
-    font-size: .8em;
-    alignment-baseline: hanging;
   }
 
   .g-legend-entry.selected .legend-text {
@@ -74,32 +67,115 @@ limitations under the License.
     stroke-width: 2px;
   }
 
-  .tip {
-    position: absolute;
-    display: inline-block;
-    overflow: hidden;
+  .data-path {
+    pointer-events: none;
+    stroke-width: 2;
+  }
+
+  .measure-label {
+    font-size: .8em;
+    dominant-baseline: hanging;
+  }
+
+  .d3-tip {
+    pointer-events: none !important;
     background: white;
+    position: relative;
     border: 1px solid #C4C4C4;
-    box-shadow: 3px 3px 3px #444444;
     border-radius: 2px;
   }
 
-  .tip-close {
-    color: #A4A4A4;
+  /* Create arrow on tooltip */
+  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
+    content: "";
     position: absolute;
-    cursor: pointer;
-    right: 5px;
+    border-style: solid;
+    border-width: 5px 10px 5px 0;
+    border-color: transparent #C4C4C4;
+    transform-origin: 0% 0%;
   }
 
-  .tip-close:hover {
-    color: #444444;
+  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 4px 8px 4px 0;
+    border-color: transparent #fff;
+    transform-origin: 0% 0%;
   }
 
-  .tip-content {
-    margin-top: 10px;
+  /* Move the arrow depending on direction */
+  /* North */
+  .d3-tip.n:before, .d3-tip.n:after {
+    top: 100%;
+    left: 50%;
+    transform: rotate(-90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.n:after {
+    transform: rotate(-90deg) translate(-7px, -4px);
+  }
+
+  /* North east */
+  .d3-tip.ne:before, .d3-tip.ne:after {
+    top: 100%;
+    left: 0%;
+    transform: rotate(-45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.ne:after {
+    transform: rotate(-45deg) translate(-3px, -4px);
+  }
+
+  /* North west */
+  .d3-tip.nw:before, .d3-tip.nw:after {
+    top: 100%;
+    left: 100%;
+    transform: rotate(-135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.nw:after {
+    transform: rotate(-135deg) translate(-3px, -4px);
+  }
+
+  /* South */
+  .d3-tip.s:before, .d3-tip.s:after {
+    top: 0%;
+    left: 50%;
+    transform: rotate(90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.s:after {
+    transform: rotate(90deg) translate(-7px, -4px);
+  }
+
+  /* South east */
+  .d3-tip.se:before, .d3-tip.se:after {
+    top: 0%;
+    left: 0%;
+    transform: rotate(45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.se:after {
+    transform: rotate(45deg) translate(-3px, -4px);
+  }
+
+  /* South west */
+  .d3-tip.sw:before, .d3-tip.sw:after {
+    top: 0%;
+    left: 100%;
+    transform: rotate(135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.sw:after {
+    transform: rotate(135deg) translate(-3px, -4px);
+  }
+
+  /* Style tip content */
+  .d3-tip-content {
     white-space: nowrap;
     font-family: Verdana, sans-serif;
-    font-size: .8em;
+    font-size: .9em;
     text-align: left;
   }
 </style>
@@ -180,22 +256,6 @@ document.addEventListener("DOMContentLoaded", function() {
       unfocus: 0.2
     }
   }; // Various opacity values used during rendering
-  const FILL = {
-    Hybrid: "#21b9b7",
-    Sedan: "#4141e0",
-    Sports: "#7db71a",
-    SUV: "#8e2f8a",
-    Truck: "#d38506",
-    Wagon: "#0abf85"
-  }; // Fill colors keyed to labels
-  const STROKE = {
-    Hybrid: "#1d9992",
-    Sedan: "#2222bc",
-    Sports: "#6a9617",
-    SUV: "#6d256d",
-    Truck: "#ba7006",
-    Wagon: "#0a9e69"
-  }; // Stroke colors keyed to labels
 
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
@@ -204,28 +264,19 @@ document.addEventListener("DOMContentLoaded", function() {
   let OLD_DATA; // Data from previous render to track duplicate point
   let METADATA = []; // Metadata to be parsed from VA data message
   let OLD_METADATA; // Metadata from previous render to track duplicate point
-  let SELECTED; // Selected rows passed in from VA
   let SELECTED_CATEGORY; // Currently selected category
   let LAST_TRANSITION_END = Date.now(); // Time of last transition used to time transition callbacks
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of major transitions
+  const TRANS_TIME = 2500; // Duration of major transitions
   const TRANS_DELAY = 20; // Small buffer to ensure all callbacks have finished before allowing new transition
   const HOVER_TRANS_TIME = 100; // Duration of focus transitions
   const ENTER_REMOVE_TRANS_TIME = 200; // Duration of enter and exit transitions for data points and grid lines
-  const TIP_TRANS_TIME = 250; // Duration of tooltip transitions
   const MEASURE_LABEL_PADDING = 10; // Padding between edge of radar chart and measure labels
-  const LEG_TITLE_PAD = 5; // Padding between legend title bottom and first row of legend
-  const LEG_ROW_PAD = 3; // Padding between legend rows
-  const LEG_RECT_WIDTH = 12; // Width of legend rects
-  const LEG_RECT_PAD = 5; // Padding between legend rect and legend text
-  const LEG_TEXT_PAD = 5; // Padding after legend text
 
   // Dynamic dimension variables
   let WIDTH; // Width of SVG element
   let HEIGHT; // Height of SVG element
-  let LEG_EL_POS; // Positions of legend text elements
-  let LEG_HEIGHT; // Height allocated for legend
   let RADIUS; // Radius of radar chart
   let OLD_RADIUS; // Previous radius of chart used for tweening height changes
   let DELTA_ANGLE; // Angle in radians between each measure on circle
@@ -233,7 +284,6 @@ document.addEventListener("DOMContentLoaded", function() {
   let SIDE_PAD; // Horizontal padding for measure labels
 
   // Selection and d3 variables
-  const COLOR_SCALE = d3.scaleOrdinal(d3.schemeSet2); // Ordinal color scale as backup
   const SCALED_FORMAT = d3.format("3.0f"); // Format for scaled version of measure displayed in tooltip
   d3.selection.prototype.moveToFront = function() {
     return this.each(function() {
@@ -241,19 +291,111 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }; // Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
   let SVG; // SVG selection
-  let DEFS; // Defs element selection
   let G_CHART_AREA; // Chart area group selection
   let G_GRID; // Grid lines group selection
-  let G_LEGEND; // Axis label data-join
-  let GRADIENTS; // Gradients data-join
   let GRID_LINES; // Grid lines data-join
   let GRID_CIRCLES; // Grid circles data-join
   let MEASURE_LABELS; // Measure labels data-join
   let DATA_PATHS; // Data paths data-join
   let DATA_POINTS; // Data points data-join
-  let LEGEND_TITLE; // Legend title data-join
-  let LEGEND_GROUPS; // Legend groups data-join
-  let TIPS; // Tooltips data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    groupDataJoin: undefined // Legend group data-join (group contains rect and text elements)
+  };
+
+  // Tooltip variables
+  const TIP = {
+    self: undefined, // Tooltip object
+    dir: "n" // Tooltip direction
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {
+      Hybrid: "#21b9b7",
+      Sedan: "#4141e0",
+      Sports: "#7db71a",
+      SUV: "#8e2f8a",
+      Truck: "#d38506",
+      Wagon: "#0abf85"
+    }, // Fill colors by key
+    stroke: {
+      Hybrid: "#1d9992",
+      Sedan: "#2222bc",
+      Sports: "#6a9617",
+      SUV: "#6d256d",
+      Truck: "#ba7006",
+      Wagon: "#0a9e69"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]), // Backup ordinal scale for strokes
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
@@ -288,16 +430,14 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
-    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
     // Validate data roles
     if (
-      !va.contentUtil.validateRoles(messageFromVA, [
-        "string",
-        "string",
-        "number",
-        "string"
-      ])
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["string", "string", "number", "string"],
+        ["number"]
+      )
     ) {
       va.messagingUtil.postInstructionalMessage(
         VA_RESULT_NAME,
@@ -351,6 +491,7 @@ document.addEventListener("DOMContentLoaded", function() {
       // Iterate over each category
       datum = {
         category: VA_MESSAGE.data[i * numMeasures][0],
+        id: VA_MESSAGE.data[i * numMeasures][0].replace(/\W/g, "_"),
         metrics: []
       };
 
@@ -359,7 +500,7 @@ document.addEventListener("DOMContentLoaded", function() {
         metric = {
           metric: VA_MESSAGE.data[i * numMeasures + j][1],
           measure: VA_MESSAGE.data[i * numMeasures + j][2],
-          scaled_measure:
+          scaledMeasure:
             VA_MESSAGE.data[i * numMeasures + j][2] /
             METADATA.metrics[VA_MESSAGE.data[i * numMeasures + j][1]].maximum
         };
@@ -370,11 +511,22 @@ document.addEventListener("DOMContentLoaded", function() {
       DATA.push(datum);
     }
 
+    // Assign data variables for legend
+    LEG.title = METADATA.category;
+    LEG.data = DATA.map(function(d) {
+      return {
+        key: d.category,
+        id: d.id
+      };
+    });
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
+
     // Initialize chart if first draw, otherwise process data and update elements accordingly
     if (d3.select("#" + SVG_ID).empty()) {
       drawElements();
     } else {
-      hideTip();
       updateElements();
     }
   }
@@ -397,92 +549,37 @@ document.addEventListener("DOMContentLoaded", function() {
       .enter()
       .append("svg")
       .attr("id", SVG_ID)
-      .on("click", function() {
-        // Deselect legend
-        legendDeselectAll();
+      .on("click", legendDeselectAll)
+      .each(function() {
+        // Initialize tooltip
+        TIP.self = d3
+          .tip()
+          .attr("class", "d3-tip")
+          .offset([-8, 0])
+          .html(function(d) {
+            return (
+              "<table class='d3-tip-content'> <tr> <td> " +
+              METADATA.category +
+              ":\t</td> <td>" +
+              d.category +
+              "</td> </tr>" +
+              "<tr> <td> " +
+              d.metric +
+              ":\t</td> <td>" +
+              METADATA.metrics[d.metric].format(d.measure) +
+              "</td> </tr>" +
+              "<tr> <td> " +
+              d.metric +
+              " Scaled:\t</td> <td>" +
+              SCALED_FORMAT(d.scaledMeasure * 100) +
+              "</td> </tr> </table>"
+            );
+          });
 
-        // Remove tooltip
-        hideTip();
+        d3.select(this).call(TIP.self);
       });
 
     SVG = d3.select("#" + SVG_ID);
-
-    // Calculate padding to prevent measure labels from being cutoff
-    calculatePadding();
-
-    // Compute the x y locations for legend elements
-    calculateLegendDimensions();
-
-    // Append/update legend group and save reference
-    SVG.selectAll(".g-legend")
-      .data([DATA])
-      .enter()
-      .append("g")
-      .classed("g-legend", true);
-
-    G_LEGEND = SVG.select(".g-legend");
-
-    // Create legend title
-    LEGEND_TITLE = G_LEGEND.selectAll(".legend-title").data([DATA]);
-
-    LEGEND_TITLE.enter()
-      .append("text")
-      .classed("legend-title", true)
-      .text(METADATA.category)
-      .merge(LEGEND_TITLE)
-      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
-
-    // Create legend groups
-    LEGEND_GROUPS = G_LEGEND.selectAll(".g-legend-entry")
-      .data(DATA, function(d) {
-        return d.category;
-      })
-      .enter()
-      .append("g")
-      .classed("g-legend-entry", true)
-      .attr("id", function(d) {
-        return d.category + "-legend-entry";
-      })
-      .on("click", function(d, i) {
-        legendSelect(d, i, this);
-      });
-
-    G_LEGEND.selectAll(".g-legend-entry")
-      .data(DATA, function(d) {
-        return d.category;
-      })
-      .attr("transform", function(d, i) {
-        return "translate(" + LEG_EL_POS[i].x + ", " + LEG_EL_POS[i].y + ")";
-      });
-
-    // Append legend rects
-    LEGEND_GROUPS.append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return "url(#" + d.category + "-gradient)";
-      })
-      .attr("stroke-width", 1)
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
-      });
-
-    // Append legend texts
-    LEGEND_GROUPS.append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.category;
-      })
-      .attr("x", LEG_RECT_WIDTH + LEG_RECT_PAD);
-
-    // Use legend height to determine radius and move legend
-    G_LEGEND.attr("transform", function() {
-      OLD_RADIUS = RADIUS;
-      RADIUS =
-        Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG_HEIGHT - 2 * TOP_PAD) / 2;
-      return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-    });
 
     // Append defs and save reference
     SVG.selectAll(".gradient-defs")
@@ -491,43 +588,24 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("defs")
       .classed("gradient-defs", true);
 
-    DEFS = SVG.select(".gradient-defs");
+    GRAD.defsSelection = SVG.select(".gradient-defs");
 
-    // Create gradients
-    GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) {
-      return d.category;
-    });
+    // Create gradient definitions
+    defineGradients();
 
-    GRADIENTS.enter()
-      .append("linearGradient")
-      .classed("gradient", true)
-      .attr("id", function(d) {
-        return d.category + "-gradient";
-      })
-      .attr("x1", "0%")
-      .attr("x2", "100%")
-      .attr("y1", "50%")
-      .attr("y2", "50%")
-      .each(function(d, i) {
-        // Append color stops
-        d3.select(this)
-          .append("stop")
-          .attr("class", "start")
-          .attr("offset", "0%")
-          .attr("stop-color", function() {
-            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 1);
+    // Calculate padding to prevent measure labels from being cutoff
+    calculatePadding();
 
-        d3.select(this)
-          .append("stop")
-          .attr("class", "end")
-          .attr("offset", "100%")
-          .attr("stop-color", function() {
-            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 0.7);
-      });
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Draw legend elements
+    drawLegend();
+
+    // Determine radius now that legend height has been determined
+    OLD_RADIUS = RADIUS;
+    RADIUS =
+      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
 
     // Append/update chart-area group and save reference
     SVG.selectAll(".g-chart-area")
@@ -617,15 +695,15 @@ document.addEventListener("DOMContentLoaded", function() {
         return d.angle == 0 || d.angle == Math.PI
           ? -this.getBBox().width / 2 + "px"
           : d.angle > 0 && d.angle < Math.PI
-            ? 0 + "px"
-            : -this.getBBox().width + "px";
+          ? 0 + "px"
+          : -this.getBBox().width + "px";
       })
       .attr("dy", function(d) {
         return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2
           ? -this.getBBox().height / 2 + "px"
           : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2
-            ? 0 + "px"
-            : -this.getBBox().height + "px";
+          ? 0 + "px"
+          : -this.getBBox().height + "px";
       })
       .merge(MEASURE_LABELS)
       .attr("x", function(d) {
@@ -646,39 +724,42 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("id", function(d) {
         return d.category + "-path";
       })
-      .attr("fill", function(d, i) {
-        return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+      .attr("fill", function(d) {
+        return GRAD.fill[d.category]
+          ? GRAD.fill[d.category]
+          : GRAD.fillScale(d.category);
       })
       .attr("fill-opacity", function(d) {
         return getOpacity(d.category, OPACITY.fill);
       })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.category]
+          ? GRAD.stroke[d.category]
+          : GRAD.strokeScale(d.category);
       })
       .attr("stroke-opacity", function(d) {
         return getOpacity(d.category, OPACITY.stroke);
       })
       .merge(DATA_PATHS)
-      .attr("d", function(d, i) {
+      .attr("d", function(d) {
         const dPath = d;
-        const iPath = i;
         const points = [];
         let path = "M ";
         let x, y;
         for (let j = 0; j < dPath.metrics.length; j++) {
           x =
             RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.cos(j * DELTA_ANGLE);
           points.push({
             category: dPath.category,
             metric: dPath.metrics[j].metric,
             measure: dPath.metrics[j].measure,
-            scaled_measure: dPath.metrics[j].scaled_measure,
+            scaledMeasure: dPath.metrics[j].scaledMeasure,
             x: x,
             y: y
           });
@@ -699,10 +780,22 @@ document.addEventListener("DOMContentLoaded", function() {
           .classed("data-point", true)
           .attr(
             "fill",
-            FILL[dPath.category] ? FILL[dPath.category] : COLOR_SCALE(iPath)
+            GRAD.fill[dPath.category]
+              ? GRAD.fill[dPath.category]
+              : GRAD.fillScale(dPath.category)
           )
           .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
-          .on("click", showTip)
+          .on("mouseover", function(d) {
+            // Assign direction and show tooltip
+            TIP.self
+              .direction("n")
+              .offset([-8, 0])
+              .show(d, this)
+              .direction(getTipDirection())
+              .offset(getTipOffset())
+              .show(d, this);
+          })
+          .on("mouseout", TIP.self.hide)
           .merge(DATA_POINTS)
           .attr("cx", function(d) {
             return d.x;
@@ -730,145 +823,27 @@ document.addEventListener("DOMContentLoaded", function() {
     // Calculate padding to prevent measure labels from being cutoff
     calculatePadding();
 
+    // Create gradient definitions
+    defineGradients();
+
     // Compute the x y locations for legend elements
     calculateLegendDimensions();
 
-    // Update legend groups
-    LEGEND_GROUPS = G_LEGEND.selectAll(".g-legend-entry").data(DATA, function(
-      d
-    ) {
-      return d.category;
-    });
+    // Update legend elements
+    updateLegend();
 
-    // Exit
-    LEGEND_GROUPS.exit()
-      .each(function() {
-        if (d3.select(this).classed("selected")) {
-          legendDeselectAll();
-        }
-      })
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 0)
-      .remove();
+    // Update dimensions
+    OLD_RADIUS = RADIUS;
+    RADIUS =
+      Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG.height - 2 * TOP_PAD) / 2;
 
-    // Update
-    LEGEND_GROUPS.transition()
-      .duration(TRANS_TIME)
-      .attr("transform", function(d, i) {
-        return "translate(" + LEG_EL_POS[i].x + ", " + LEG_EL_POS[i].y + ")";
-      })
-      .select("rect")
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
-      });
-
-    // Enter
-    let enter = LEGEND_GROUPS.enter()
-      .append("g")
-      .classed("g-legend-entry", true)
-      .attr("id", function(d) {
-        return d.category + "-legend-entry";
-      })
-      .attr("transform", function(d, i) {
-        return "translate(" + LEG_EL_POS[i].x + ", " + LEG_EL_POS[i].y + ")";
-      })
-      .on("click", function(d, i) {
-        legendSelect(d, i, this);
-      });
-
-    // Append legend rects
-    enter
-      .append("rect")
-      .classed("legend-rect", true)
-      .attr("width", LEG_RECT_WIDTH)
-      .attr("height", LEG_RECT_WIDTH)
-      .attr("fill", function(d) {
-        return "url(#" + d.category + "-gradient)";
-      })
-      .attr("stroke-width", 1)
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
-      })
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    // Append legend texts
-    enter
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.category;
-      })
-      .attr("x", LEG_RECT_WIDTH + LEG_RECT_PAD)
-      .style("opacity", 0)
-      .transition()
-      .duration(TRANS_TIME)
-      .style("opacity", 1);
-
-    // Use legend height to determine radius and move legend
-    G_LEGEND.transition()
-      .duration(TRANS_TIME)
-      .attr("transform", function() {
-        OLD_RADIUS = RADIUS;
-        RADIUS =
-          Math.min(WIDTH - 2 * SIDE_PAD, HEIGHT - LEG_HEIGHT - 2 * TOP_PAD) / 2;
-        return "translate(0, " + (HEIGHT - LEG_HEIGHT) + ")";
-      });
-
-    // Move chart area group
+    // Update chart-area group position
     G_CHART_AREA.transition()
       .duration(TRANS_TIME)
       .attr(
         "transform",
         "translate(" + WIDTH / 2 + ", " + (TOP_PAD + RADIUS) + ")"
       );
-
-    // Update gradients
-    GRADIENTS = DEFS.selectAll(".gradient").data(DATA, function(d) {
-      return d.category;
-    });
-
-    GRADIENTS.each(function(d, i) {
-      d3.select(this)
-        .selectAll("stop")
-        .attr("stop-color", function() {
-          return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
-        });
-    });
-
-    GRADIENTS.enter()
-      .append("linearGradient")
-      .classed("gradient", true)
-      .attr("id", function(d) {
-        return d.category + "-gradient";
-      })
-      .attr("x1", "0%")
-      .attr("x2", "100%")
-      .attr("y1", "50%")
-      .attr("y2", "50%")
-      .each(function(d, i) {
-        // Append color stops
-        d3.select(this)
-          .append("stop")
-          .attr("class", "start")
-          .attr("offset", "0%")
-          .attr("stop-color", function() {
-            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 1);
-
-        d3.select(this)
-          .append("stop")
-          .attr("class", "end")
-          .attr("offset", "100%")
-          .attr("stop-color", function() {
-            return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
-          })
-          .attr("stop-opacity", 0.7);
-      });
 
     // Update grid lines
     GRID_LINES = G_GRID.selectAll(".grid-line").data(
@@ -939,15 +914,15 @@ document.addEventListener("DOMContentLoaded", function() {
         return d.angle == 0 || d.angle == Math.PI
           ? -this.getBBox().width / 2 + "px"
           : d.angle > 0 && d.angle < Math.PI
-            ? 0 + "px"
-            : -this.getBBox().width + "px";
+          ? 0 + "px"
+          : -this.getBBox().width + "px";
       })
       .attr("dy", function(d) {
         return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2
           ? -this.getBBox().height / 2 + "px"
           : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2
-            ? 0 + "px"
-            : -this.getBBox().height + "px";
+          ? 0 + "px"
+          : -this.getBBox().height + "px";
       })
       .attrTween("x", function(d) {
         const startAngle = OLD_METADATA.metrics[d.metric].angle;
@@ -978,15 +953,15 @@ document.addEventListener("DOMContentLoaded", function() {
         return d.angle == 0 || d.angle == Math.PI
           ? -this.getBBox().width / 2 + "px"
           : d.angle > 0 && d.angle < Math.PI
-            ? 0 + "px"
-            : -this.getBBox().width + "px";
+          ? 0 + "px"
+          : -this.getBBox().width + "px";
       })
       .attr("dy", function(d) {
         return d.angle == Math.PI / 2 || d.angle == (3 * Math.PI) / 2
           ? -this.getBBox().height / 2 + "px"
           : d.angle > Math.PI / 2 && d.angle < (3 * Math.PI) / 2
-            ? 0 + "px"
-            : -this.getBBox().height + "px";
+          ? 0 + "px"
+          : -this.getBBox().height + "px";
       })
       .attr("x", function(d) {
         return (RADIUS + MEASURE_LABEL_PADDING) * Math.sin(d.angle);
@@ -1011,14 +986,18 @@ document.addEventListener("DOMContentLoaded", function() {
       return d.category;
     });
 
-    DATA_PATHS
-      .attr("fill", function(d, i) {
-        return FILL[d.category] ? FILL[d.category] : COLOR_SCALE(i);
+    DATA_PATHS.attr("fill", function(d) {
+      return GRAD.fill[d.category]
+        ? GRAD.fill[d.category]
+        : GRAD.fillScale(d.category);
+    })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.category]
+          ? GRAD.stroke[d.category]
+          : GRAD.strokeScale(d.category);
       })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
-      })
-      .each(function(d, i) { // Find where point was entered/removed and add duplicate point for entered point
+      .each(function(d, i) {
+        // Find where point was entered/removed and add duplicate point for entered point
         const oldMetrics = Object.values(OLD_METADATA.metrics);
         const metrics = Object.values(METADATA.metrics);
         const oldDelta = Object.values(OLD_METADATA.metrics)[1]
@@ -1045,20 +1024,20 @@ document.addEventListener("DOMContentLoaded", function() {
             const oldData = OLD_DATA[i].metrics;
             let path =
               d.changedIndex == 0
-                ? "M " + "0," + -RADIUS * oldData[0].scaled_measure + " L "
+                ? "M " + "0," + -RADIUS * oldData[0].scaledMeasure + " L "
                 : "M ";
             let x, y;
             for (let j = 0; j < oldData.length; j++) {
               if (d.changedIndex == j + 1) {
-                x = RADIUS * oldData[j].scaled_measure * Math.sin(j * oldDelta);
+                x = RADIUS * oldData[j].scaledMeasure * Math.sin(j * oldDelta);
                 y =
-                  -RADIUS * oldData[j].scaled_measure * Math.cos(j * oldDelta);
+                  -RADIUS * oldData[j].scaledMeasure * Math.cos(j * oldDelta);
 
                 path += x + "," + y + " L ";
               }
 
-              x = RADIUS * oldData[j].scaled_measure * Math.sin(j * oldDelta);
-              y = -RADIUS * oldData[j].scaled_measure * Math.cos(j * oldDelta);
+              x = RADIUS * oldData[j].scaledMeasure * Math.sin(j * oldDelta);
+              y = -RADIUS * oldData[j].scaledMeasure * Math.cos(j * oldDelta);
 
               path += x + "," + y + (j == oldData.length - 1 ? " Z" : " L ");
             }
@@ -1068,9 +1047,9 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .transition()
       .duration(TRANS_TIME)
-      .attr("d", function(d, i) { // Transition data path to new set of points
+      .attr("d", function(d) {
+        // Transition data path to new set of points
         const dPath = d;
-        const iPath = i;
         const points = [];
         let path = "M ";
         let x, y;
@@ -1079,14 +1058,15 @@ document.addEventListener("DOMContentLoaded", function() {
             (!d.entered && d.changedIndex == j) ||
             (j == dPath.metrics.length - 1 &&
               d.changedIndex == dPath.metrics.length)
-          ) { // If point was removed create a duplicate for transition
+          ) {
+            // If point was removed create a duplicate for transition
             x =
               RADIUS *
-              dPath.metrics[j % dPath.metrics.length].scaled_measure *
+              dPath.metrics[j % dPath.metrics.length].scaledMeasure *
               Math.sin((j % dPath.metrics.length) * DELTA_ANGLE);
             y =
               -RADIUS *
-              dPath.metrics[j % dPath.metrics.length].scaled_measure *
+              dPath.metrics[j % dPath.metrics.length].scaledMeasure *
               Math.cos((j % dPath.metrics.length) * DELTA_ANGLE);
 
             path += x + "," + y + " L ";
@@ -1094,17 +1074,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
           x =
             RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.cos(j * DELTA_ANGLE);
           points.push({
             category: dPath.category,
             metric: dPath.metrics[j].metric,
             measure: dPath.metrics[j].measure,
-            scaled_measure: dPath.metrics[j].scaled_measure,
+            scaledMeasure: dPath.metrics[j].scaledMeasure,
             x: x,
             y: y
           });
@@ -1123,7 +1103,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
         DATA_POINTS.attr(
           "fill",
-          FILL[dPath.category] ? FILL[dPath.category] : COLOR_SCALE(iPath)
+          GRAD.fill[dPath.category]
+            ? GRAD.fill[dPath.category]
+            : GRAD.fillScale(dPath.category)
         )
           .transition()
           .duration(TRANS_TIME)
@@ -1139,7 +1121,9 @@ document.addEventListener("DOMContentLoaded", function() {
           .classed("data-point", true)
           .attr(
             "fill",
-            FILL[dPath.category] ? FILL[dPath.category] : COLOR_SCALE(iPath)
+            GRAD.fill[dPath.category]
+              ? GRAD.fill[dPath.category]
+              : GRAD.fillScale(dPath.category)
           )
           .attr("cx", function(d) {
             return d.x;
@@ -1149,7 +1133,17 @@ document.addEventListener("DOMContentLoaded", function() {
           })
           .attr("r", 4)
           .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
-          .on("click", showTip)
+          .on("mouseover", function(d) {
+            // Assign direction and show tooltip
+            TIP.self
+              .direction("n")
+              .offset([-8, 0])
+              .show(d, this)
+              .direction(getTipDirection())
+              .offset(getTipOffset())
+              .show(d, this);
+          })
+          .on("mouseout", TIP.self.hide)
           .style("opacity", 0)
           .transition()
           .delay(TRANS_TIME - ENTER_REMOVE_TRANS_TIME)
@@ -1164,7 +1158,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
         return path;
       })
-      .on("end", function(d) { // Update data attributes and remove duplicate point if point was removed
+      .on("end", function(d) {
+        // Update data attributes and remove duplicate point if point was removed
         if (!d.entered) {
           d3.select(this).attr("d", function(d) {
             let path = "M ";
@@ -1172,11 +1167,11 @@ document.addEventListener("DOMContentLoaded", function() {
             for (let j = 0; j < d.metrics.length; j++) {
               x =
                 RADIUS *
-                d.metrics[j].scaled_measure *
+                d.metrics[j].scaledMeasure *
                 Math.sin(j * DELTA_ANGLE);
               y =
                 -RADIUS *
-                d.metrics[j].scaled_measure *
+                d.metrics[j].scaledMeasure *
                 Math.cos(j * DELTA_ANGLE);
 
               path += x + "," + y + (j == d.metrics.length - 1 ? " Z" : " L ");
@@ -1193,22 +1188,25 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("id", function(d) {
         return d.category + "-path";
       })
-      .attr("fill", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      .attr("fill", function(d) {
+        return GRAD.stroke[d.category]
+          ? GRAD.stroke[d.category]
+          : GRAD.strokeScale(d.category);
       })
       .attr("fill-opacity", function(d) {
         return getOpacity(d.category, OPACITY.fill);
       })
-      .attr("stroke", function(d, i) {
-        return STROKE[d.category] ? STROKE[d.category] : COLOR_SCALE(i);
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.category]
+          ? GRAD.stroke[d.category]
+          : GRAD.strokeScale(d.category);
       })
       .attr("stroke-opacity", function(d) {
         return getOpacity(d.category, OPACITY.stroke);
       })
-      .attr("d", function(d, i) {
+      .attr("d", function(d) {
         // Generate actual points while placing path at 0,0
         const dPath = d;
-        const iPath = i;
         const points = [];
         let x, y;
         let path = "M ";
@@ -1217,17 +1215,17 @@ document.addEventListener("DOMContentLoaded", function() {
 
           x =
             RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.cos(j * DELTA_ANGLE);
           points.push({
             category: dPath.category,
             metric: dPath.metrics[j].metric,
             measure: dPath.metrics[j].measure,
-            scaled_measure: dPath.metrics[j].scaled_measure,
+            scaledMeasure: dPath.metrics[j].scaledMeasure,
             x: x,
             y: y
           });
@@ -1246,10 +1244,22 @@ document.addEventListener("DOMContentLoaded", function() {
           .classed("data-point", true)
           .attr(
             "fill",
-            FILL[dPath.category] ? FILL[dPath.category] : COLOR_SCALE(iPath)
+            GRAD.fill[dPath.category]
+              ? GRAD.fill[dPath.category]
+              : GRAD.fillScale(dPath.category)
           )
           .attr("fill-opacity", getOpacity(dPath.category, OPACITY.stroke))
-          .on("click", showTip)
+          .on("mouseover", function(d) {
+            // Assign direction and show tooltip
+            TIP.self
+              .direction("n")
+              .offset([-8, 0])
+              .show(d, this)
+              .direction(getTipDirection())
+              .offset(getTipOffset())
+              .show(d, this);
+          })
+          .on("mouseout", TIP.self.hide)
           .attr("cx", 0)
           .attr("cy", 0)
           .attr("r", 4)
@@ -1269,17 +1279,17 @@ document.addEventListener("DOMContentLoaded", function() {
         for (let j = 0; j < dPath.metrics.length; j++) {
           x =
             RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.sin(j * DELTA_ANGLE);
           y =
             -RADIUS *
-            dPath.metrics[j].scaled_measure *
+            dPath.metrics[j].scaledMeasure *
             Math.cos(j * DELTA_ANGLE);
           points.push({
             category: dPath.category,
             metric: dPath.metrics[j].metric,
             measure: dPath.metrics[j].measure,
-            scaled_measure: dPath.metrics[j].scaled_measure,
+            scaledMeasure: dPath.metrics[j].scaledMeasure,
             x: x,
             y: y
           });
@@ -1345,12 +1355,344 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(LEG.data)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .style("font-weight", "bold")
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG.elPos[i - 1].x +
+              textWidths[i - 1] +
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend groups
+    LEG.groupDataJoin = LEG.groupSelection
+      .selectAll(".g-legend-entry")
+      .data(LEG.data, function(d) {
+        return d.id;
+      })
+      .enter()
+      .append("g")
+      .classed("g-legend-entry", true)
+      .attr("id", function(d) {
+        return d.id + "-legend-entry";
+      })
+      .on("click", function(d, i) {
+        legendSelect(d, i, this);
+      });
+
+    LEG.groupSelection
+      .selectAll(".g-legend-entry")
+      .data(LEG.data, function(d) {
+        return d.id;
+      })
+      .attr("transform", function(d, i) {
+        return "translate(" + LEG.elPos[i].x + ", " + LEG.elPos[i].y + ")";
+      });
+
+    // Append legend rects
+    LEG.groupDataJoin
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      });
+
+    // Append legend texts
+    LEG.groupDataJoin
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", LEG.rectWidth + LEG.rectPad)
+      .attr("y", LEG.rectWidth / 2);
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Update legend on data change
+  function updateLegend() {
+    // Update legend groups
+    LEG.groupDataJoin = LEG.groupSelection
+      .selectAll(".g-legend-entry")
+      .data(LEG.data, function(d) {
+        return d.key;
+      });
+
+    // Exit
+    LEG.groupDataJoin
+      .exit()
+      .each(function() {
+        if (d3.select(this).classed("selected")) {
+          legendDeselectAll();
+        }
+      })
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 0)
+      .remove();
+
+    // Update
+    LEG.groupDataJoin
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function(d, i) {
+        return "translate(" + LEG.elPos[i].x + ", " + LEG.elPos[i].y + ")";
+      })
+      .style("opacity", 1);
+
+    // Enter
+    let enter = LEG.groupDataJoin
+      .enter()
+      .append("g")
+      .classed("g-legend-entry", true)
+      .attr("id", function(d) {
+        return d.id + "-legend-entry";
+      })
+      .attr("transform", function(d, i) {
+        return "translate(" + LEG.elPos[i].x + ", " + LEG.elPos[i].y + ")";
+      })
+      .on("click", function(d, i) {
+        legendSelect(d, i, this);
+      });
+
+    // Append legend rects
+    enter
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    // Append legend texts
+    enter
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .attr("x", LEG.rectWidth + LEG.rectPad)
+      .attr("y", LEG.rectWidth / 2)
+      .style("opacity", 0)
+      .transition()
+      .duration(TRANS_TIME)
+      .style("opacity", 1);
+
+    // Update legend position
+    LEG.groupSelection
+      .transition()
+      .duration(TRANS_TIME)
+      .attr("transform", function() {
+        return "translate(0, " + (HEIGHT - LEG.height) + ")";
+      });
+  }
+
+  // Determine direction for tooltip
+  function getTipDirection() {
+    const tip = d3.select(".d3-tip").node();
+    const w = tip.clientWidth;
+    const left = tip.offsetLeft;
+    const top = tip.offsetTop;
+    let dir;
+
+    dir = top < 0 ? "s" : "n";
+
+    if (left < 0) {
+      dir += "e";
+    } else if (left + w > WIDTH) {
+      dir += "w";
+    }
+    TIP.dir = dir;
+    return dir;
+  }
+
+  // Determine offset for tooltip based on direction
+  function getTipOffset() {
+    let offset;
+
+    switch (TIP.dir) {
+      case "n":
+        offset = [-8, 0];
+        break;
+      case "ne":
+        offset = [-5, 0];
+        break;
+      case "nw":
+        offset = [-5, 0];
+        break;
+      case "s":
+        offset = [8, 0];
+        break;
+      case "se":
+        offset = [5, 0];
+        break;
+      case "sw":
+        offset = [5, 0];
+        break;
+    }
+
+    return offset;
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+  }
+
   // Calculate padding to prevent measure labels from being cutoff
   function calculatePadding() {
     // Create dummy text variable to get measure label widths and HEIGHT
     let height;
     let width = 0;
-
     SVG.selectAll(".dummyText")
       .data(Object.values(METADATA.metrics))
       .enter()
@@ -1364,7 +1706,6 @@ document.addEventListener("DOMContentLoaded", function() {
         width = Math.max(this.getComputedTextLength(), width);
         this.remove();
       });
-
     SIDE_PAD = width + 2 * MEASURE_LABEL_PADDING;
     TOP_PAD = height + 2 * MEASURE_LABEL_PADDING;
   }
@@ -1406,7 +1747,7 @@ document.addEventListener("DOMContentLoaded", function() {
     SELECTED_CATEGORY = null;
 
     // Deselect all legend groups
-    G_LEGEND.selectAll(".g-legend-entry").classed("selected", false);
+    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
 
     // Transition all data paths to default opacity
     d3.selectAll(".data-path")
@@ -1424,24 +1765,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Handle selection on legend group
   function legendSelect(datum, index, el) {
-    // Hide tooltip
-    hideTip();
-
     // Change selected to new item
-    SELECTED_CATEGORY = datum.category;
+    SELECTED_CATEGORY = datum.key;
 
     // Prevent event from falling through to underlying elements
     d3.event.stopPropagation();
 
     // Deselect all legend groups
-    G_LEGEND.selectAll(".g-legend-entry").classed("selected", false);
+    LEG.groupSelection.selectAll(".g-legend-entry").classed("selected", false);
 
     // Transition all other data paths to unfocus opacity
     d3.selectAll(".data-path")
       .transition("select")
       .duration(HOVER_TRANS_TIME)
       .filter(function(d) {
-        return datum.category != d.category;
+        return datum.key != d.category;
       })
       .attr("fill-opacity", OPACITY.fill.unfocus)
       .attr("stroke-opacity", OPACITY.stroke.unfocus);
@@ -1451,7 +1789,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .transition("select")
       .duration(HOVER_TRANS_TIME)
       .filter(function(d) {
-        return datum.category != d.category;
+        return datum.key != d.category;
       })
       .attr("fill-opacity", OPACITY.stroke.unfocus);
 
@@ -1459,7 +1797,7 @@ document.addEventListener("DOMContentLoaded", function() {
     d3.select(el).classed("selected", true);
 
     // Bring selected data path to front and transition focus opacity
-    d3.select("#" + datum.category + "-path")
+    d3.select("#" + datum.key + "-path")
       .moveToFront()
       .transition("select")
       .duration(HOVER_TRANS_TIME)
@@ -1469,89 +1807,11 @@ document.addEventListener("DOMContentLoaded", function() {
     // Transition selected data points to focus opacity
     d3.selectAll(".data-point")
       .filter(function(d) {
-        return datum.category == d.category;
+        return datum.key == d.category;
       })
       .transition("select")
       .duration(HOVER_TRANS_TIME)
       .attr("fill-opacity", OPACITY.stroke.focus);
-  }
-
-  // Determine coordinates for dynamic legend
-  function calculateLegendDimensions() {
-    // Create dummy text variable to get legend title height
-    let titleHeight;
-    SVG.selectAll(".dummyText")
-      .data([DATA])
-      .enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text("TEST")
-      .each(function() {
-        titleHeight = this.getBBox().height;
-        this.remove();
-      });
-
-    // Create dummy text variables to get legend text height/widths
-    const textWidths = [];
-    let textHeight;
-    SVG.selectAll(".dummyText")
-      .data(DATA)
-      .enter()
-      .append("text")
-      .classed("legend-text", true)
-      .text(function(d) {
-        return d.category;
-      })
-      .style("font-weight", "bold")
-      .each(function() {
-        textHeight = this.getBBox().height;
-        textWidths.push(this.getComputedTextLength());
-        this.remove();
-      });
-
-    // Determine which row each element will sit in and how long each row is
-    const rows = [];
-    const rowSums = [];
-    let rowSum;
-    let row = 0;
-    for (let i = 0; i < textWidths.length; i++) {
-      rowSum = textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-      rows.push(row);
-      while (
-        rowSum +
-          textWidths[i + 1] +
-          LEG_RECT_WIDTH +
-          LEG_RECT_PAD +
-          LEG_TEXT_PAD <=
-          WIDTH &&
-        i + 1 < textWidths.length
-      ) {
-        i++;
-        rowSum += textWidths[i] + LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_PAD;
-        rows.push(row);
-      }
-      rowSums.push(rowSum);
-      row++;
-    }
-
-    // Calculate x and y coordinates for legend elements
-    LEG_EL_POS = [];
-    for (let i = 0; i < textWidths.length; i++) {
-      LEG_EL_POS.push({
-        x:
-          i == 0 || rows[i - 1] != rows[i]
-            ? WIDTH / 2 - rowSums[rows[i]] / 2
-            : LEG_EL_POS[i - 1].x +
-              textWidths[i - 1] +
-              LEG_RECT_WIDTH +
-              LEG_RECT_PAD +
-              LEG_TEXT_PAD,
-        y: titleHeight + LEG_TITLE_PAD + rows[i] * (textHeight + LEG_ROW_PAD)
-      });
-    }
-
-    // Set legend height
-    LEG_HEIGHT = LEG_EL_POS[LEG_EL_POS.length - 1].y + textHeight + LEG_ROW_PAD;
   }
 
   // Tween function for x coordinates on circle
@@ -1574,116 +1834,6 @@ document.addEventListener("DOMContentLoaded", function() {
       const interpolatedAngle = interpolateAngle(t);
       return -interpolatedRadius * Math.cos(interpolatedAngle);
     };
-  }
-
-  // Create and fade in tooltip
-  function showTip(d) {
-    // Prevent event from falling through to underlying elements
-    d3.event.stopPropagation();
-
-    // Update tooltips based on clicked data point
-    TIPS = d3
-      .select("body")
-      .selectAll(".tip")
-      .data([d], function(d) {
-        return d.category + "-" + d.metric;
-      });
-
-    TIPS.transition()
-      .duration(TIP_TRANS_TIME)
-      .style("top", function(d) {
-        return RADIUS + TOP_PAD + d.y + "px";
-      })
-      .style("left", function(d) {
-        return WIDTH / 2 + d.x + "px";
-      })
-      .style("width", "0px")
-      .style("height", "0px")
-      .remove();
-
-    TIPS.enter()
-      .append("div")
-      .classed("tip", true)
-      .html(function() {
-        return (
-          "<i class='tip-close fas fa-times'></i>" +
-          "<table class='tip-content'> <tr> <td> " +
-          METADATA.category +
-          ":\t</td> <td>" +
-          d.category +
-          "</td> </tr>" +
-          "<tr> <td> " +
-          d.metric +
-          ":\t</td> <td>" +
-          METADATA.metrics[d.metric].format(d.measure) +
-          "</td> </tr>" +
-          "<tr> <td> " +
-          d.metric +
-          " Scaled:\t</td> <td>" +
-          SCALED_FORMAT(d.scaled_measure * 100) +
-          "</td> </tr> </table>"
-        );
-      })
-      .style("top", function(d) {
-        return RADIUS + TOP_PAD + d.y + "px";
-      })
-      .style("left", function(d) {
-        return WIDTH / 2 + d.x + "px";
-      })
-      .each(function() {
-        this.width = this.clientWidth;
-        this.height = this.clientHeight;
-      })
-      .style("width", "0px")
-      .style("height", "0px")
-      .transition()
-      .duration(TIP_TRANS_TIME)
-      .style("top", function() {
-        return RADIUS + TOP_PAD - this.height / 2 + "px";
-      })
-      .style("left", function() {
-        return WIDTH / 2 - this.width / 2 + "px";
-      })
-      .style("width", function() {
-        return this.width + "px";
-      })
-      .style("height", function() {
-        return this.height + "px";
-      })
-      .on("end", function() {
-        d3.select(this)
-          .select(".tip-close")
-          .on("click", hideTip);
-      });
-
-    TIPS.exit()
-      .transition()
-      .duration(TIP_TRANS_TIME)
-      .style("top", function(d) {
-        return RADIUS + TOP_PAD + d.y + "px";
-      })
-      .style("left", function(d) {
-        return WIDTH / 2 + d.x + "px";
-      })
-      .style("width", "0px")
-      .style("height", "0px")
-      .remove();
-  }
-
-  // Fade out and remove tooltip
-  function hideTip() {
-    d3.select(".tip")
-      .transition()
-      .duration(TIP_TRANS_TIME)
-      .style("top", function(d) {
-        return RADIUS + TOP_PAD + d.y + "px";
-      })
-      .style("left", function(d) {
-        return WIDTH / 2 + d.x + "px";
-      })
-      .style("width", "0px")
-      .style("height", "0px")
-      .remove();
   }
 });
 </script>

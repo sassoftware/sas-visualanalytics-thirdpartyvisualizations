@@ -46,10 +46,15 @@ limitations under the License.
     font-family: Verdana, sans-serif;
   }
 
-  #map {
+  #map-container {
     display: inline-block;
     float: left;
     width: 66%;
+    height: 100%;
+  }
+
+  #map {
+    width: 100%;
     height: 100%;
   }
 
@@ -74,17 +79,17 @@ limitations under the License.
 
   #key-value-static {
     text-anchor: middle;
-    alignment-baseline: middle;
+    dominant-baseline: middle;
   }
 
   #key-value-type {
     text-anchor: middle;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
   }
 
   #key-value-cost {
     text-anchor: middle;
-    alignment-baseline: ideographic;
+    dominant-baseline: ideographic;
   }
 
   .leaflet-popup-content {
@@ -92,18 +97,26 @@ limitations under the License.
   }
 
   .legend-title {
-    font-size: 1.0em;
+    font-size: .9em;
+    font-weight: bold;
     text-anchor: middle;
-    alignment-baseline: hanging;
+    dominant-baseline: hanging;
   }
 
   .legend-text {
-    font-size: .85em;
-    alignment-baseline: hanging;
+    font-size: .8em;
+    dominant-baseline: hanging;
+  }
+
+  .legend-rect {
+    stroke-width: 1;
+  }
+
+  .g-legend-entry {
+    cursor: pointer;
   }
 
   .g-legend-entry.selected .legend-text {
-    font-size: .95em;
     font-weight: bold;
   }
 
@@ -112,8 +125,7 @@ limitations under the License.
   }
 </style>
 
-<div id="map">
-  <svg id="legend"> </svg>
+<div id="map-container">
 </div>
 
 <svg id="key-value"></svg>
@@ -162,22 +174,6 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     ]
   }; // Sample data message to render map outside of VA for debugging
-  const FILL = [
-    "#21b9b7",
-    "#4141e0",
-    "#7db71a",
-    "#8e2f8a",
-    "#d38506",
-    "#0abf85"
-  ]; // Fill colors
-  const STROKE = [
-    "#1d9992",
-    "#2222bc",
-    "#6a9617",
-    "#6d256d",
-    "#ba7006",
-    "#0a9e69"
-  ]; // Stroke colors
 
   const LEG_SVG_ID = "legend"; // ID of legend SVG
 
@@ -187,12 +183,11 @@ document.addEventListener("DOMContentLoaded", function() {
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
   let DATA; // Data to be parsed from VA data message
-  let SELECTED; // Selected rows passed in from VA
   let DEBOUNCE = false; // Boolean variable to prevent transitions from being interupted
-  let KV_TYPE_COST_MAX_LENGTH_STRING; // The longest key value type or cost by length
+  let KV_TYPE_COST_MAX_LENGTH_STRING = ""; // The longest key value type or cost by length
 
   // Static dimension variables
-  const TRANS_TIME = 500; // Duration of transitions
+  const TRANS_TIME = 2500; // Duration of transitions
   const LEG_EXTERNAL_PAD = 5; // Padding between edge of SVG and legend contents
   const LEG_TITLE_TOP_PAD = 0; // Padding above of legend title text
   const LEG_TITLE_BOT_PAD = 5; // Padding below of legend title text
@@ -224,8 +219,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Selection, leaflet, and d3 variables
   const ZOOM = 12; // Initial zoom level
-  const CIRCLES = []; // Array of leaflet circles
-  const POPUPS = []; // Array of leaflet popups
+  let CIRCLES = []; // Array of leaflet circles
+  let POPUPS = []; // Array of leaflet popups
   let MAP; // Leaflet map variable
 
   let LEG_SVG; // Legend SVG selection
@@ -234,13 +229,86 @@ document.addEventListener("DOMContentLoaded", function() {
   let G_LEG_ENTRIES; // Legend entry groups selection
 
   const COST_FORMAT = d3.format("$.2f"); // Formatter for key value cost text
-  let KV_SVG;
+  let KV_SVG; // Key value svg selection
   let G_KV; // Key value group selection
   let PATH; // Path generator to create key value ring
   let KV_RING; // Key value ring
   let KV_STATIC; // Key value static text
   let KV_TYPE; // Key value type text
   let KV_COST; // Key value cost text
+
+  // Color variables (no gradients needed in this example)
+  // Gradient variables
+  const COLOR = {
+    fill: {
+      Hybrid: "#21b9b7",
+      Sedan: "#4141e0",
+      Sports: "#7db71a",
+      SUV: "#8e2f8a",
+      Truck: "#d38506",
+      Wagon: "#0abf85"
+    }, // Fill colors by key
+    stroke: {
+      Hybrid: "#1d9992",
+      Sedan: "#2222bc",
+      Sports: "#6a9617",
+      SUV: "#6d256d",
+      Truck: "#ba7006",
+      Wagon: "#0a9e69"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]) // Backup ordinal scale for strokes
+  };
 
   /*************************************************** Setup Callback Functions ***************************************************/
 
@@ -262,13 +330,13 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize data variables
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
-    SELECTED = va.contentUtil.initializeSelections(messageFromVA);
 
     // Validate data roles
     if (
       !va.contentUtil.validateRoles(
         messageFromVA,
-        ["string", "number"]
+        ["string", "number"],
+        ["number"]
       )
     ) {
       va.messagingUtil.postInstructionalMessage(
@@ -295,9 +363,14 @@ document.addEventListener("DOMContentLoaded", function() {
         cost: cost
       });
 
+      // Store max length string to determine key value type cost font size
       KV_TYPE_COST_MAX_LENGTH_STRING =
-        COST_FORMAT(DATA[i].cost).length > DATA[i].type.length
-          ? COST_FORMAT(DATA[i].cost)
+        KV_TYPE_COST_MAX_LENGTH_STRING.length > COST_FORMAT(DATA[i].cost).length
+          ? KV_TYPE_COST_MAX_LENGTH_STRING
+          : COST_FORMAT(DATA[i].cost);
+      KV_TYPE_COST_MAX_LENGTH_STRING =
+        KV_TYPE_COST_MAX_LENGTH_STRING.length > DATA[i].type.length
+          ? KV_TYPE_COST_MAX_LENGTH_STRING
           : DATA[i].type;
     }
 
@@ -306,13 +379,20 @@ document.addEventListener("DOMContentLoaded", function() {
       return a.cost - b.cost;
     });
 
+    // Draw/redraw elements and select 0th
     drawMap();
     drawLegend();
     drawKeyValue();
+    keyValSelect(0);
   }
 
   // Draw leaflet map
   function drawMap() {
+    // Reset map html to clear
+    d3.select("#map-container").html(
+      "<div id='map'> <svg id='legend'> </svg> </div>"
+    );
+
     // Initialize map
     MAP = L.map("map", {
       zoomControl: false
@@ -333,11 +413,17 @@ document.addEventListener("DOMContentLoaded", function() {
     ).addTo(MAP);
 
     // Add circles and popups to map for each type of car
+    CIRCLES = [];
+    POPUPS = [];
     for (let i = 0, length = DATA.length; i < length; i++) {
       CIRCLES.push(
-        L.circle([42.3953, -94.6339] /*[35.818379, -78.757441]*/, {
-          color: STROKE[i % 8],
-          fillColor: FILL[i % 8],
+        L.circle([42.3953, -94.6339], {
+          color: COLOR.stroke[i % 8]
+            ? COLOR.stroke[i % 8]
+            : COLOR.strokeScale(i % 8),
+          fillColor: COLOR.fill[i % 8]
+            ? COLOR.fill[i % 8]
+            : COLOR.fillScale(i % 8),
           fillOpacity: 0.3 * Math.pow(0.9, i),
           radius: DATA[i].distMeter
         }).addTo(MAP)
@@ -401,7 +487,7 @@ document.addEventListener("DOMContentLoaded", function() {
         this.remove();
       });
 
-    // Calculate overall LEG_SVG elements based on legend dimensions
+    // Calculate overall svg dimensions based on legend elements
     LEG_SVG_WIDTH =
       LEG_RECT_WIDTH + LEG_RECT_PAD + LEG_TEXT_MAX_WIDTH + 2 * LEG_EXTERNAL_PAD;
     LEG_SVG_HEIGHT =
@@ -480,11 +566,13 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("width", LEG_RECT_WIDTH)
       .attr("height", LEG_RECT_WIDTH)
       .attr("fill", function(d, i) {
-        return FILL[i % 8];
+        return COLOR.fill[i % 8] ? COLOR.fill[i % 8] : COLOR.fillScale(i % 8);
       })
       .attr("stroke-width", 1)
       .attr("stroke", function(d, i) {
-        return STROKE[i % 8];
+        return COLOR.stroke[i % 8]
+          ? COLOR.stroke[i % 8]
+          : COLOR.strokeScale(i % 8);
       });
 
     // Append legend text
@@ -553,9 +641,9 @@ document.addEventListener("DOMContentLoaded", function() {
     KV_RING.enter()
       .append("path")
       .attr("id", "key-value-ring")
-      .attr("fill", FILL[0])
+      .attr("fill", COLOR.fill[0] ? COLOR.fill[0] : COLOR.fillScale(0))
       .attr("stroke-width", 2)
-      .attr("stroke", STROKE[0])
+      .attr("stroke", COLOR.stroke[0] ? COLOR.stroke[0] : COLOR.strokeScale(0))
       .merge(KV_RING)
       .attr("d", PATH);
 
@@ -583,7 +671,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Determine font size for key value type and cost text
     G_KV.append("text")
-      .text(KV_TYPE_COST_MAX_LENGTH_STRING)
+      .text(KV_TYPE_COST_MAX_LENGTH_STRING.toUpperCase())
       .style("font-size", "1em")
       .each(function() {
         const widthConstrained = KV_CHORD / this.getComputedTextLength();
@@ -605,7 +693,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .append("text")
       .attr("id", "key-value-type")
       .text(DATA[0].type.toUpperCase())
-      .attr("fill", STROKE[0])
+      .attr("fill", COLOR.stroke[0] ? COLOR.stroke[0] : COLOR.strokeScale(0))
       .attr("x", 0)
       .merge(KV_TYPE)
       .attr("y", -KV_INNER_RADIUS + KV_EXTERNAL_PAD)
@@ -627,7 +715,9 @@ document.addEventListener("DOMContentLoaded", function() {
   // Transition necessary elements on selection
   function keyValSelect(index) {
     // Prevent event from falling through to underlying elements
-    d3.event.stopPropagation();
+    if (d3.event) {
+      d3.event.stopPropagation();
+    }
 
     // Prevent transition from being interrupted
     if (DEBOUNCE) {
@@ -646,8 +736,14 @@ document.addEventListener("DOMContentLoaded", function() {
     G_KV.select("#key-value-ring")
       .transition()
       .duration(TRANS_TIME)
-      .attr("fill", FILL[index])
-      .attr("stroke", STROKE[index])
+      .attr(
+        "fill",
+        COLOR.fill[index] ? COLOR.fill[index] : COLOR.fillScale(index)
+      )
+      .attr(
+        "stroke",
+        COLOR.stroke[index] ? COLOR.stroke[index] : COLOR.strokeScale(index)
+      )
       .on("start", function() {
         DEBOUNCE = true;
       });
@@ -663,7 +759,10 @@ document.addEventListener("DOMContentLoaded", function() {
     G_KV.append("text")
       .attr("id", "key-value-type")
       .text(DATA[index].type.toUpperCase())
-      .attr("fill", STROKE[index])
+      .attr(
+        "fill",
+        COLOR.stroke[index] ? COLOR.stroke[index] : COLOR.strokeScale(index)
+      )
       .attr("x", 0)
       .attr("y", -KV_INNER_RADIUS + KV_EXTERNAL_PAD)
       .style("font-size", KV_TYPE_COST_FONT_SIZE)
