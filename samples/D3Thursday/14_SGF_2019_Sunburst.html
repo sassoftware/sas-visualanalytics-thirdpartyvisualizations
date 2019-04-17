@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .data-arc {
+    cursor: pointer;
+    stroke-width: 1px;
+    stroke: #FFF;
+  }
+
+  .legend-rect {
+    stroke-width: 1px;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    dominant-baseline: central;
+  }
+
+  .key-value-text {
+    fill: #696969;
+    text-anchor: middle;
+    dominant-baseline: middle;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "sunburst"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd78",
+    rowCount: 6,
+    availableRowCount: 6,
+    data: [
+      [13723, " 1", " 1", " 3"],
+      [9103, " 1", " 3", " 4"],
+      [9, " 2", " 1", " 1"],
+      [152, " 2", " 1", " 3"],
+      [6747, " 2", " 2", " 1"],
+      [8908, " 2", " 2", " 2"]
+    ],
+    columns: [
+      {
+        name: "bi96",
+        label: "Frequency",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "totalCount",
+        format: {
+          name: "COMMA",
+          width: 12,
+          precision: 0,
+          formatString: "COMMA12."
+        }
+      },
+      {
+        name: "bi97",
+        label: "2 Clusters",
+        type: "string"
+      },
+      {
+        name: "bi98",
+        label: "3 Clusters",
+        type: "string"
+      },
+      {
+        name: "bi99",
+        label: "4 Clusters",
+        type: "string"
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+  const UNFOCUS_OPACITY = 0.2; // Opacity for non-focused arcs
+  const MISSING = "(missing)"; // Text value used for missing values from VA
+  const NUM_OPTIONAL_CATEGORIES = 5; // Number of optional category columns to allow
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
+  let DATA; // Data to be parsed from VA data message
+
+  // Static dimension variables
+  const HOVER_TRANS_TIME = 100; // Duration of focus transitions
+  const EDGE_PADDING = 5; // Padding around exterior of sunburst
+  const KEY_VALUE_TEXT_PAD = 5; // Padding on either side of key value
+  const INTER_RING_PADDING = 4; // Padding between subsequent rings
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let RADIUS; // Outermost radius of sunburst
+  let INNER_RADIUS; // Innermost radius of sunburst
+
+  // Selection and d3 variables
+  d3.selection.prototype.moveToFront = function() {
+    return this.each(function() {
+      this.parentNode.appendChild(this);
+    });
+  }; // Bring element to front of SVG (from https://github.com/wbkd/d3-extended)
+  let SVG; // SVG selection
+  let PARTITION; // Partition to generate angles and radii for hierarchy
+  let ROOT; // Current root of hierarchy
+  let G_CHART_AREA; // Chart area group selection
+  let ARC; // Arc generator to create arc paths from arc data
+  let DATA_ARCS; // Data Arcs data-join
+  let KEY_VALUE_TEXT; // Key value text data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {
+      Africa: "#21b9b7",
+      Antarctica: "#4141e0",
+      Asia: "#7db71a",
+      "Central America": "#8e2f8a",
+      Europe: "#d38506",
+      "North America": "#0abf85",
+      Oceania: "#2f90ec",
+      "South America": "#db3851"
+    }, // Fill colors by key
+    stroke: {
+      Africa: "#1d9992",
+      Antarctica: "#2222bc",
+      Asia: "#6a9617",
+      "Central America": "#6d256d",
+      Europe: "#ba7006",
+      "North America": "#0a9e69",
+      Oceania: "#07689e",
+      "South America": "#a50a2f"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]), // Backup ordinal scale for strokes
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Create array of optional columns
+    const optional = [];
+    let optionalString = "";
+    for (let i = 0; i < NUM_OPTIONAL_CATEGORIES; i++) {
+      optional.push("string");
+      optionalString += " " + (i + 3) + ". Category (string) [optional]\n";
+    }
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["number", "string"],
+        optional
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Sunburst Chart expects columns to be assigned in this order:\n" +
+          " 1. Measure (number)\n" +
+          " 2. Category (string)\n" +
+          optionalString
+      );
+      return;
+    }
+
+    // Extract metadata from data message
+    METADATA = {
+      value: {
+        label: VA_MESSAGE.columns[0].label,
+        format: VA_MESSAGE.columns[0].format
+      },
+      categories: []
+    };
+
+    for (let i = 1; i < VA_MESSAGE.columns.length; i++) {
+      METADATA.categories.push(VA_MESSAGE.columns[i].label);
+    }
+
+    // Create nested data structure from data message
+    DATA = nestLayer({
+      id: "Root",
+      depth: 0,
+      children: []
+    });
+
+    // Assign data variables for legend
+    LEG.title = "Cluster ID";
+    LEG.data = d3
+      .nest()
+      .key(function(d) {
+        return d[d.length - 1];
+      })
+      .sortKeys(d3.ascending)
+      .entries(VA_MESSAGE.data)
+      .map(function(d) {
+        return {
+          key: d.key,
+          id: d.key.replace(/\W/g, "_")
+        };
+      });
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .on("click", handleSVGClick);
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    GRAD.defsSelection = SVG.select(".gradient-defs");
+
+    // Create gradient definitions
+    defineGradients();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Draw legend elements
+    drawLegend();
+
+    // Determine radius now that legend height has been determined
+    RADIUS =
+      Math.min(WIDTH - 2 * EDGE_PADDING, HEIGHT - LEG.height - LEG.topPad) / 2;
+
+    // Create d3 hierarchy from nested data
+    ROOT = d3.hierarchy(DATA).sum(function(d) {
+      return d.value;
+    });
+
+    // Create partition for nested data
+    PARTITION = d3.partition().size([2 * Math.PI, RADIUS * RADIUS]);
+
+    // Apply partition to root
+    PARTITION(ROOT);
+
+    // Set inner radius
+    INNER_RADIUS = Math.sqrt(ROOT.y1);
+
+    // Create arc generators
+    ARC = d3
+      .arc()
+      .startAngle(function(d) {
+        return d.x0;
+      })
+      .endAngle(function(d) {
+        return d.x1;
+      })
+      .innerRadius(function(d) {
+        return Math.sqrt(d.y0) + INTER_RING_PADDING / 2;
+      })
+      .outerRadius(function(d) {
+        return Math.sqrt(d.y1) - INTER_RING_PADDING / 2;
+      });
+
+    // Append/update chart area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" + WIDTH / 2 + ", " + RADIUS + ")"
+    );
+
+    // Append groups for each arc, then draw arcs
+    DATA_ARCS = G_CHART_AREA.selectAll(".data-arc").data(
+      ROOT.descendants().filter(function(d) {
+        return d.depth;
+      }),
+      function(d) {
+        return d.data.id;
+      }
+    );
+
+    DATA_ARCS.enter()
+      .append("path")
+      .classed("data-arc", true)
+      .attr("id", function(d) {
+        return d.data.id;
+      })
+      .attr("fill", function(d) {
+        return GRAD.fill[d.data.key]
+          ? GRAD.fill[d.data.key]
+          : GRAD.fillScale(d.data.key);
+      })
+      .on("click", handleArcClick)
+      .merge(DATA_ARCS)
+      .attr("d", ARC);
+
+    // Create key value text
+    KEY_VALUE_TEXT = G_CHART_AREA.selectAll(".key-value-text").data([DATA]);
+
+    KEY_VALUE_TEXT.enter()
+      .append("text")
+      .classed("key-value-text", true)
+      .text("Total " + METADATA.value.label + ": " + ROOT.value)
+      .merge(KEY_VALUE_TEXT)
+      .style("font-size", "1em")
+      .style("font-size", function() {
+        return (
+          (2 * INNER_RADIUS - 2 * KEY_VALUE_TEXT_PAD) /
+            this.getComputedTextLength() +
+          "em"
+        );
+      });
+  }
+
+  // Redraw data dependent elements on data changedIndex
+  function updateElements() {
+    // Remove all elements
+    d3.select("#" + SVG_ID)
+      .selectAll("*")
+      .remove();
+
+    // Redraw
+    drawElements();
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Recursive function call to create nested data structure
+  function nestLayer(nestedData) {
+    const data = VA_MESSAGE.data;
+    const pushedCategories = {};
+    const catIndex = nestedData.depth + 1;
+    let dataId, testId, datum;
+    // Iterate over all data elements
+    for (let i = 0; i < data.length; i++) {
+      // Create id for data element
+      dataId = "";
+      for (let j = 1; j <= catIndex; j++) {
+        dataId += j == 1 ? "" : "-";
+        dataId += data[i][j].replace(/\W/g, "_");
+      }
+
+      // Create test id to compare data id
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/\W/g, "_");
+
+      if (
+        catIndex == 1 || // If category is top level or...
+        dataId == testId // element should be a child of nestedData
+      ) {
+        if (
+          catIndex == data[i].length - 1 || // If category is last level or...
+          data[i][catIndex + 1] == MISSING // next category is missing
+        ) {
+          // Push on data element as leaf
+          datum = {
+            id: dataId,
+            key: data[i][catIndex],
+            value: data[i][0]
+          };
+          nestedData.children.push(datum);
+        } else if (!pushedCategories[data[i][catIndex]]) {
+          // Otherwise if we haven't recursed for this category...
+          // Push result of recursing to data elements children
+          pushedCategories[data[i][catIndex]] = true;
+          nestedData.children.push(
+            nestLayer({
+              id: dataId,
+              key: data[i][catIndex],
+              depth: nestedData.depth + 1,
+              children: []
+            })
+          );
+        }
+      }
+    }
+
+    return nestedData;
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(LEG.data)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG.elPos[i - 1].x +
+              textWidths[i - 1] +
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+  }
+
+  // Handle click event on svg
+  function handleSVGClick() {
+    // Prevent event from falling through to underlying elements or causing scroll
+    d3.event.stopPropagation();
+    d3.event.preventDefault();
+
+    // Return all arcs to normal opacity
+    G_CHART_AREA.selectAll(".data-arc")
+      .classed("focused", false)
+      .transition()
+      .duration(HOVER_TRANS_TIME)
+      .style("opacity", 1);
+
+    // Bring label lines back to front
+    G_CHART_AREA.selectAll(".label-line").moveToFront();
+  }
+
+  // Handle click events on arcs
+  function handleArcClick(arcD) {
+    // Prevent event from falling through to underlying elements or causing scroll
+    d3.event.stopPropagation();
+    d3.event.preventDefault();
+
+    // Remove selected class from all arcs
+    d3.selectAll(".focused").classed("focused", false);
+
+    // For selected arcs, bring opacity to 1 and move to front
+    d3.selectAll(".data-arc")
+      .filter(function(d) {
+        return d.depth && d.data.key == arcD.data.key && d.depth == arcD.depth;
+      })
+      .moveToFront()
+      .classed("focused", true)
+      .transition()
+      .duration(HOVER_TRANS_TIME)
+      .style("opacity", 1)
+      .each(function(d) {
+        // Focus all parents of selected arc
+        let node = d.parent;
+
+        while (node.parent) {
+          d3.select("#" + node.data.id)
+            .moveToFront()
+            .classed("focused", true)
+            .transition()
+            .duration(HOVER_TRANS_TIME)
+            .style("opacity", 1);
+
+          node = node.parent;
+        }
+      });
+
+    // Select all other arcs, bring opacity to unfocus opacity
+    d3.selectAll(".data-arc:not(.focused)")
+      .classed("focused", false)
+      .transition()
+      .duration(HOVER_TRANS_TIME)
+      .style("opacity", UNFOCUS_OPACITY);
+  }
+});
+</script>
+</body>
+</html>
