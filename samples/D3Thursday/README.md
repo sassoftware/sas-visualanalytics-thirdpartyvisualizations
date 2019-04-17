@@ -67,3 +67,9 @@ This post shows how to use zoom and brush events to create a zoomable, scrollabl
 <img width="600" height="600" src="./images/12.gif">
 
 This post explores techniques for animating a chart over time and then applies those techniques the example of an area chart.
+
+### SGF 2019 Streamgraph | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/13_SGF_2019_Streamgraph.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/13_SGF_2019_Streamgraph.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/How-to-Restyle-an-Existing-D3Thursday-Visualization/ta-p/549628)
+
+<img width="600" height="600" src="./images/13.gif">
+
+This post takes an in depth look at how to clone, modify, and host any D3 Thursday example for your own particular use case.
