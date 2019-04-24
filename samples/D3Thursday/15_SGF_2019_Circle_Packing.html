@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import d3-tip -->
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body, svg {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  text {
+    font-family: Verdana, sans-serif;
+  }
+
+  .data-circle.depth-0,
+  .data-circle.depth-1 {
+    stroke: #CCC;
+    stroke-width: 1px;
+  }
+
+  .selectable.selected {
+    stroke-width: 1px;
+    stroke: black;
+  }
+
+  .legend-title {
+    font-size: .9em;
+    font-weight: bold;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+  }
+
+  .legend-text {
+    font-size: .8em;
+    dominant-baseline: central;
+  }
+
+  .legend-rect {
+    stroke-width: 1px;
+  }
+
+  .d3-tip {
+    pointer-events: none !important;
+    background: white;
+    position: relative;
+    border: 1px solid #C4C4C4;
+    border-radius: 2px;
+  }
+
+  /* Create arrow on tooltip */
+  .d3-tip.n:before, .d3-tip.ne:before, .d3-tip.nw:before, .d3-tip.s:before, .d3-tip.se:before, .d3-tip.sw:before {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 5px 10px 5px 0;
+    border-color: transparent #C4C4C4;
+    transform-origin: 0% 0%;
+  }
+
+  .d3-tip.n:after, .d3-tip.ne:after, .d3-tip.nw:after, .d3-tip.s:after, .d3-tip.se:after, .d3-tip.sw:after {
+    content: "";
+    position: absolute;
+    border-style: solid;
+    border-width: 4px 8px 4px 0;
+    border-color: transparent #fff;
+    transform-origin: 0% 0%;
+  }
+
+  /* Move the arrow depending on direction */
+  /* North */
+  .d3-tip.n:before, .d3-tip.n:after {
+    top: 100%;
+    left: 50%;
+    transform: rotate(-90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.n:after {
+    transform: rotate(-90deg) translate(-7px, -4px);
+  }
+
+  /* North east */
+  .d3-tip.ne:before, .d3-tip.ne:after {
+    top: 100%;
+    left: 0%;
+    transform: rotate(-45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.ne:after {
+    transform: rotate(-45deg) translate(-3px, -4px);
+  }
+
+  /* North west */
+  .d3-tip.nw:before, .d3-tip.nw:after {
+    top: 100%;
+    left: 100%;
+    transform: rotate(-135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.nw:after {
+    transform: rotate(-135deg) translate(-3px, -4px);
+  }
+
+  /* South */
+  .d3-tip.s:before, .d3-tip.s:after {
+    top: 0%;
+    left: 50%;
+    transform: rotate(90deg) translate(-10px, -5px);
+  }
+
+  .d3-tip.s:after {
+    transform: rotate(90deg) translate(-7px, -4px);
+  }
+
+  /* South east */
+  .d3-tip.se:before, .d3-tip.se:after {
+    top: 0%;
+    left: 0%;
+    transform: rotate(45deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.se:after {
+    transform: rotate(45deg) translate(-3px, -4px);
+  }
+
+  /* South west */
+  .d3-tip.sw:before, .d3-tip.sw:after {
+    top: 0%;
+    left: 100%;
+    transform: rotate(135deg) translate(-6px, -5px);
+  }
+
+  .d3-tip.sw:after {
+    transform: rotate(135deg) translate(-3px, -4px);
+  }
+
+  /* Style tip content */
+  .d3-tip-content {
+    white-space: nowrap;
+    font-family: Verdana, sans-serif;
+    font-size: .9em;
+    text-align: left;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SVG_ID = "sgf-circle-packing"; // ID of SVG element
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd1856",
+    rowCount: 100,
+    availableRowCount: 100,
+    data: [
+      [2, " 1", "       2_    3289", "        2017 Maserati GranTurismo"],
+      [3, " 1", "       2_    3311", "        2017 Genesis G90 RWD"],
+      [3, " 1", "       2_    3432", "        2017 Ferrari 488 Spider"],
+      [
+        2,
+        " 1",
+        "       2_    3464",
+        "        2017 Mercedes-Benz AMG C63 S Coup"
+      ],
+      [5, " 1", "       3_     544", "        2018 Audi S8"],
+      [5, " 1", "       3_     574", "        2018 Ford F150 4WD FFV B"],
+      [5, " 1", "       3_     636", "        2019 Genesis G90 AWD"],
+      [5, " 1", "       3_     641", "        2018 Porsche Pa mera Turbo"],
+      [
+        2,
+        " 1",
+        "       8_    2132",
+        "        2019 Mercedes-Benz AMG GT C Roads"
+      ],
+      [3, " 1", "       8_    2133", "        2019 BMW M850i xDrive C"],
+      [3, " 2", "       2_    3322", "        2017 Mercedes-Benz AMG SL63"],
+      [4, " 2", "       2_    3336", "        2017 Chevrolet Silverado K15"],
+      [5, " 2", "       2_    3415", "        2017 Chevrolet Corvette"],
+      [5, " 2", "       3_     467", "        2018 Dodge Challenger SRT"],
+      [
+        5,
+        " 2",
+        "       3_     541",
+        "        2018 Mercedes-Benz AMG CLS63 S 4m"
+      ],
+      [5, " 2", "       3_     548", "        2018 Chevrolet Silverado K15"],
+      [3, " 2", "       8_    1983", "        2019 Ford Mustang"],
+      [5, " 2", "       8_    2031", "        2019 GMC Yukon C1500 2W"],
+      [5, " 2", "       8_    2032", "        2019 GMC Yukon C1500 XL"],
+      [3, " 3", "       5_    3084", "        2017 Rolls-Royce Ghost"],
+      [3, " 3", "       5_    3128", "        2018 Bentley Flying Spur"],
+      [
+        1,
+        " 3",
+        "       5_    3150",
+        "        2019 Mercedes-Benz AMG S65 Conver"
+      ],
+      [4, " 4", "       1_    1020", "        2018 Buick Regal"],
+      [4, " 4", "       1_    1088", "        2018 Ford Mustang Perfor"],
+      [5, " 4", "       1_    1230", "        2019 Buick Envision AWD"],
+      [5, " 4", "       1_    1248", "        2018 Fiat 500 Abarth"],
+      [1, " 4", "       1_    2262", "        2018 Hyundai So ta Plug-in"],
+      [5, " 4", "       1_    2268", "        2019 BMW X3 sDrive30i"],
+      [1, " 4", "       1_    2283", "        2019 Lincoln MKC FWD"],
+      [5, " 4", "       1_    2305", "        2019 Porsche Cayman GTS"],
+      [4, " 4", "       1_    2378", "        2019 GMC Acadia AWD"],
+      [3, " 4", "       1_    2409", "        2019 Mitsubishi Eclipse Cross"],
+      [4, " 4", "       1_    2430", "        2019 GMC Canyon 2WD"],
+      [5, " 4", "       1_    2521", "        2019 Buick Regal TourX AW"],
+      [1, " 4", "       1_    3226", "        2019 Lincoln MKZ Hybrid FWD"],
+      [4, " 4", "       1_    3315", "        2019 Nissan Altima AWD SR/"],
+      [3, " 4", "       1_    3320", "        2019 Honda Accord"],
+      [5, " 4", "       1_    3346", "        2019 Lexus RC 300"],
+      [4, " 4", "       1_    3397", "        2019 BMW X2 sDrive28i"],
+      [3, " 4", "       1_    3409", "        2019 Ford Transit Connec"],
+      [4, " 4", "       1_    3413", "        2019 Toyota RAV4 AWD"],
+      [4, " 4", "       1_    3416", "        2019 Mitsubishi Outlander PHEV"],
+      [4, " 4", "       6_    2553", "        2017 Kia Sportage FE AW"],
+      [3, " 4", "       7_     582", "        2017 Chevrolet Cruze Premier"],
+      [3, " 4", "       7_     584", "        2017 Chevrolet Cruze Hatchbac"],
+      [4, " 4", "       7_    2602", "        2017 Chrysler 200"],
+      [3, " 4", "       7_    2718", "        2017 Mazda 3 5-Door"],
+      [5, " 4", "       7_    2730", "        2017 Lexus IS 200t"],
+      [5, " 4", "       7_    2826", "        2017 Chevrolet Cruze"],
+      [5, " 4", "       7_    2852", "        2018 BMW 430i xDrive Gr"],
+      [1, " 4", "       8_     973", "        2018 Kia Sorento FWD"],
+      [5, " 4", "       8_     986", "        2018 BMW 530e"],
+      [4, " 4", "       8_    1006", "        2018 Volvo S60 AWD"],
+      [5, " 4", "       8_    1048", "        2018 Jaguar XF"],
+      [5, " 4", "       8_    1059", "        2018 Jaguar XF"],
+      [4, " 4", "       8_    1084", "        2018 Jeep Compass 4WD"],
+      [5, " 4", "       8_    1117", "        2018 Mercedes-Benz SLC300"],
+      [3, " 4", "       8_    1122", "        2018 Honda Fit"],
+      [2, " 4", "       8_    1124", "        2018 Ram Promaster City"],
+      [5, " 4", "       8_    1125", "        2018 Buick Encore AWD"],
+      [3, " 4", "       8_    1260", "        2018 Nissan Versa"],
+      [3, " 5", "       1_    1720", "        2017 Infiniti QX70 RWD"],
+      [4, " 5", "       1_    1741", "        2017 Acura RLX Hybrid"],
+      [1, " 5", "       1_    1749", "        2017 BMW 440i Convertib"],
+      [3, " 5", "       1_    1757", "        2017 Infiniti QX50"],
+      [1, " 5", "       1_    1771", "        2017 BMW M240i Converti"],
+      [4, " 5", "       1_    1857", "        2017 Lexus IS 300 AWD"],
+      [
+        3,
+        " 5",
+        "       1_    1887",
+        "        2017 Mercedes-Benz AMG GLC43 4mat"
+      ],
+      [4, " 5", "       2_    1940", "        2018 Lexus RC 300 AWD"],
+      [4, " 5", "       2_    1942", "        2018 Lexus RC 350 AWD"],
+      [1, " 5", "       2_    1972", "        2018 Porsche 911 Carrera T"],
+      [4, " 5", "       2_    1982", "        2018 Alfa Romeo Stelvio AWD"],
+      [1, " 5", "       2_    1988", "        2019 BMW 440i Convertib"],
+      [3, " 5", "       2_    2012", "        2018 Jeep Grand Cherokee"],
+      [3, " 5", "       2_    2028", "        2019 Jaguar F-Type S AWD C"],
+      [1, " 5", "       2_    2157", "        2019 BMW M240i Coupe"],
+      [4, " 5", "       2_    2191", "        2019 Acura MDX AWD A-SPEC"],
+      [5, " 5", "       2_    3989", "        2019 Ford F150 Pickup 4W"],
+      [3, " 5", "       2_    3997", "        2019 Audi SQ5"],
+      [
+        4,
+        " 5",
+        "       3_    2599",
+        "        2018 Mercedes-Benz GLE350 4matic"
+      ],
+      [5, " 5", "       3_    2650", "        2018 Infiniti Q70 AWD"],
+      [1, " 5", "       3_    2674", "        2018 Porsche 911 Carrera GT"],
+      [4, " 5", "       3_    2727", "        2018 Porsche Pa mera 4S"],
+      [4, " 5", "       3_    2820", "        2018 Infiniti QX60 AWD"],
+      [3, " 6", "       1_     539", "        2017 Cadillac XT5 AWD"],
+      [4, " 6", "       1_    1642", "        2017 Ford Explorer AWD"],
+      [4, " 6", "       1_    1679", "        2017 Hyundai Azera Limited"],
+      [5, " 6", "       1_    1764", "        2017 Ram 1500 4WD"],
+      [3, " 6", "       1_    1800", "        2017 Volkswagen CC 4motion"],
+      [3, " 6", "       1_    1826", "        2017 Jeep Wrangler Unlim"],
+      [4, " 6", "       2_    1970", "        2018 Porsche 911 GT2 RS"],
+      [5, " 6", "       2_    2142", "        2019 Ram 1500 Classic 4"],
+      [3, " 6", "       2_    2221", "        2019 Dodge Charger"],
+      [4, " 6", "       2_    3920", "        2019 Nissan Pathfinder 2WD"],
+      [1, " 6", "       3_    2611", "        2018 Chevrolet Colorado 2WD"],
+      [3, " 6", "       3_    2628", "        2018 Jeep Grand Cherokee"],
+      [3, " 6", "       3_    2754", "        2018 Cadillac XTS"],
+      [4, " 6", "       3_    2795", "        2018 Nissan Pathfinder 4WD"],
+      [4, " 6", "       3_    2850", "        2018 Ford Explorer FWD"],
+      [4, " 6", "       3_    2873", "        2018 Toyota Highlander AWD"]
+    ],
+    columns: [
+      {
+        name: "bi1857",
+        label: "Distance Quintile",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi1853",
+        label: "Cluster ID",
+        type: "string"
+      },
+      {
+        name: "bi1852",
+        label: "uniqueID",
+        type: "string"
+      },
+      {
+        name: "bi1854",
+        label: "Car_Label",
+        type: "string"
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let DATA; // Data to be parsed from VA data message
+  let NEST; // Nested data used to make hierarchy
+  let ROOT; // Current root of hierarchy
+
+  // Static dimension variables
+  const EDGE_PADDING = 5; // Pading around edge of circle pack
+  const PACK_PADDING = 6; // Padding betweeen circles used in pack
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of SVG element
+  let HEIGHT; // Height of SVG element
+  let PACK_SIZE; // Width/height allocated for pack
+
+  // Selection and d3 variables
+  let DIST_SCALE;
+  let SVG; // SVG selection
+  let G_CHART_AREA; // Chart area group selection
+  let DATA_CIRCLES; // Data Arcs data-join
+
+  // Legend variables
+  const LEG = {
+    topPad: 20, // Padding between chart and legend title
+    titlePad: 5, // Padding between legend title bottom and first row of legend
+    rowPad: 3, // Padding between legend rows
+    rectWidth: 12, // Width of legend rects
+    rectPad: 5, // Padding between legend rect and legend text
+    textPad: 5, // Padding after legend text
+    title: undefined, // Title of legend
+    data: undefined, // Array of strings for legend entries
+    elPos: undefined, // Positions of legend text elements
+    height: undefined, // Height allocated for legend,
+    groupSelection: undefined, // Legend group selection
+    titleDataJoin: undefined, // Legend title data-join
+    rectsDataJoin: undefined, // Legend rects data-join
+    textsDataJoin: undefined // Legend texts data-join
+  };
+
+  // Tooltip variables
+  const TIP = {
+    self: undefined, // Tooltip object
+    dir: "n" // Tooltip direction
+  };
+
+  // Gradient variables
+  const GRAD = {
+    fill: {
+      " 1": "#1B9E77",
+      " 2": "#D95F02",
+      " 3": "#7570B3",
+      " 4": "#E7298A",
+      " 5": "#66A61E",
+      " 6": "#E6AB02"
+    }, // Fill colors by key
+    stroke: {
+      " 1": "#1B9E77",
+      " 2": "#D95F02",
+      " 3": "#7570B3",
+      " 4": "#E7298A",
+      " 5": "#66A61E",
+      " 6": "#E6AB02"
+    }, // Stroke colors by key
+    fillScale: d3.scaleOrdinal([
+      "#21b9b7",
+      "#4141e0",
+      "#7db71a",
+      "#8e2f8a",
+      "#d38506",
+      "#0abf85",
+      "#2f90ec",
+      "#db3851",
+      "#61F9F7",
+      "#8181FF",
+      "#BDF75A",
+      "#CE6FCA",
+      "#FFC546",
+      "#4AFFC5",
+      "#6FD0FF",
+      "#FF7891",
+      "#007977",
+      "#0101A0",
+      "#3D7700",
+      "#4E004A",
+      "#934500",
+      "#007F45",
+      "#0050AC",
+      "#9B0011"
+    ]), // Backup ordinal scale for fills
+    strokeScale: d3.scaleOrdinal([
+      "#1d9992",
+      "#2222bc",
+      "#6a9617",
+      "#6d256d",
+      "#ba7006",
+      "#0a9e69",
+      "#07689e",
+      "#a50a2f",
+      "#5DD9D2",
+      "#6262FC",
+      "#AAD657",
+      "#AD65AD",
+      "#FAB046",
+      "#4ADEA9",
+      "#47A8DE",
+      "#E54A6F",
+      "#005952",
+      "#00007C",
+      "#2A5600",
+      "#2D002D",
+      "#7A3000",
+      "#005E29",
+      "#00285E",
+      "#650000"
+    ]), // Backup ordinal scale for strokes
+    data: undefined, // Array of keys and ids used to create gradients
+    defsSelection: undefined, // Defs selections
+    gradsDataJoin: undefined // Gradients data join
+  };
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(drawElements);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["number", "string", "string", "string"],
+        ["number"]
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 SGF Circle Packing Chart expects columns to be assigned in this order:\n" +
+          " 1. Distance Quintile - Distance of entry from its cluster's centroid by quintile (number)\n" +
+          " 2. Cluster ID - Cluster which entry belongs to (string)\n" +
+          " 3. Unique ID - Unique ID for each entry (string)\n" +
+          " 4. Label - User friendly label for entry (string)"
+      );
+      return;
+    }
+
+    // Restructure data from 2d array to array of objects
+    DATA = [];
+
+    for (let i = 0; i < VA_MESSAGE.data.length; i++) {
+      DATA.push({
+        distance: VA_MESSAGE.data[i][0],
+        cluster: VA_MESSAGE.data[i][1],
+        key: VA_MESSAGE.data[i][2],
+        label: VA_MESSAGE.data[i][3],
+        selected: VA_MESSAGE.data[i][4],
+        index: i
+      });
+    }
+
+    // Extract clusters from data message
+    NEST = d3
+      .nest()
+      .key(function(d) {
+        return d.cluster;
+      })
+      .sortKeys(d3.ascending)
+      .entries(DATA);
+
+    // Create d3 hierarchy from nested data
+    ROOT = d3
+      .hierarchy({ values: NEST }, function(d) {
+        return d.values;
+      })
+      .count();
+
+    traverse(ROOT, function(d) {
+      if (d.depth == 0) {
+        d.data.id = "ROOT";
+      } else if (d.depth == 1) {
+        d.data.id = "cluster-" + d.data.key.replace(/\W/g, "_");
+      } else {
+        d.data.id = "leaf-" + d.data.key.replace(/\W/g, "_");
+      }
+    });
+
+    // Create dist scale to determine opacity from distance
+    DIST_SCALE = d3
+      .scaleLinear()
+      .domain(
+        d3.extent(DATA, function(d) {
+          return d.distance;
+        })
+      )
+      .range([1, 0.2]);
+
+    // Assign data variables for legend
+    LEG.title = "Cluster ID";
+    LEG.data = NEST;
+
+    // Assign data variable for gradients
+    GRAD.data = LEG.data;
+
+    // Initialize chart if first draw, otherwise process data and update elements accordingly
+    if (d3.select("#" + SVG_ID).empty()) {
+      drawElements();
+    } else {
+      updateElements();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function drawElements() {
+    // Return if data is not yet initialized
+    if (!DATA) {
+      return;
+    }
+
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Append svg and save reference
+    d3.select("body")
+      .selectAll("#" + SVG_ID)
+      .data([DATA])
+      .enter()
+      .append("svg")
+      .attr("id", SVG_ID)
+      .on("click", deselectAllElements)
+      .each(function() {
+        // Initialize tooltip
+        TIP.self = d3
+          .tip()
+          .attr("class", "d3-tip")
+          .offset([-8, 0])
+          .html(function(d) {
+            return (
+              "<table class='d3-tip-content'> <tr> <td> " +
+              d.data.label +
+              "</td> </tr> </table>"
+            );
+          });
+
+        d3.select(this).call(TIP.self);
+      });
+
+    SVG = d3
+      .select("#" + SVG_ID)
+      .attr("width", WIDTH)
+      .attr("height", HEIGHT);
+
+    // Append defs and save reference
+    SVG.selectAll(".gradient-defs")
+      .data([DATA])
+      .enter()
+      .append("defs")
+      .classed("gradient-defs", true);
+
+    GRAD.defsSelection = SVG.select(".gradient-defs");
+
+    // Create gradient definitions
+    defineGradients();
+
+    // Compute the x y locations for legend elements
+    calculateLegendDimensions();
+
+    // Draw legend elements
+    drawLegend();
+
+    // Determine pack size now that legend height has been determined
+    PACK_SIZE = Math.min(
+      WIDTH - 2 * EDGE_PADDING,
+      HEIGHT - LEG.height - LEG.topPad - EDGE_PADDING
+    );
+
+    // Pack nested data
+    d3
+      .pack()
+      .size([PACK_SIZE, PACK_SIZE])
+      .padding(PACK_PADDING)(ROOT);
+
+    // Append chart area group and save reference
+    SVG.selectAll(".g-chart-area")
+      .data([DATA])
+      .enter()
+      .append("g")
+      .classed("g-chart-area", true);
+
+    G_CHART_AREA = SVG.select(".g-chart-area").attr(
+      "transform",
+      "translate(" +
+        (WIDTH / 2 - PACK_SIZE / 2) +
+        ", " +
+        (HEIGHT - LEG.height - LEG.topPad - PACK_SIZE) +
+        ")"
+    );
+
+    // Append data arcs
+    DATA_CIRCLES = G_CHART_AREA.selectAll(".data-circle").data(
+      ROOT.descendants()
+    );
+
+    // console.log(ROOT.descendants());
+    // console.log("ENTER " + DATA_CIRCLES.enter()._groups[0].length);
+    // console.log("EXIT " + DATA_CIRCLES.exit()._groups[0].length);
+
+    DATA_CIRCLES.enter()
+      .append("circle")
+      .classed("data-circle", true)
+      .attr("class", function(d) {
+        return "selectable data-circle depth-" + d.depth;
+      })
+      .attr("fill", function(d) {
+        if (!d.height) {
+          return GRAD.fill[d.data.cluster]
+            ? GRAD.fill[d.data.cluster]
+            : GRAD.fillScale(d.data.clsuter);
+        } else if (d.height == 1) {
+          return "#FFF";
+        } else {
+          return "#EEE";
+        }
+      })
+      .attr("id", function(d) {
+        return d.data.id;
+      })
+      .on("mouseover", function(d) {
+        if (!d.height) {
+          // Assign direction and show tooltip
+          TIP.self
+            .direction("n")
+            .offset([-8, 0])
+            .show(d, this)
+            .direction(getTipDirection())
+            .offset(getTipOffset())
+            .show(d, this);
+        }
+      })
+      .on("mouseout", TIP.self.hide)
+      .merge(DATA_CIRCLES)
+      .attr("cx", function(d) {
+        return d.x;
+      })
+      .attr("cy", function(d) {
+        return d.y;
+      })
+      .attr("r", function(d) {
+        return d.r;
+      })
+      .style("opacity", function(d) {
+        return DIST_SCALE(d.data.distance);
+      })
+      .on("click", function() {
+        selectElement(this);
+      });
+  }
+
+  // Redraw data dependent elements on data change
+  function updateElements() {
+    // Remove all elements
+    d3.select("#" + SVG_ID)
+      .selectAll("*")
+      .remove();
+
+    // Redraw elements
+    drawElements();
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Deselect all on svg click
+  function deselectAllElements() {
+    // Deselect all elements
+    d3.selectAll(".selectable").classed("selected", false);
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, []);
+  }
+
+  // Handle selection on element
+  function selectElement(el) {
+    // Prevent event from falling through to underlying elements
+    d3.event.stopPropagation();
+
+    // If control is held toggle selected on click preserving array, otherwise select only clicked element
+    const selections = [];
+    if (d3.event.ctrlKey) {
+      // Toggle selection on clicked element and all sub elements
+      const selectBool = !d3.select(el).classed("selected");
+
+      d3.select(el).each(function(d) {
+        selectChildren(d, selectBool);
+      });
+
+      // Build array of selected elements
+      d3.selectAll(".selectable").each(function(d) {
+        if (d3.select(this).classed("selected")) {
+          if (d.data.index != undefined) {
+            selections.push({ row: d.data.index });
+          }
+        }
+      });
+    } else {
+      // Deselect all elements
+      d3.selectAll(".selectable").classed("selected", false);
+
+      // Select clicked element and all children elements
+      d3.select(el).each(function(d) {
+        selectChildren(d, true);
+      });
+
+      // Build array of selected elements
+      d3.selectAll(".selectable").each(function(d) {
+        if (d3.select(this).classed("selected")) {
+          if (d.data.index != undefined) {
+            selections.push({ row: d.data.index });
+          }
+        }
+      });
+    }
+
+    // Post message to VA
+    va.messagingUtil.postSelectionMessage(VA_RESULT_NAME, selections);
+  }
+
+  // Recursive selection to elements children
+  function selectChildren(node, selectBool) {
+    // Toggle selection on current node
+    d3.select("#" + node.data.id).classed("selected", selectBool);
+
+    // Toggle selection on children if present
+    if (node.children) {
+      for (let i = 0; i < node.children.length; i++) {
+        selectChildren(node.children[i], selectBool);
+      }
+    }
+  }
+
+  // Traverse tree from root and invoke callback on each node
+  function traverse(node, callback) {
+    callback(node);
+    if (node.children) {
+      for (let i = 0; i < node.children.length; i++) {
+        traverse(node.children[i], callback);
+      }
+    }
+  }
+
+  // Determine coordinates for dynamic legend
+  function calculateLegendDimensions() {
+    // Create dummy text variable to get legend title height
+    let titleHeight;
+    SVG.append("text")
+      .classed("legend-text", true)
+      .text("TEST")
+      .each(function() {
+        titleHeight = this.getBBox().height;
+        this.remove();
+      });
+
+    // Create dummy text variables to get legend text height/widths
+    const textWidths = [];
+    let textHeight;
+    SVG.selectAll(".dummyText")
+      .data(LEG.data)
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .each(function() {
+        textHeight = this.getBBox().height;
+        textWidths.push(this.getComputedTextLength());
+        this.remove();
+      });
+
+    // Determine which row each element will sit in and how long each row is
+    const rows = [];
+    const rowSums = [];
+    let rowSum;
+    let row = 0;
+    for (let i = 0; i < textWidths.length; i++) {
+      rowSum = textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+      rows.push(row);
+      while (
+        rowSum +
+          textWidths[i + 1] +
+          LEG.rectWidth +
+          LEG.rectPad +
+          LEG.textPad <=
+          WIDTH &&
+        i + 1 < textWidths.length
+      ) {
+        i++;
+        rowSum += textWidths[i] + LEG.rectWidth + LEG.rectPad + LEG.textPad;
+        rows.push(row);
+      }
+      rowSums.push(rowSum);
+      row++;
+    }
+
+    // Calculate x and y coordinates for legend elements
+    LEG.elPos = [];
+    for (let i = 0; i < textWidths.length; i++) {
+      LEG.elPos.push({
+        x:
+          i == 0 || rows[i - 1] != rows[i]
+            ? WIDTH / 2 - rowSums[rows[i]] / 2
+            : LEG.elPos[i - 1].x +
+              textWidths[i - 1] +
+              LEG.rectWidth +
+              LEG.rectPad +
+              LEG.textPad,
+        y: titleHeight + LEG.titlePad + rows[i] * (textHeight + LEG.rowPad)
+      });
+    }
+
+    // Set legend height
+    LEG.height = LEG.elPos[LEG.elPos.length - 1].y + textHeight + LEG.rowPad;
+  }
+
+  // Draw legend elements using provided data
+  function drawLegend() {
+    // Append/update legend group and save reference
+    SVG.selectAll(".g-legend")
+      .data([LEG.title])
+      .enter()
+      .append("g")
+      .classed("g-legend", true);
+
+    LEG.groupSelection = SVG.select(".g-legend");
+
+    // Create legend title
+    LEG.titleDataJoin = LEG.groupSelection
+      .selectAll(".legend-title")
+      .data([LEG.title]);
+
+    LEG.titleDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-title", true)
+      .text(function(d) {
+        return d;
+      })
+      .merge(LEG.titleDataJoin)
+      .attr("transform", "translate(" + WIDTH / 2 + ", 0)");
+
+    // Create legend rects
+    LEG.rectsDataJoin = LEG.groupSelection
+      .selectAll(".legend-rect")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.rectsDataJoin
+      .enter()
+      .append("rect")
+      .classed("legend-rect", true)
+      .attr("width", LEG.rectWidth)
+      .attr("height", LEG.rectWidth)
+      .attr("fill", function(d) {
+        return "url(#" + d.id + "-gradient)";
+      })
+      .attr("stroke", function(d) {
+        return GRAD.stroke[d.key]
+          ? GRAD.stroke[d.key]
+          : GRAD.strokeScale(d.key);
+      })
+      .merge(LEG.rectsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y;
+      });
+
+    // Create legend text
+    LEG.textsDataJoin = LEG.groupSelection
+      .selectAll(".legend-text")
+      .data(LEG.data, function(d) {
+        return d.id;
+      });
+
+    LEG.textsDataJoin
+      .enter()
+      .append("text")
+      .classed("legend-text", true)
+      .text(function(d) {
+        return d.key;
+      })
+      .merge(LEG.textsDataJoin)
+      .attr("x", function(d, i) {
+        return LEG.elPos[i].x + LEG.rectWidth + LEG.rectPad;
+      })
+      .attr("y", function(d, i) {
+        return LEG.elPos[i].y + LEG.rectWidth / 2;
+      });
+
+    // Position legend
+    LEG.groupSelection.attr("transform", function() {
+      return "translate(0, " + (HEIGHT - LEG.height) + ")";
+    });
+  }
+
+  // Determine direction for tooltip
+  function getTipDirection() {
+    const tip = d3.select(".d3-tip").node();
+    const w = tip.clientWidth;
+    const left = tip.offsetLeft;
+    const top = tip.offsetTop;
+    let dir;
+
+    dir = top < 0 ? "s" : "n";
+
+    if (left < 0) {
+      dir += "e";
+    } else if (left + w > WIDTH) {
+      dir += "w";
+    }
+    TIP.dir = dir;
+    return dir;
+  }
+
+  // Determine offset for tooltip based on direction
+  function getTipOffset() {
+    let offset;
+
+    switch (TIP.dir) {
+      case "n":
+        offset = [-8, 0];
+        break;
+      case "ne":
+        offset = [-5, 0];
+        break;
+      case "nw":
+        offset = [-5, 0];
+        break;
+      case "s":
+        offset = [8, 0];
+        break;
+      case "se":
+        offset = [5, 0];
+        break;
+      case "sw":
+        offset = [5, 0];
+        break;
+    }
+
+    return offset;
+  }
+
+  // Create/update gradient definitions
+  function defineGradients() {
+    GRAD.gradsDataJoin = GRAD.defsSelection
+      .selectAll(".gradient")
+      .data(GRAD.data, function(d) {
+        return d.id;
+      });
+
+    GRAD.gradsDataJoin
+      .enter()
+      .append("linearGradient")
+      .classed("gradient", true)
+      .attr("id", function(d) {
+        return d.id + "-gradient";
+      })
+      .attr("x1", "0%")
+      .attr("x2", "100%")
+      .attr("y1", "50%")
+      .attr("y2", "50%")
+      .each(function(d) {
+        // Append color stops
+        d3.select(this)
+          .append("stop")
+          .attr("class", "start")
+          .attr("offset", "0%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 1);
+
+        d3.select(this)
+          .append("stop")
+          .attr("class", "end")
+          .attr("offset", "100%")
+          .attr("stop-color", function() {
+            return GRAD.fill[d.key] ? GRAD.fill[d.key] : GRAD.fillScale(d.key);
+          })
+          .attr("stop-opacity", 0.7);
+      });
+  }
+});
+</script>
+</body>
+</html>
