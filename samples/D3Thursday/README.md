@@ -73,3 +73,15 @@ This post explores techniques for animating a chart over time and then applies t
 <img width="600" height="600" src="./images/13.gif">
 
 This post takes an in depth look at how to clone, modify, and host any D3 Thursday example for your own particular use case.
+
+### SGF 2019 Sunburst | [Code](https://github.com/rbwest/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/14_SGF_2019_Sunburst.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/14_SGF_2019_Sunburst.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Using-a-Sunburst-to-Visualize-Pseudo-Hierarchies-with-D3Thursday/ta-p/551876)
+
+<img width="600" height="600" src="./images/14.gif">
+
+This post explores how we can modify our previously created sunburst to visualize the pseudo-hierarchical output of multiple cluster models.
+
+### SGF 2019 Circle Packing Graph | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/15_SGF_2019_Circle_Packing.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/15_SGF_2019_Circle_Packing.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Visualizing-nested-data-with-a-circle-packing-graph-in-SAS/ta-p/553655)
+
+<img width="600" height="600" src="./images/15.gif">
+
+This post details how to create a circle packing graph to visualize the output of a cluster model.
