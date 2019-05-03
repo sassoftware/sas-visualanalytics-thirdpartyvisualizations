@@ -25,9 +25,9 @@ limitations under the License.
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="util/messagingUtil.js"></script>
-    <script type="text/javascript" src="util/contentUtil.js"></script>
-    <script type="text/javascript" src="thirdPartyHelpers/d3.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+    <script type="text/javascript" src="../thirdPartyHelpers/d3.js"></script>
     <title>SAS : Radial Stacked Bar chart using D3js</title>
 </head>
 
@@ -134,6 +134,8 @@ limitations under the License.
                 .attr("d", d3.arc()
                     .innerRadius(function (d) { return y(d[0]); })
                     .outerRadius(function (d) { return y(d[1]); })
+                    /*.startAngle(function (d) { return x(d.data.State); })
+                    .endAngle(function (d) { return x(d.data.State) + x.bandwidth(); })*/
                     .startAngle(function (d) { 
                         var keys = Object.keys(d.data);
                         return x(d.data[keys[1]]); })
