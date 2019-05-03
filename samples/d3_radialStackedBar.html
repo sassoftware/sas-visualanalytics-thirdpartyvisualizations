@@ -25,9 +25,9 @@ limitations under the License.
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="../util/messagingUtil.js"></script>
-    <script type="text/javascript" src="../util/contentUtil.js"></script>
-    <script type="text/javascript" src="../thirdPartyHelpers/d3.js"></script>
+    <script type="text/javascript" src="util/messagingUtil.js"></script>
+    <script type="text/javascript" src="util/contentUtil.js"></script>
+    <script type="text/javascript" src="thirdPartyHelpers/d3.js"></script>
     <title>SAS : Radial Stacked Bar chart using D3js</title>
 </head>
 
@@ -113,8 +113,14 @@ limitations under the License.
 
             var data = myData;
 
-            x.domain(data.map(function (d) { return d.State; }));
-            y.domain([0, d3.max(data, function (d) { return d.total; })]);
+            x.domain(data.map(function (d) {
+                var keys = Object.keys(d);
+                return d[keys[1]];
+            }));
+            y.domain([0, d3.max(data, function (d) {
+                var keys = Object.keys(d);
+                return d[keys[0]];
+            })]);
             z.domain(data.columns.slice(1));
 
             g.append("g")
@@ -128,8 +134,12 @@ limitations under the License.
                 .attr("d", d3.arc()
                     .innerRadius(function (d) { return y(d[0]); })
                     .outerRadius(function (d) { return y(d[1]); })
-                    .startAngle(function (d) { return x(d.data.State); })
-                    .endAngle(function (d) { return x(d.data.State) + x.bandwidth(); })
+                    .startAngle(function (d) { 
+                        var keys = Object.keys(d.data);
+                        return x(d.data[keys[1]]); })
+                    .endAngle(function (d) { 
+                        var keys = Object.keys(d.data);
+                        return x(d.data[keys[1]]) + x.bandwidth(); })
                     .padAngle(0.01)
                     .padRadius(innerRadius));
 
@@ -138,15 +148,21 @@ limitations under the License.
                 .data(data)
                 .enter().append("g")
                 .attr("text-anchor", "middle")
-                .attr("transform", function (d) { return "rotate(" + ((x(d.State) + x.bandwidth() / 2) * 180 / Math.PI - 90) + ")translate(" + innerRadius + ",0)"; });
+                .attr("transform", function (d) { 
+                    var keys = Object.keys(d);
+                    return "rotate(" + ((x(d[keys[1]]) + x.bandwidth() / 2) * 180 / Math.PI - 90) + ")translate(" + innerRadius + ",0)"; });
 
             label.append("line")
                 .attr("x2", -5)
                 .attr("stroke", "#000");
 
             label.append("text")
-                .attr("transform", function (d) { return (x(d.State) + x.bandwidth() / 2 + Math.PI / 2) % (2 * Math.PI) < Math.PI ? "rotate(90)translate(0,16)" : "rotate(-90)translate(0,-9)"; })
-                .text(function (d) { return d.State; });
+                .attr("transform", function (d) { 
+                    var keys = Object.keys(d);
+                    return (x(d[keys[1]]) + x.bandwidth() / 2 + Math.PI / 2) % (2 * Math.PI) < Math.PI ? "rotate(90)translate(0,16)" : "rotate(-90)translate(0,-9)"; })
+                .text(function (d) { 
+                    var keys = Object.keys(d);
+                    return d[keys[1]]; });
 
             var yAxis = g.append("g")
                 .attr("text-anchor", "middle");
@@ -176,8 +192,7 @@ limitations under the License.
 
             yAxis.append("text")
                 .attr("y", function (d) { return -y(y.ticks(5).pop()); })
-                .attr("dy", "-1em")
-                .text("Population");
+                .attr("dy", "-1em");
 
             var legend = g.append("g")
                 .selectAll("g")
