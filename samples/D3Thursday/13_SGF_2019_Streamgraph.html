@@ -294,7 +294,7 @@ document.addEventListener("DOMContentLoaded", function() {
       };
       for (let j = 0; j < CATEGORIES.length; j++) {
         // Freq for this date and category present
-        if (VA_MESSAGE.data[i + k][1] == CATEGORIES[j].key) {
+        if (VA_MESSAGE.data[i + k] && VA_MESSAGE.data[i + k][1] == CATEGORIES[j].key) {
           datum[CATEGORIES[j].key] = VA_MESSAGE.data[i + k][2];
           datum.total += VA_MESSAGE.data[i + k][2];
           k++;
