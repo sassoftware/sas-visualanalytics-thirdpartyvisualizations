@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import fetch polyfill for IE11 -->
+  <script type="text/javascript" src="https://polyfill.io/v3/polyfill.min.js?features=fetch%2CObject.values%2CString.prototype.includes" crossorigin="anonymous"></script>
+
+  <!-- Import three.js (minified) -->
+  <script type="text/javascript" src="https://threejs.org/build/three.min.js"></script>
+
+  <!-- Import WebGL.js (detect three.js compatibility with browser) -->
+  <script type="text/javascript" src="https://threejs.org/examples/js/WebGL.js"></script>
+
+  <!-- Import TrackballControls.js (add controls to move camera around scene) -->
+  <script type="text/javascript" src="https://threejs.org/examples/js/controls/TrackballControls.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: black;
+  }
+
+  canvas {
+    position: absolute;
+  }
+
+  p {
+    margin-top: 5px;
+    margin-bottom: 5px;
+  }
+
+  .loading {
+    font-family: Verdana, sans-serif;
+    font-size: 2em;
+    color: white;
+    text-shadow: -1px -1px 0 #000000,
+      1px -1px 0 #000000,
+      -1px 1px 0 #000000,
+      1px 1px 0 #000000;
+    text-align: center;
+  }
+
+  .container {
+    position: relative;
+  }
+
+  .leg-container {
+    position: absolute;
+    right: 5px;
+  }
+
+  .leg-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .leg-title, .leg-min, .leg-max {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2em;
+    color: white;
+    text-shadow: -1px -1px 0 #000000,
+      1px -1px 0 #000000,
+      -1px 1px 0 #000000,
+      1px 1px 0 #000000;
+  }
+
+  .leg-min, .leg-max {
+    font-size: 1em;
+  }
+</style>
+
+<script>
+"use strict";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd858",
+    rowCount: 15,
+    availableRowCount: 15,
+    data: [
+      ["BHS", 55],
+      ["BLZ", 71],
+      ["CAN", 42],
+      ["CRI", 53],
+      ["CUB", 16],
+      ["DOM", 25],
+      ["GTM", 46],
+      ["HND", 73],
+      ["HTI", 3],
+      ["JAM", 29],
+      ["MEX", 37],
+      ["NIC", 35],
+      ["PAN", 69],
+      ["SLV", 18],
+      ["USA", 30]
+    ],
+    columns: [
+      {
+        name: "bi859",
+        label: "Country ID",
+        type: "string"
+      },
+      {
+        name: "bi860",
+        label: "Measure",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let DATA; // Data to be parsed from VA data message
+  let METADATA; // Metadata to be parsed from VA data message
+  let WORLD_JSON; // World geo json to be loaded from file
+
+  // Static dimension variables
+  const PROJECTION_AR = 2; // Aspect ratio (width / height) of chosen projection (equirectangular)
+  const CANVAS_WIDTH = 4096; // Maximum width allowed for canvas elements on mobile
+  const CANVAS_HEIGHT = CANVAS_WIDTH / PROJECTION_AR; // Canvas height from maximum width and projection aspect ratio
+  const LEG_GRAD_WIDTH = 100; //  Width of legend gradient
+  const LEG_GRAD_HEIGHT = 25; // Height of legend gradient
+  const SEGMENTS = 250; // Number of horizontal and vertical segments used to construct sphere
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of canvas element
+  let HEIGHT; // Height of canvas element
+
+  // Selection and d3 variables
+  const PROJECTION = d3
+    .geoEquirectangular()
+    .translate([CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2])
+    .scale(
+      Math.min(CANVAS_WIDTH / PROJECTION_AR / Math.PI, CANVAS_HEIGHT / Math.PI)
+    ); // D3 geo projection for canvas
+  let COLOR_SCALE; // Color scale
+
+  // Three variables
+  let SCENE; // Webgl scene
+  let CAMERA; // Webgl camera
+  let RENDERER; // Webgl renderer
+  let SPHERE_GEOMETRY; // Webgl sphere geometry to create sphere mesh
+  let CHOROPLETH_SPHERE; // Webgl sphere mesh representing spherical choropleth
+  let CONTROLS; // Trackball controls object
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Start loading geo json
+  d3.json(
+    "https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_110m_admin_0_countries.geojson"
+  ).then(function(json) {
+    // Store result
+    WORLD_JSON = json;
+
+    // If data already received, init
+    if (DATA) {
+      init();
+    }
+  });
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(resize);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["string", "number"],
+        ["number"]
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 Basic Canvas Choropleth expects columns to be assigned in this order:\n" +
+          " 1. ISO3 Country Code (string)\n" +
+          " 2. Measure (number)"
+      );
+      return;
+    }
+
+    // Restructure metadata from data message
+    METADATA = {
+      measureLabel: VA_MESSAGE.columns[1].label,
+      measureFormat: translateFormat(VA_MESSAGE.columns[1].format.formatString)
+    };
+
+    // Restructure data from 2d array to array of objects
+    DATA = {};
+    for (let i = 0; i < VA_MESSAGE.data.length; i++) {
+      // Omit missing values
+      if (VA_MESSAGE.data[i][1] != ".") {
+        DATA[VA_MESSAGE.data[i][0]] = {
+          id: VA_MESSAGE.data[i][0],
+          measure: VA_MESSAGE.data[i][1]
+        };
+      }
+    }
+
+    // Create color scale
+    COLOR_SCALE = d3
+      .scaleLinear()
+      .domain(
+        d3.extent(Object.values(DATA), function(d) {
+          return d.measure;
+        })
+      )
+      .range(["#f7fbff", "#08306b"]);
+
+    // Initialize chart if first draw, otherwise clear canvas and then init
+    if (!SCENE) {
+      // If json already loaded, init
+      if (WORLD_JSON) {
+        init();
+      }
+    } else {
+      update();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function init() {
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Check if webgl is supported by browser
+    if (!WEBGL.isWebGLAvailable()) {
+      document.body.appendChild(WEBGL.getWebGLErrorMessage());
+      return;
+    }
+
+    // Remove loading message
+    d3.select(".loading").remove();
+
+    // Init scene
+    SCENE = new THREE.Scene();
+
+    // Init camera and set position
+    CAMERA = new THREE.PerspectiveCamera(
+      45, // field of view (fov) in degrees
+      WIDTH / HEIGHT, // aspect ratio
+      0.01, // near field distance
+      1000 // far field distance
+    );
+    CAMERA.position.set(0, 0, 4);
+
+    // Init renderer and set size
+    RENDERER = new THREE.WebGLRenderer({
+      antialias: true, // turn on antialiasing to smooth jaggies,
+      canvas: d3.select("canvas").node()
+    });
+    RENDERER.setSize(WIDTH, HEIGHT);
+
+    // Init sphere geometry
+    SPHERE_GEOMETRY = new THREE.SphereGeometry(1, SEGMENTS, SEGMENTS);
+
+    // Init choropleth sphere and add to scene
+    CHOROPLETH_SPHERE = new THREE.Mesh(
+      SPHERE_GEOMETRY, // geometry for mesh
+      new THREE.MeshBasicMaterial({ map: getTexture() }) // material for mesh
+    );
+
+    SCENE.add(CHOROPLETH_SPHERE);
+
+    // Init camera controls
+    CONTROLS = new THREE.TrackballControls(CAMERA, RENDERER.domElement);
+
+    // Set legend values
+    updateLegend();
+
+    // Start render loop
+    render();
+
+    // Render loop function
+    function render() {
+      // Update controls
+      CONTROLS.update();
+
+      // Render frame
+      requestAnimationFrame(render);
+      RENDERER.render(SCENE, CAMERA);
+    }
+  }
+
+  // Update canvas on new data message
+  function update() {
+    // Update sphere texture with new choropleth
+    CHOROPLETH_SPHERE.material.map = getTexture();
+
+    // Update legend
+    updateLegend();
+  }
+
+  // Update renderer using new window dimensions
+  function resize() {
+    // Update dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Update camera/renderer
+    CAMERA.aspect = WIDTH / HEIGHT;
+    CAMERA.updateProjectionMatrix();
+    RENDERER.setSize(WIDTH, HEIGHT);
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Translate SAS format to D3 format
+  function translateFormat(formatString) {
+    if (formatString.indexOf(".") == formatString.length - 1) formatString += 0;
+
+    if (formatString.includes("DOLLAR"))
+      return d3.format(
+        formatString.replace("DOLLAR", "$").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("COMMA"))
+      return d3.format(
+        formatString.replace("COMMA", "").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("F"))
+      return d3.format(formatString.replace("F", "") + "f");
+    else if (formatString.includes("BEST"))
+      return d3.format(formatString.replace("BEST", "") + "f");
+    else if (formatString.includes("PERCENT"))
+      return d3.format(
+        formatString.replace("PERCENT", "").replace(".", ",.") + "%"
+      );
+  }
+
+  // Update Legend
+  function updateLegend() {
+    // Set title
+    d3.select(".leg-title").html(METADATA.measureLabel);
+
+    // Set minimum text
+    d3.select(".leg-min").html(METADATA.measureFormat(COLOR_SCALE.domain()[0]));
+
+    // Set gradient
+    d3.select(".leg-grad").attr("style", function() {
+      return (
+        "width: " +
+        LEG_GRAD_WIDTH +
+        "px;" +
+        "height: " +
+        LEG_GRAD_HEIGHT +
+        "px;" +
+        "background-image: " +
+        "linear-gradient(to right, " +
+        COLOR_SCALE.range()[0] +
+        ", " +
+        COLOR_SCALE.range()[COLOR_SCALE.range().length - 1] +
+        ");"
+      );
+    });
+
+    // Set maximum text
+    d3.select(".leg-max").html(METADATA.measureFormat(COLOR_SCALE.domain()[1]));
+  }
+
+  // Return texture created from canvas choropleth
+  function getTexture() {
+    // Append canvas and save reference
+    const canvas = d3
+      .select("body")
+      .append("canvas")
+      .attr("width", CANVAS_WIDTH)
+      .attr("height", CANVAS_HEIGHT);
+
+    // Get 2d context of canvas
+    const context = canvas.node().getContext("2d");
+
+    // Create geo path generator
+    const path = d3
+      .geoPath()
+      .projection(PROJECTION)
+      .context(context);
+
+    // Draw background
+    context.fillStyle = "#555";
+    context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Draw features from geojson
+    context.strokeStyle = "#555";
+    context.lineWidth = 0.25;
+
+    WORLD_JSON.features.forEach(function(d) {
+      context.fillStyle = DATA[d.properties.iso_a3]
+        ? COLOR_SCALE(DATA[d.properties.iso_a3].measure)
+        : "#CCC";
+      context.beginPath();
+      path(d);
+      context.fill();
+      context.stroke();
+    });
+
+    // Generate texture from canvas
+    const texture = new THREE.Texture(canvas.node());
+    texture.needsUpdate = true;
+
+    // Remove canvas
+    canvas.remove();
+
+    // Return texture
+    return texture;
+  }
+});
+</script>
+<div class="container">
+  <p class="loading">Loading...</p>
+  <canvas></canvas>
+  <div class="leg-container">
+    <div class="leg-row">
+      <p class="leg-title"></p>
+    </div>
+    <div class="leg-row">
+      <p class="leg-min"></p>
+      <div class="leg-grad"></div>
+      <p class="leg-max"></p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
