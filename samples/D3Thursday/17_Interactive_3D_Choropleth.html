@@ -93,6 +93,25 @@ limitations under the License.
   .leg-min, .leg-max {
     font-size: 1em;
   }
+
+  .tooltip-container {
+    position: absolute;
+    left: 5px;
+  }
+
+  .tooltip-title, .tooltip-value {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2em;
+    color: white;
+    text-shadow: -1px -1px 0 #000000,
+      1px -1px 0 #000000,
+      -1px 1px 0 #000000,
+      1px 1px 0 #000000;
+  }
+
+  .tooltip-value {
+    font-size: 1em;
+  }
 </style>
 
 <script>
@@ -104,43 +123,43 @@ document.addEventListener("DOMContentLoaded", function() {
   // Static data variables
   const SAMPLE_MESSAGE = {
     version: "1",
-    resultName: "dd858",
+    resultName: "dd489",
     rowCount: 15,
     availableRowCount: 15,
     data: [
-      ["BHS", 55],
-      ["BLZ", 71],
-      ["CAN", 42],
-      ["CRI", 53],
-      ["CUB", 16],
-      ["DOM", 25],
-      ["GTM", 46],
-      ["HND", 73],
-      ["HTI", 3],
-      ["JAM", 29],
-      ["MEX", 37],
-      ["NIC", 35],
-      ["PAN", 69],
-      ["SLV", 18],
-      ["USA", 30]
+      ["BHS", 51.44855144855145],
+      ["BLZ", 70.16001646584569],
+      ["CAN", 38.293893804482536],
+      ["CRI", 49.84723758660164],
+      ["CUB", 19.513034927112475],
+      ["DOM", 23.661767244585803],
+      ["GTM", 43.80365808137365],
+      ["HND", 71.15560012205067],
+      ["HTI", 4.183599530179898],
+      ["JAM", 31.78485789347442],
+      ["MEX", 35.78775254636179],
+      ["NIC", 36.92870201096892],
+      ["PAN", 67.56389824202986],
+      ["SLV", 17.977799227799228],
+      ["USA", 33.03416476870736]
     ],
     columns: [
       {
-        name: "bi859",
-        label: "Country ID",
+        name: "bi490",
+        label: "Country Code",
         type: "string"
       },
       {
-        name: "bi860",
-        label: "Measure",
+        name: "bi492",
+        label: "Forest area (% of land area)",
         type: "number",
         usage: "quantitative",
         aggregation: "sum",
         format: {
-          name: "BEST",
-          width: 12,
-          precision: 0,
-          formatString: "BEST12."
+          name: "F",
+          width: 6,
+          precision: 2,
+          formatString: "F6.2"
         }
       }
     ]
@@ -152,10 +171,15 @@ document.addEventListener("DOMContentLoaded", function() {
   let DATA; // Data to be parsed from VA data message
   let METADATA; // Metadata to be parsed from VA data message
   let WORLD_JSON; // World geo json to be loaded from file
+  let TEXTURE_CACHE = memoize(getTexture); // Cached textures for each country
+  let COUNTRY_CACHE = memoize(getCountry); // Cached country information for faces
+  let TIP_ID = null; // ID of current country being displayed in tooltip
+  let PRESERVE = false; // Whether or not to preserve overlay, set when country is clicked, cleared when something else is clicked
+  let COUNTRY; // Current country being intersected by raycaster
 
   // Static dimension variables
   const PROJECTION_AR = 2; // Aspect ratio (width / height) of chosen projection (equirectangular)
-  const CANVAS_WIDTH = 4096; // Maximum width allowed for canvas elements on mobile
+  const CANVAS_WIDTH = 2048; // Maximum width allowed for canvas elements on mobile
   const CANVAS_HEIGHT = CANVAS_WIDTH / PROJECTION_AR; // Canvas height from maximum width and projection aspect ratio
   const LEG_GRAD_WIDTH = 100; //  Width of legend gradient
   const LEG_GRAD_HEIGHT = 25; // Height of legend gradient
@@ -180,6 +204,9 @@ document.addEventListener("DOMContentLoaded", function() {
   let RENDERER; // Webgl renderer
   let SPHERE_GEOMETRY; // Webgl sphere geometry to create sphere mesh
   let CHOROPLETH_SPHERE; // Webgl sphere mesh representing spherical choropleth
+  let OVERLAY_SPHERE; // Webgl sphere mesh to simulate 3d overlay on hover
+  let MOUSE = new THREE.Vector2(-1, -1); // 2D vector to store normalized mouse coordinates
+  let RAYCASTER = new THREE.Raycaster(); // Webgl raycaster object
   let CONTROLS; // Trackball controls object
 
   /*************************************************** Setup Callback Functions ***************************************************/
@@ -196,6 +223,33 @@ document.addEventListener("DOMContentLoaded", function() {
       init();
     }
   });
+
+  // Set mouse coordinates on mouse move
+  window.addEventListener(
+    "mousemove",
+    function(event) {
+      MOUSE.x = (event.clientX / window.innerWidth) * 2 - 1;
+      MOUSE.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    },
+    false
+  );
+
+  // Toggle preserve boolean on click
+  window.addEventListener(
+    "click",
+    function() {
+      if (COUNTRY) {
+        // Set overlay and preserve if country is clicked
+        setOverlay();
+        PRESERVE = true;
+      } else {
+        // Clear overlay and stop preserving if clicked off of country
+        clearOverlay();
+        PRESERVE = false;
+      }
+    },
+    false
+  );
 
   // Attach event for data message from VA
   va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
@@ -226,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function() {
     ) {
       va.messagingUtil.postInstructionalMessage(
         VA_RESULT_NAME,
-        "D3 Basic 3D Choropleth expects columns to be assigned in this order:\n" +
+        "D3 Interactive 3D Choropleth expects columns to be assigned in this order:\n" +
           " 1. ISO3 Country Code (string)\n" +
           " 2. Measure (number)"
       );
@@ -260,6 +314,8 @@ document.addEventListener("DOMContentLoaded", function() {
         })
       )
       .range(["#f7fbff", "#08306b"]);
+
+    TEXTURE_CACHE = memoize(getTexture);
 
     // Initialize chart if first draw, otherwise clear canvas and then init
     if (!SCENE) {
@@ -306,16 +362,28 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     RENDERER.setSize(WIDTH, HEIGHT);
 
-    // Init sphere geometry
+    // Init sphere geometry and tag faces with appropriate country id
     SPHERE_GEOMETRY = new THREE.SphereGeometry(1, SEGMENTS, SEGMENTS);
+    // tagFaces();
 
     // Init choropleth sphere and add to scene
     CHOROPLETH_SPHERE = new THREE.Mesh(
       SPHERE_GEOMETRY, // geometry for mesh
-      new THREE.MeshBasicMaterial({ map: getTexture() }) // material for mesh
+      new THREE.MeshBasicMaterial({ map: TEXTURE_CACHE() }) // material for mesh
     );
 
     SCENE.add(CHOROPLETH_SPHERE);
+
+    // Init overlay sphere and add to scene
+    OVERLAY_SPHERE = new THREE.Mesh(
+      new THREE.SphereGeometry(1.005, SEGMENTS, SEGMENTS), // geometry for mesh
+      new THREE.MeshBasicMaterial({
+        map: TEXTURE_CACHE("BLANK"),
+        transparent: true
+      }) // material for mesh
+    );
+
+    SCENE.add(OVERLAY_SPHERE);
 
     // Init camera controls
     CONTROLS = new THREE.TrackballControls(CAMERA, RENDERER.domElement);
@@ -330,6 +398,25 @@ document.addEventListener("DOMContentLoaded", function() {
     function render() {
       // Update controls
       CONTROLS.update();
+
+      // Update raycaster with new mouse and camera location
+      RAYCASTER.setFromCamera(MOUSE, CAMERA);
+
+      // Get intersections from raycaster with choropleth sphere
+      const intersect = RAYCASTER.intersectObjects([CHOROPLETH_SPHERE])[0];
+      COUNTRY = intersect
+        ? COUNTRY_CACHE(
+            SPHERE_GEOMETRY.vertices[intersect.face.a],
+            SPHERE_GEOMETRY.vertices[intersect.face.b],
+            SPHERE_GEOMETRY.vertices[intersect.face.c]
+          )
+        : null;
+
+      if (!PRESERVE && COUNTRY && COUNTRY.id != TIP_ID) {
+        setOverlay();
+      } else if (!PRESERVE && !COUNTRY && TIP_ID) {
+        clearOverlay();
+      }
 
       // Render frame
       requestAnimationFrame(render);
@@ -421,8 +508,8 @@ document.addEventListener("DOMContentLoaded", function() {
     d3.select(".leg-max").html(METADATA.measureFormat(COLOR_SCALE.domain()[1]));
   }
 
-  // Return texture created from canvas choropleth
-  function getTexture() {
+  // Return texture created from canvas choropleth based on country id (no argument is full map, any non matching string is blank map)
+  function getTexture(country) {
     // Append canvas and save reference
     const canvas = d3
       .select("body")
@@ -440,21 +527,23 @@ document.addEventListener("DOMContentLoaded", function() {
       .context(context);
 
     // Draw background
-    context.fillStyle = "#555";
+    context.fillStyle = country ? "rgba(0, 0, 0, 0)" : "#555";
     context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
     // Draw features from geojson
     context.strokeStyle = "#555";
-    context.lineWidth = 0.25;
+    context.lineWidth = country ? 2 : 0.25;
 
     WORLD_JSON.features.forEach(function(d) {
-      context.fillStyle = DATA[d.properties.iso_a3]
-        ? COLOR_SCALE(DATA[d.properties.iso_a3].measure)
-        : "#CCC";
-      context.beginPath();
-      path(d);
-      context.fill();
-      context.stroke();
+      if (!country || country == d.properties.iso_a3) {
+        context.fillStyle = DATA[d.properties.iso_a3]
+          ? COLOR_SCALE(DATA[d.properties.iso_a3].measure)
+          : "#CCC";
+        context.beginPath();
+        path(d);
+        context.fill();
+        context.stroke();
+      }
     });
 
     // Generate texture from canvas
@@ -466,6 +555,111 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Return texture
     return texture;
+  }
+
+  // Get country corresponding to face by iterating over features and finding which feature contains center
+  function getCountry(a, b, c) {
+    // Get center of face
+    const centerXYZ = {
+      x: (a.x + b.x + c.x) / 3,
+      y: (a.y + b.y + c.y) / 3,
+      z: (a.z + b.z + c.z) / 3
+    };
+
+    // Convert to lat/lng
+    const centerLatLng = {
+      lat: (Math.asin(centerXYZ.y) * 180) / Math.PI,
+      lng: (Math.atan2(-centerXYZ.z, centerXYZ.x) * 180) / Math.PI
+    };
+
+    // Iterate over all features
+    let feature;
+    for (let i = 0; i < WORLD_JSON.features.length; i++) {
+      feature = WORLD_JSON.features[i];
+
+      // Check if center point is in polygon(s) of feature
+      if (feature.geometry.type == "Polygon") {
+        if (pointInPoly(centerLatLng, feature.geometry.coordinates[0])) {
+          return {
+            id: feature.properties.iso_a3,
+            name: feature.properties.name
+          };
+        }
+      } else {
+        for (let j = 0; j < feature.geometry.coordinates.length; j++) {
+          if (pointInPoly(centerLatLng, feature.geometry.coordinates[j][0])) {
+            return {
+              id: feature.properties.iso_a3,
+              name: feature.properties.name
+            };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Determine of point is in polygon using even-odd rule
+  function pointInPoly(point, poly) {
+    let toggle = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if (
+        poly[i][1] > point.lat != poly[j][1] > point.lat &&
+        point.lng <
+          poly[i][0] +
+            ((poly[j][0] - poly[i][0]) * (point.lat - poly[i][1])) /
+              (poly[j][1] - poly[i][1])
+      ) {
+        toggle = !toggle;
+      }
+    }
+    return toggle;
+  }
+
+  // Memoization function
+  function memoize(fn) {
+    const cache = {};
+    return function() {
+      const args = JSON.stringify(arguments);
+      if (cache[args] === undefined) {
+        const val = fn.apply(null, arguments);
+        cache[args] = val;
+        return val;
+      } else {
+        return cache[args];
+      }
+    };
+  }
+
+  // Set overlay values given country corresponding to intersection
+  function setOverlay() {
+    // Set overlay
+    OVERLAY_SPHERE.material.map = TEXTURE_CACHE(COUNTRY.id);
+
+    // Set tooltip values
+    TIP_ID = COUNTRY.id;
+
+    d3.select(".tooltip-title").html(COUNTRY.id + " - " + COUNTRY.name);
+
+    d3.select(".tooltip-value").html(
+      DATA[COUNTRY.id]
+        ? METADATA.measureFormat(DATA[COUNTRY.id].measure)
+        : "No Data"
+    );
+  }
+
+  // Clear overlay
+  function clearOverlay() {
+    // Clear overlay
+    OVERLAY_SPHERE.material.map = TEXTURE_CACHE("BLANK");
+
+    // Clear tooltip values
+    TIP_ID = null;
+
+    d3.select(".tooltip-title").html("");
+
+    d3.select(".tooltip-value").html("");
   }
 });
 </script>
@@ -480,6 +674,14 @@ document.addEventListener("DOMContentLoaded", function() {
       <p class="leg-min"></p>
       <div class="leg-grad"></div>
       <p class="leg-max"></p>
+    </div>
+  </div>
+  <div class="tooltip-container">
+    <div class="tooltip-row">
+      <p class="tooltip-title"></p>
+    </div>
+    <div class="tooltip-row">
+      <p class="tooltip-value"></p>
     </div>
   </div>
 </div>
