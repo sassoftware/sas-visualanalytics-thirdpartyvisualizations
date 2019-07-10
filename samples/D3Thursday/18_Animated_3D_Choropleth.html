@@ -31,6 +31,9 @@ limitations under the License.
   <!-- Import TrackballControls.js (add controls to move camera around scene) -->
   <script type="text/javascript" src="https://threejs.org/examples/js/controls/TrackballControls.js"></script>
 
+  <!-- Import font awesome -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
+
   <!-- Import utilities  -->
   <script type="text/javascript" src="../../util/messagingUtil.js"></script>
   <script type="text/javascript" src="../../util/contentUtil.js"></script>
@@ -50,6 +53,11 @@ limitations under the License.
   }
 
   p {
+    color: white;
+    text-shadow: -1px -1px 0 #000000,
+      1px -1px 0 #000000,
+      -1px 1px 0 #000000,
+      1px 1px 0 #000000;
     margin-top: 5px;
     margin-bottom: 5px;
   }
@@ -57,11 +65,6 @@ limitations under the License.
   .loading {
     font-family: Verdana, sans-serif;
     font-size: 2em;
-    color: white;
-    text-shadow: -1px -1px 0 #000000,
-      1px -1px 0 #000000,
-      -1px 1px 0 #000000,
-      1px 1px 0 #000000;
     text-align: center;
   }
 
@@ -112,6 +115,81 @@ limitations under the License.
   .tooltip-value {
     font-size: 1em;
   }
+
+  .input-container {
+    position: absolute;
+    top: calc(100% - 80px);
+    width: 99%;
+    height: 80px;
+  }
+
+  .row {
+    width: 100%;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    float: left;
+  }
+
+  .slider {
+    cursor: pointer;
+    position: relative;
+    -webkit-appearance: none;
+    width: 90%;
+    height: 10px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+  }
+
+  .slider:hover {
+    opacity: 1;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: #777777;
+    cursor: pointer;
+  }
+
+  .slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    background: #777777;
+    cursor: pointer;
+  }
+
+  .slider::-ms-fill-upper {
+    background: blue;
+  }
+
+  #play-button {
+    vertical-align: middle;
+    font-size: 3em;
+    color: #777777;
+    cursor: pointer;
+  }
+
+  #speed-slider {
+    direction: rtl;
+    width: 50%;
+  }
+
+  #slow-text {
+    margin-left: auto
+  }
+
+  #fast-text {
+    margin-right: auto
+  }
 </style>
 
 <script>
@@ -127,30 +205,42 @@ document.addEventListener("DOMContentLoaded", function() {
     rowCount: 15,
     availableRowCount: 15,
     data: [
-      ["BHS", 55],
-      ["BLZ", 71],
-      ["CAN", 42],
-      ["CRI", 53],
-      ["CUB", 16],
-      ["DOM", 25],
-      ["GTM", 46],
-      ["HND", 73],
-      ["HTI", 3],
-      ["JAM", 29],
-      ["MEX", 37],
-      ["NIC", 35],
-      ["PAN", 69],
-      ["SLV", 18],
-      ["USA", 30]
+      ["01Jan2010", "CAN", 42],
+      ["01Jan2010", "MEX", 25],
+      ["01Jan2010", "USA", 30],
+      ["01Jan2011", "CAN", 38],
+      ["01Jan2011", "MEX", 42],
+      ["01Jan2011", "USA", 35],
+      ["01Jan2012", "CAN", 33],
+      ["01Jan2012", "MEX", 44],
+      ["01Jan2012", "USA", 45],
+      ["01Jan2013", "CAN", 25],
+      ["01Jan2013", "MEX", 59],
+      ["01Jan2013", "USA", 42],
+      ["01Jan2014", "CAN", 24],
+      ["01Jan2014", "MEX", 70],
+      ["01Jan2014", "USA", 30]
     ],
     columns: [
       {
-        name: "bi859",
+        name: "bi886",
+        label: "Date",
+        type: "date",
+        usage: "categorical",
+        format: {
+          name: "DATE",
+          width: 9,
+          precision: 0,
+          formatString: "DATE9"
+        }
+      },
+      {
+        name: "bi887",
         label: "Country ID",
         type: "string"
       },
       {
-        name: "bi860",
+        name: "bi888",
         label: "Measure",
         type: "number",
         usage: "quantitative",
@@ -169,9 +259,13 @@ document.addEventListener("DOMContentLoaded", function() {
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
   let DATA; // Data to be parsed from VA data message
+  let DATES; // Array of dates present in data
+  let DATE_INDEX = 0; // Index of current data set
+  let PLAYING = false; // Boolean for whether time animation is currently playing
   let METADATA; // Metadata to be parsed from VA data message
   let WORLD_JSON; // World geo json to be loaded from file
-  let TEXTURE_CACHE = memoize(getTexture); // Cached textures for each country
+  let WORLD_TEXTURE_CACHE = memoize(getTexture); // Cached textures for globe accross all years
+  let OVERLAY_TEXTURE_CACHE = memoize(getTexture); // Cached textures for country overlays by year
   let COUNTRY_CACHE = memoize(getCountry); // Cached country information for faces
   let TIP_ID = null; // ID of current country being displayed in tooltip
   let PRESERVE = false; // Whether or not to preserve overlay, set when country is clicked, cleared when something else is clicked
@@ -188,6 +282,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Dynamic dimension variables
   let WIDTH; // Width of canvas element
   let HEIGHT; // Height of canvas element
+  let ANIMATION_TRANS_TIME = 250; // Default duration of animation transitions
 
   // Selection and d3 variables
   const PROJECTION = d3
@@ -251,6 +346,98 @@ document.addEventListener("DOMContentLoaded", function() {
     false
   );
 
+  // Animate when play button clicked
+  d3.select("#play-button").on("click", function() {
+    // Prevent propogation
+    d3.event.stopPropagation();
+    d3.event.preventDefault();
+
+    // Toggle playing boolean
+    PLAYING = !PLAYING;
+
+    // Update play button
+    d3.select("#play-button i")
+      .classed("fa-pause-circle", PLAYING ? true : false)
+      .classed("fa-play-circle", PLAYING ? false : true);
+
+    // Animate when played
+    if (PLAYING) {
+      // Reset slider if we are at end of data sets
+      if (DATE_INDEX == DATES.length - 1) {
+        d3.select("#date-slider").node().value = 0;
+      }
+
+      animate();
+    }
+  });
+
+  // Redraw when date slider moved
+  d3.select("#date-slider").on("click", function() {
+    // Prevent propogation
+    d3.event.stopPropagation();
+    d3.event.preventDefault();
+  });
+
+  d3.select("#date-slider").on("input", function() {
+    // Clear overlay texture cache
+    OVERLAY_TEXTURE_CACHE = memoize(getTexture);
+
+    // Update data index and data set, stop playing
+    DATE_INDEX = parseInt(this.value);
+    let date = DATES[DATE_INDEX];
+    PLAYING = false;
+
+    // Update progress bar on slider
+    d3.select(this)
+      .attr("value", this.value)
+      .style("background-image", function() {
+        const middle =
+          (parseInt(this.value) - parseInt(this.min)) /
+          (parseInt(this.max) - parseInt(this.min));
+
+        return (
+          "-webkit-gradient(linear, left top, right top, " +
+          "color-stop(" +
+          middle +
+          ", #777777), " +
+          "color-stop(" +
+          middle +
+          ", #d3d3d3)" +
+          ")"
+        );
+      });
+
+    // Change play button to pause
+    d3.select("#play-button i")
+      .classed("fa-pause-circle", false)
+      .classed("fa-play-circle", true);
+
+    // Update sphere texture with new choropleth
+    CHOROPLETH_SPHERE.material.map = WORLD_TEXTURE_CACHE(date);
+
+    // If tooltip currently displayed, update value
+    if (TIP_ID) {
+      OVERLAY_SPHERE.material.map = OVERLAY_TEXTURE_CACHE(date, TIP_ID);
+
+      d3.select(".tooltip-value").html(
+        DATA[date][TIP_ID]
+          ? date + ": " + METADATA.measureFormat(DATA[date][TIP_ID].measure)
+          : "No Data"
+      );
+    }
+  });
+
+  // Update animation time when speed slider moved
+  d3.select("#speed-slider").on("click", function() {
+    // Prevent propogation
+    d3.event.stopPropagation();
+    d3.event.preventDefault();
+  });
+
+  d3.select("#speed-slider").on("input", function() {
+    ANIMATION_TRANS_TIME = parseInt(this.value);
+  });
+
   // Attach event for data message from VA
   va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
@@ -267,6 +454,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Take action on received data
   function onDataReceived(messageFromVA) {
     // Initialize data variables
+    // va.contentUtil.convertDateColumns(messageFromVA);
     VA_MESSAGE = messageFromVA;
     VA_RESULT_NAME = messageFromVA.resultName;
 
@@ -274,48 +462,70 @@ document.addEventListener("DOMContentLoaded", function() {
     if (
       !va.contentUtil.validateRoles(
         messageFromVA,
-        ["string", "number"],
+        ["date", "string", "number"],
         ["number"]
       )
     ) {
       va.messagingUtil.postInstructionalMessage(
         VA_RESULT_NAME,
-        "D3 Interactive 3D Choropleth expects columns to be assigned in this order:\n" +
-          " 1. ISO3 Country Code (string)\n" +
-          " 2. Measure (number)"
+        "D3 Animated 3D Choropleth expects columns to be assigned in this order:\n" +
+          " 1. Date (date)\n" +
+          " 2. ISO3 Country Code (string)\n" +
+          " 3. Measure (number)"
       );
       return;
     }
 
     // Restructure metadata from data message
     METADATA = {
-      measureLabel: VA_MESSAGE.columns[1].label,
-      measureFormat: translateFormat(VA_MESSAGE.columns[1].format.formatString)
+      measureLabel: VA_MESSAGE.columns[2].label,
+      measureFormat: translateFormat(VA_MESSAGE.columns[2].format.formatString)
     };
 
     // Restructure data from 2d array to array of objects
     DATA = {};
     for (let i = 0; i < VA_MESSAGE.data.length; i++) {
       // Omit missing values
-      if (VA_MESSAGE.data[i][1] != ".") {
-        DATA[VA_MESSAGE.data[i][0]] = {
-          id: VA_MESSAGE.data[i][0],
-          measure: VA_MESSAGE.data[i][1]
+      if (VA_MESSAGE.data[i][2] != ".") {
+        if (!DATA[VA_MESSAGE.data[i][0]]) {
+          DATA[VA_MESSAGE.data[i][0]] = {};
+        }
+
+        DATA[VA_MESSAGE.data[i][0]][VA_MESSAGE.data[i][1]] = {
+          date: VA_MESSAGE.data[i][0],
+          id: VA_MESSAGE.data[i][1],
+          measure: VA_MESSAGE.data[i][2]
         };
       }
     }
 
+    DATES = Object.keys(DATA).sort(function(a, b) {
+      return Date.parse(a) - Date.parse(b);
+    });
+
     // Create color scale
     COLOR_SCALE = d3
       .scaleLinear()
-      .domain(
-        d3.extent(Object.values(DATA), function(d) {
-          return d.measure;
+      .domain([
+        d3.min(Object.values(DATA), function(row) {
+          return d3.min(Object.values(row), function(d) {
+            return d.measure;
+          });
+        }),
+        d3.max(Object.values(DATA), function(row) {
+          return d3.max(Object.values(row), function(d) {
+            return d.measure;
+          });
         })
-      )
+      ])
       .range(["#f7fbff", "#08306b"]);
 
-    TEXTURE_CACHE = memoize(getTexture);
+    // Initialize date slider values
+    d3.select("#date-slider").attr("max", DATES.length - 1);
+
+    d3.select("#min-date").html(DATES[0]);
+
+    d3.select("#max-date").html(DATES[DATES.length - 1]);
 
     // Initialize chart if first draw, otherwise clear canvas and then init
     if (!SCENE) {
@@ -324,6 +534,37 @@ document.addEventListener("DOMContentLoaded", function() {
         init();
       }
     } else {
+      // Clear texture caches
+      WORLD_TEXTURE_CACHE = memoize(getTexture);
+      OVERLAY_TEXTURE_CACHE = memoize(getTexture);
+
+      // Load textures to world cache
+      DATES.forEach(function(d) {
+        WORLD_TEXTURE_CACHE(d);
+      });
+
+      // Reset date slider
+      DATE_INDEX = 0;
+
+      d3
+        .select("#date-slider")
+        .style("background-image", function() {
+          return (
+            "-webkit-gradient(linear, left top, right top, " +
+            "color-stop(0, #777777), " +
+            "color-stop(0, #d3d3d3)" +
+            ")"
+          );
+        })
+        .node().value = 0;
+
+      // Clear tooltip values
+      TIP_ID = null;
+
+      d3.select(".tooltip-title").html("");
+
+      d3.select(".tooltip-value").html("");
+
       update();
     }
   }
@@ -339,6 +580,11 @@ document.addEventListener("DOMContentLoaded", function() {
       document.body.appendChild(WEBGL.getWebGLErrorMessage());
       return;
     }
+
+    // Load textures to world cache
+    DATES.forEach(function(d) {
+      WORLD_TEXTURE_CACHE(d);
+    });
 
     // Remove loading message
     d3.select(".loading").remove();
@@ -369,7 +615,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // Init choropleth sphere and add to scene
     CHOROPLETH_SPHERE = new THREE.Mesh(
       SPHERE_GEOMETRY, // geometry for mesh
-      new THREE.MeshBasicMaterial({ map: TEXTURE_CACHE() }) // material for mesh
+      new THREE.MeshBasicMaterial({
+        map: WORLD_TEXTURE_CACHE(DATES[DATE_INDEX])
+      }) // material for mesh
     );
 
     SCENE.add(CHOROPLETH_SPHERE);
@@ -378,7 +626,7 @@ document.addEventListener("DOMContentLoaded", function() {
     OVERLAY_SPHERE = new THREE.Mesh(
       new THREE.SphereGeometry(1.005, SEGMENTS, SEGMENTS), // geometry for mesh
       new THREE.MeshBasicMaterial({
-        map: TEXTURE_CACHE("BLANK"),
+        map: OVERLAY_TEXTURE_CACHE(DATES[DATE_INDEX], "BLANK"),
         transparent: true
       }) // material for mesh
     );
@@ -427,10 +675,68 @@ document.addEventListener("DOMContentLoaded", function() {
   // Update canvas on new data message
   function update() {
     // Update sphere texture with new choropleth
-    CHOROPLETH_SPHERE.material.map = getTexture();
+    CHOROPLETH_SPHERE.material.map = WORLD_TEXTURE_CACHE(DATES[DATE_INDEX]);
 
     // Update legend
     updateLegend();
+  }
+
+  // Play animation over time
+  function animate() {
+    // Clear overlay texture cache
+    OVERLAY_TEXTURE_CACHE = memoize(getTexture);
+
+    // Iterate to next dataset
+    DATE_INDEX = DATE_INDEX >= DATES.length - 1 ? 0 : DATE_INDEX + 1;
+    let date = DATES[DATE_INDEX];
+
+    // Update date slider
+    d3.select("#date-slider")
+      .style("background-image", function() {
+        const middle =
+          (parseInt(this.value) + parseInt(this.step) - parseInt(this.min)) /
+          (parseInt(this.max) - parseInt(this.min));
+
+        return (
+          "-webkit-gradient(linear, left top, right top, " +
+          "color-stop(" +
+          middle +
+          ", #777777), " +
+          "color-stop(" +
+          middle +
+          ", #d3d3d3)" +
+          ")"
+        );
+      })
+      .node()
+      .stepUp();
+
+    // Update sphere texture with new choropleth
+    CHOROPLETH_SPHERE.material.map = WORLD_TEXTURE_CACHE(date);
+
+    // If tooltip currently displayed, update value
+    if (TIP_ID) {
+      OVERLAY_SPHERE.material.map = OVERLAY_TEXTURE_CACHE(date, TIP_ID);
+
+      d3.select(".tooltip-value").html(
+        DATA[date][TIP_ID]
+          ? date + ": " + METADATA.measureFormat(DATA[date][TIP_ID].measure)
+          : "No Data"
+      );
+    }
+
+    // If playing and not at end of data sets, set timer to animate again
+    if (PLAYING && DATE_INDEX < DATES.length - 1) {
+      setTimeout(animate, ANIMATION_TRANS_TIME);
+    }
+    // Otherwise, pause
+    else if (DATE_INDEX == DATES.length - 1) {
+      PLAYING = false;
+
+      d3.select("#play-button i")
+        .classed("fa-pause-circle", false)
+        .classed("fa-play-circle", true);
+    }
   }
 
   // Update renderer using new window dimensions
@@ -509,7 +815,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Return texture created from canvas choropleth based on country id (no argument is full map, any non matching string is blank map)
-  function getTexture(country) {
+  function getTexture(date, country) {
     // Append canvas and save reference
     const canvas = d3
       .select("body")
@@ -536,8 +842,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     WORLD_JSON.features.forEach(function(d) {
       if (!country || country == d.properties.iso_a3) {
-        context.fillStyle = DATA[d.properties.iso_a3]
-          ? COLOR_SCALE(DATA[d.properties.iso_a3].measure)
+        context.fillStyle = DATA[date][d.properties.iso_a3]
+          ? COLOR_SCALE(DATA[date][d.properties.iso_a3].measure)
           : "#CCC";
         context.beginPath();
         path(d);
@@ -634,8 +940,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Set overlay values given country corresponding to intersection
   function setOverlay() {
+    let date = DATES[DATE_INDEX];
+
     // Set overlay
-    OVERLAY_SPHERE.material.map = TEXTURE_CACHE(COUNTRY.id);
+    OVERLAY_SPHERE.material.map = OVERLAY_TEXTURE_CACHE(date, COUNTRY.id);
 
     // Set tooltip values
     TIP_ID = COUNTRY.id;
@@ -643,8 +951,8 @@ document.addEventListener("DOMContentLoaded", function() {
     d3.select(".tooltip-title").html(COUNTRY.id + " - " + COUNTRY.name);
 
     d3.select(".tooltip-value").html(
-      DATA[COUNTRY.id]
-        ? METADATA.measureFormat(DATA[COUNTRY.id].measure)
+      DATA[date][COUNTRY.id]
+        ? date + ": " + METADATA.measureFormat(DATA[date][COUNTRY.id].measure)
         : "No Data"
     );
   }
@@ -652,7 +960,10 @@ document.addEventListener("DOMContentLoaded", function() {
   // Clear overlay
   function clearOverlay() {
     // Clear overlay
-    OVERLAY_SPHERE.material.map = TEXTURE_CACHE("BLANK");
+    OVERLAY_SPHERE.material.map = OVERLAY_TEXTURE_CACHE(
+      DATES[DATE_INDEX],
+      "BLANK"
+    );
 
     // Clear tooltip values
     TIP_ID = null;
@@ -662,6 +973,7 @@ document.addEventListener("DOMContentLoaded", function() {
     d3.select(".tooltip-value").html("");
   }
 });
+
 </script>
 <div class="container">
   <p class="loading">Loading...</p>
@@ -683,6 +995,25 @@ document.addEventListener("DOMContentLoaded", function() {
     <div class="tooltip-row">
       <p class="tooltip-value"></p>
     </div>
+  </div>
+</div>
+<div class="input-container">
+  <div id="row1" class="row">
+    <span id="play-button">
+      <i class="fas fa-play-circle"></i>
+    </span>
+    <p id="min-date">
+      Min Date
+    </p>
+    <input id="date-slider" class="slider" type="range" min="0" max="100" value="0" step="1">
+    <p id="max-date">
+      Max Date
+    </p>
+  </div>
+  <div id="row2" class="row">
+      <p id="slow-text">Slow</p>
+      <input id="speed-slider" class="slider" type="range" min="200" max="750" value="250">
+      <p id="fast-text">Fast</p>
   </div>
 </div>
 </body>
