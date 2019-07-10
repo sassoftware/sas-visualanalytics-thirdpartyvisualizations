@@ -123,43 +123,43 @@ document.addEventListener("DOMContentLoaded", function() {
   // Static data variables
   const SAMPLE_MESSAGE = {
     version: "1",
-    resultName: "dd489",
+    resultName: "dd858",
     rowCount: 15,
     availableRowCount: 15,
     data: [
-      ["BHS", 51.44855144855145],
-      ["BLZ", 70.16001646584569],
-      ["CAN", 38.293893804482536],
-      ["CRI", 49.84723758660164],
-      ["CUB", 19.513034927112475],
-      ["DOM", 23.661767244585803],
-      ["GTM", 43.80365808137365],
-      ["HND", 71.15560012205067],
-      ["HTI", 4.183599530179898],
-      ["JAM", 31.78485789347442],
-      ["MEX", 35.78775254636179],
-      ["NIC", 36.92870201096892],
-      ["PAN", 67.56389824202986],
-      ["SLV", 17.977799227799228],
-      ["USA", 33.03416476870736]
+      ["BHS", 55],
+      ["BLZ", 71],
+      ["CAN", 42],
+      ["CRI", 53],
+      ["CUB", 16],
+      ["DOM", 25],
+      ["GTM", 46],
+      ["HND", 73],
+      ["HTI", 3],
+      ["JAM", 29],
+      ["MEX", 37],
+      ["NIC", 35],
+      ["PAN", 69],
+      ["SLV", 18],
+      ["USA", 30]
     ],
     columns: [
       {
-        name: "bi490",
-        label: "Country Code",
+        name: "bi859",
+        label: "Country ID",
         type: "string"
       },
       {
-        name: "bi492",
-        label: "Forest area (% of land area)",
+        name: "bi860",
+        label: "Measure",
         type: "number",
         usage: "quantitative",
         aggregation: "sum",
         format: {
-          name: "F",
-          width: 6,
-          precision: 2,
-          formatString: "F6.2"
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
         }
       }
     ]
