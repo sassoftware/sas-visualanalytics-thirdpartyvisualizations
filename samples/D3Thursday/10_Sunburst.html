@@ -840,11 +840,11 @@ document.addEventListener("DOMContentLoaded", function() {
       dataId = "";
       for (let j=1; j<=catIndex; j++) {
         dataId += (j==1 ? "" : "-");
-        dataId += data[i][j].replace(/\W/g, "_");
+        dataId += data[i][j].replace(/[\W0-9]/g, "_");
       }
 
       // Create test id to compare data id
-      testId = nestedData.id + "-" + data[i][catIndex].replace(/\W/g, "_");
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/[\W0-9]/g, "_");
 
       // Initialize color / iterate to new version
       initColor = GRAD.fill[data[i][1]] ? GRAD.fill[data[i][1]] : GRAD.fillScale(data[i][1]);

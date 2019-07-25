@@ -473,7 +473,7 @@ document.addEventListener("DOMContentLoaded", function() {
       datum.entries.push({
         year: year,
         category: category,
-        categoryId: category.replace(/\W/g, "_"),
+        categoryId: category.replace(/[\W0-9]/g, "_"),
         measure: measure,
         cumMeasure: cumMeasure
       });
