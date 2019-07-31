@@ -837,14 +837,13 @@ document.addEventListener("DOMContentLoaded", function() {
     // Iterate over all data elements
     for (let i = 0; i < data.length; i++) {
       // Create id for data element
-      dataId = "";
+      dataId = "id";
       for (let j=1; j<=catIndex; j++) {
-        dataId += (j==1 ? "" : "-");
-        dataId += data[i][j].replace(/[\W0-9]/g, "_");
+        dataId += "-" + data[i][j].replace(/[\W]/g, "_");
       }
 
       // Create test id to compare data id
-      testId = nestedData.id + "-" + data[i][catIndex].replace(/[\W0-9]/g, "_");
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/[\W]/g, "_");
 
       // Initialize color / iterate to new version
       initColor = GRAD.fill[data[i][1]] ? GRAD.fill[data[i][1]] : GRAD.fillScale(data[i][1]);

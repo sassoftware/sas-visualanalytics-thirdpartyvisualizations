@@ -329,7 +329,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .map(function(d) {
         return {
           key: d.key,
-          id: d.key.replace(/[\W0-9]/g, "_")
+          id: "id-" + d.key.replace(/[\W]/g, "_")
         };
       });
 
@@ -507,14 +507,13 @@ document.addEventListener("DOMContentLoaded", function() {
     // Iterate over all data elements
     for (let i = 0; i < data.length; i++) {
       // Create id for data element
-      dataId = "";
-      for (let j = 1; j <= catIndex; j++) {
-        dataId += j == 1 ? "" : "-";
-        dataId += data[i][j].replace(/[\W0-9]/g, "_");
+      dataId = "id";
+      for (let j=1; j<=catIndex; j++) {
+        dataId += "-" + data[i][j].replace(/[\W]/g, "_");
       }
 
       // Create test id to compare data id
-      testId = nestedData.id + "-" + data[i][catIndex].replace(/[\W0-9]/g, "_");
+      testId = nestedData.id + "-" + data[i][catIndex].replace(/[\W]/g, "_");
 
       if (
         catIndex == 1 || // If category is top level or...

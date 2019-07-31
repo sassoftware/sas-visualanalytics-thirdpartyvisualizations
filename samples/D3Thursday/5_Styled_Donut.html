@@ -393,7 +393,7 @@ document.addEventListener("DOMContentLoaded", function() {
         startAngle: startAngle,
         endAngle: startAngle + (VA_MESSAGE.data[i][1] / total) * 2 * Math.PI,
         index: i,
-        id: VA_MESSAGE.data[i][0].replace(/[\W0-9]/g, "_")
+        id: "id-" +  VA_MESSAGE.data[i][0].replace(/[\W]/g, "_")
       });
     }
 
