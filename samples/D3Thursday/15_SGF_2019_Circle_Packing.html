@@ -541,9 +541,9 @@ document.addEventListener("DOMContentLoaded", function() {
       if (d.depth == 0) {
         d.data.id = "ROOT";
       } else if (d.depth == 1) {
-        d.data.id = "cluster-" + d.data.key.replace(/[\W0-9]/g, "_");
+        d.data.id = "cluster-" + d.data.key.replace(/[\W]/g, "_");
       } else {
-        d.data.id = "leaf-" + d.data.key.replace(/[\W0-9]/g, "_");
+        d.data.id = "leaf-" + d.data.key.replace(/[\W]/g, "_");
       }
     });
 

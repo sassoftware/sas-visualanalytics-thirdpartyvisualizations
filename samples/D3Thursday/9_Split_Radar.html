@@ -525,7 +525,7 @@ document.addEventListener("DOMContentLoaded", function() {
       // Iterate over each category
       datum = {
         category: VA_MESSAGE.data[i * numMeasures][0],
-        id: VA_MESSAGE.data[i * numMeasures][0].replace(/[\W0-9]/g, "_"),
+        id: "id-" +  VA_MESSAGE.data[i * numMeasures][0].replace(/[\W]/g, "_"),
         metrics: []
       };
 

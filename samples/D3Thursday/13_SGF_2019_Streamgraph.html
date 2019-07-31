@@ -323,7 +323,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Add id to stacked data
     STACKED_DATA.forEach(function(d) {
-      d.id = d.key.replace(/[\W0-9]/g, "_");
+      d.id = "id-" + d.key.replace(/[\W]/g, "_");
     });
 
     // Assign data variables for legend
