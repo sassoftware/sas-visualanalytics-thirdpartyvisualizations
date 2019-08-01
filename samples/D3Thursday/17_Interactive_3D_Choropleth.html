@@ -335,8 +335,8 @@ document.addEventListener("DOMContentLoaded", function() {
     HEIGHT = window.innerHeight;
 
     // Check if webgl is supported by browser
-    if (!WEBGL.isWebGLAvailable()) {
-      document.body.appendChild(WEBGL.getWebGLErrorMessage());
+    if (!THREE.WEBGL.isWebGLAvailable()) {
+      document.body.appendChild(THREE.WEBGL.getWebGLErrorMessage());
       return;
     }
 
