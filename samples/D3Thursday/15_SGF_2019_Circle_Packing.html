@@ -711,7 +711,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .attr("r", function(d) {
         return d.r;
       })
-      .style("opacity", function(d) {
+      .style("fill-opacity", function(d) {
         return DIST_SCALE(d.data.distance);
       })
       .on("click", function() {
