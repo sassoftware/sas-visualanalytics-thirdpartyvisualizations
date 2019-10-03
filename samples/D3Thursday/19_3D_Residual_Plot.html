@@ -162,57 +162,57 @@ document.addEventListener("DOMContentLoaded", function() {
       [11.5, 7000, 20.961873344105324, "."],
       [11.5, 8000, 19.679562412771244, "."]
     ],
-    columns: [
-      {
-        name: "bi78",
-        label: "Cylinders",
-        type: "number",
-        usage: "categorical",
-        format: {
-          name: "BEST",
-          width: 12,
-          precision: 0,
-          formatString: "BEST12."
+    "columns": [
+        {
+            "name": "bi78",
+            "label": "Cylinders",
+            "type": "number",
+            "usage": "categorical",
+            "format": {
+                "name": "BEST",
+                "width": 12,
+                "precision": 0,
+                "formatString": "BEST12."
+            }
+        },
+        {
+            "name": "bi79",
+            "label": "Weight",
+            "type": "number",
+            "usage": "categorical",
+            "format": {
+                "name": "BEST",
+                "width": 12,
+                "precision": 0,
+                "formatString": "BEST12."
+            }
+        },
+        {
+            "name": "bi82",
+            "label": "MPG Highway",
+            "type": "number",
+            "usage": "quantitative",
+            "aggregation": "sum",
+            "format": {
+                "name": "F",
+                "width": 12,
+                "precision": 2,
+                "formatString": "F12.2"
+            }
+        },
+        {
+            "name": "bi83",
+            "label": "Residual",
+            "type": "number",
+            "usage": "quantitative",
+            "aggregation": "sum",
+            "format": {
+                "name": "F",
+                "width": 12,
+                "precision": 2,
+                "formatString": "F12.2"
+            }
         }
-      },
-      {
-        name: "bi79",
-        label: "Weight",
-        type: "number",
-        usage: "categorical",
-        format: {
-          name: "BEST",
-          width: 12,
-          precision: 0,
-          formatString: "BEST12."
-        }
-      },
-      {
-        name: "bi82",
-        label: "MPG_Highway",
-        type: "number",
-        usage: "quantitative",
-        aggregation: "sum",
-        format: {
-          name: "BEST",
-          width: 12,
-          precision: 0,
-          formatString: "BEST12."
-        }
-      },
-      {
-        name: "bi83",
-        label: "residual",
-        type: "number",
-        usage: "quantitative",
-        aggregation: "sum",
-        format: {
-          name: "BEST",
-          width: 12,
-          precision: 0,
-          formatString: "BEST12."
-        }
-      }
     ]
   }; // Sample data message to render graph outside of VA for debugging
 
