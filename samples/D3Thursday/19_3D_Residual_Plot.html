@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+  <!-- Import D3.js -->
+  <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+
+  <!-- Import three.js (minified) and post processing files -->
+  <script type="text/javascript" src="https://threejs.org/build/three.min.js"></script>
+  <script type="text/javascript" src="https://threejs.org/examples/js/shaders/CopyShader.js"></script>
+  <script type="text/javascript" src="https://threejs.org/examples/js/postprocessing/EffectComposer.js"></script>
+  <script type="text/javascript" src="https://threejs.org/examples/js/postprocessing/RenderPass.js"></script>
+  <script type="text/javascript" src="https://threejs.org/examples/js/postprocessing/OutlinePass.js"></script>
+  <script type="text/javascript" src="https://threejs.org/examples/js/postprocessing/ShaderPass.js"></script>
+
+  <!-- Import WebGL.js (detect three.js compatibility with browser) -->
+  <script type="text/javascript" src="https://threejs.org/examples/js/WebGL.js"></script>
+
+  <!-- Import TrackballControls.js (add controls to move camera around scene) -->
+  <script type="text/javascript" src="https://threejs.org/examples/js/controls/TrackballControls.js"></script>
+
+  <!-- Import utilities  -->
+  <script type="text/javascript" src="../../util/messagingUtil.js"></script>
+  <script type="text/javascript" src="../../util/contentUtil.js"></script>
+</head>
+<body>
+<style type="text/css">
+  html, body {
+    overflow: hidden;
+    margin: 0px;
+    width: 100%;
+    height: 100%;
+  }
+
+  canvas {
+    position: absolute;
+  }
+
+  p {
+    margin-top: 5px;
+    margin-bottom: 5px;
+  }
+
+  .container {
+    position: relative;
+  }
+
+  .control-reset {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+
+  .axis-text {
+    position: absolute;
+    pointer-events: none;
+    font-family: Verdana, sans-serif;
+    font-size: .8em;
+  }
+
+  .tooltip-container {
+    position: absolute;
+    left: 5px;
+  }
+
+  .tooltip-value {
+    font-family: Verdana, sans-serif;
+    font-size: 1.2em;
+  }
+</style>
+
+<script>
+"use strict;";
+
+document.addEventListener("DOMContentLoaded", function() {
+  /******************************************************* Declare variables *******************************************************/
+
+  // Static data variables
+  const SAMPLE_MESSAGE = {
+    version: "1",
+    resultName: "dd136",
+    rowCount: 121,
+    availableRowCount: 121,
+    data: [
+      [0, 0, 2, "."],
+      [0, 1, 4, "."],
+      [0, 2, 0, "."],
+      [0, 3, -16, "."],
+      [0, 4, -50, "."],
+      [0, 5, -108, "."],
+      [0, -1, 0, "."],
+      [0, -2, 4, "."],
+      [0, -3, 20, "."],
+      [0, -4, 54, "."],
+      [0, -5, 112, 0.2424151772830705],
+      [1, 0, 4, "."],
+      [1, 1, 6, 0.7691404809100275],
+      [1, 2, 2, "."],
+      [1, 3, -14, 0.8785918177471459],
+      [1, 4, -48, "."],
+      [1, 5, -106, -0.035931828914178454],
+      [1, -1, 2, 0.40209413291983975],
+      [1, -2, 6, "."],
+      [1, -3, 22, -0.04310969311888779],
+      [1, -4, 56, "."],
+      [1, -5, 114, -0.13542856142643311],
+      [2, 0, 10, "."],
+      [2, 1, 12, "."],
+      [2, 2, 8, "."],
+      [2, 3, -8, "."],
+      [2, 4, -42, "."],
+      [2, 5, -100, "."],
+      [2, -1, 8, "."],
+      [2, -2, 12, "."],
+      [2, -3, 28, "."],
+      [2, -4, 62, "."],
+      [2, -5, 120, -0.5496192572403789],
+      [3, 0, 20, "."],
+      [3, 1, 22, 0.43583294350459845],
+      [3, 2, 18, "."],
+      [3, 3, 2, "."],
+      [3, 4, -32, 0.46009720464241566],
+      [3, 5, -90, "."],
+      [3, -1, 18, "."],
+      [3, -2, 22, -0.9281370462515098],
+      [3, -3, 38, "."],
+      [3, -4, 72, "."],
+      [3, -5, 130, -0.11711763456329594],
+      [4, 0, 34, "."],
+      [4, 1, 36, "."],
+      [4, 2, 32, "."],
+      [4, 3, 16, 0.6167078575197178],
+      [4, 4, -18, "."],
+      [4, 5, -76, "."],
+      [4, -1, 32, -0.0824176962871187],
+      [4, -2, 36, "."],
+      [4, -3, 52, "."],
+      [4, -4, 86, "."],
+      [4, -5, 144, 0.32192328540697845],
+      [5, 0, 52, "."],
+      [5, 1, 54, 0.18032559062369424],
+      [5, 2, 50, "."],
+      [5, 3, 34, "."],
+      [5, 4, 0, "."],
+      [5, 5, -58, "."],
+      [5, -1, 50, "."],
+      [5, -2, 54, "."],
+      [5, -3, 70, "."],
+      [5, -4, 104, "."],
+      [5, -5, 162, 0.8088006041053686],
+      [-1, 0, 4, "."],
+      [-1, 1, 6, -0.05050377596658828],
+      [-1, 2, 2, "."],
+      [-1, 3, -14, "."],
+      [-1, 4, -48, 0.4236123186646086],
+      [-1, 5, -106, "."],
+      [-1, -1, 2, "."],
+      [-1, -2, 6, -0.533519080622829],
+      [-1, -3, 22, "."],
+      [-1, -4, 56, "."],
+      [-1, -5, 114, 0.5353556412902454],
+      [-2, 0, 10, "."],
+      [-2, 1, 12, "."],
+      [-2, 2, 8, "."],
+      [-2, 3, -8, 0.9923780783975396],
+      [-2, 4, -42, "."],
+      [-2, 5, -100, "."],
+      [-2, -1, 8, 0.6148016339236877],
+      [-2, -2, 12, "."],
+      [-2, -3, 28, "."],
+      [-2, -4, 62, "."],
+      [-2, -5, 120, 0.16357460206540986],
+      [-3, 0, 20, "."],
+      [-3, 1, 22, -0.5658179314647884],
+      [-3, 2, 18, "."],
+      [-3, 3, 2, "."],
+      [-3, 4, -32, "."],
+      [-3, 5, -90, "."],
+      [-3, -1, 18, "."],
+      [-3, -2, 22, "."],
+      [-3, -3, 38, "."],
+      [-3, -4, 72, "."],
+      [-3, -5, 130, -0.6759754836913083],
+      [-4, 0, 34, "."],
+      [-4, 1, 36, "."],
+      [-4, 2, 32, "."],
+      [-4, 3, 16, "."],
+      [-4, 4, -18, "."],
+      [-4, 5, -76, "."],
+      [-4, -1, 32, "."],
+      [-4, -2, 36, "."],
+      [-4, -3, 52, "."],
+      [-4, -4, 86, "."],
+      [-4, -5, 144, -0.4245455830472268],
+      [-5, 0, 52, 0.972305083634474],
+      [-5, 1, 54, 0.8366254278629206],
+      [-5, 2, 50, 0.09165370608291301],
+      [-5, 3, 34, 0.28640572972893974],
+      [-5, 4, 0, -0.6066075943441165],
+      [-5, 5, -58, -0.9249743418418683],
+      [-5, -1, 50, -0.17422986085257952],
+      [-5, -2, 54, 0.12031059484943318],
+      [-5, -3, 70, -0.6115957981029505],
+      [-5, -4, 104, -0.9741447670264843],
+      [-5, -5, 162, -0.7924703917431042]
+    ],
+    columns: [
+      {
+        name: "bi137",
+        label: "Covariate 1",
+        type: "number",
+        usage: "categorical",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi138",
+        label: "Covariate 2",
+        type: "number",
+        usage: "categorical",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi139",
+        label: "Predicted",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "BEST",
+          width: 12,
+          precision: 0,
+          formatString: "BEST12."
+        }
+      },
+      {
+        name: "bi140",
+        label: "Residual",
+        type: "number",
+        usage: "quantitative",
+        aggregation: "sum",
+        format: {
+          name: "F",
+          width: 12,
+          precision: 2,
+          formatString: "F12.2"
+        }
+      }
+    ]
+  }; // Sample data message to render graph outside of VA for debugging
+
+  // Dynamic data variables
+  let VA_MESSAGE; // Data message to be received from VA
+  let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let DATA; // Data to be parsed from VA data message
+  let COV1; // Array of covariate 1 values
+  let COV2; // Array of covariate 2 values
+  let COV1_TICKS; // Array of ticks for covariate 1 axis
+  let COV2_TICKS; // Array of ticks for covariate 2 axis
+  let RESULT_TICKS; // Array of ticks for result axis
+  let METADATA; // Metadata to be parsed from VA data message
+
+  // Static dimension variables
+  const SPHERE_RADIUS = 0.01; // Radius used for data point spheres
+  const SEGMENTS = 32; // Number of horizontal and vertical segments used to construct sphere
+
+  // Dynamic dimension variables
+  let WIDTH; // Width of canvas element
+  let HEIGHT; // Height of canvas element
+
+  // Selection and d3 variables
+  let COV1_SCALE; // Scale covariate 1 (X) to world dimensions
+  let COV2_SCALE; // Scale covariate 2 (Z) to world dimensions
+  let RESULT_SCALE; // Scale predicted/actual result (Y) to world dimensions
+  let COLOR_SCALE; // Linear color scale indicating distance of observation from prediction
+
+  // Three variables
+  let AXIS_MATERIAL = new THREE.LineBasicMaterial({ color: "#000000" }); // Material for axis lines
+  let GRID_MATERIAL = new THREE.LineBasicMaterial({ color: "#a1a1a1" }); // Material for grid lines
+  let PREDICTION_MATERIAL = new THREE.MeshPhongMaterial({
+    color: "#bbbbbb",
+    side: THREE.DoubleSide
+  }); // Material for prediction surface
+  let SPHERE_GEOMETRY = new THREE.SphereBufferGeometry(
+    SPHERE_RADIUS,
+    SEGMENTS,
+    SEGMENTS
+  ); // Sphere buffer geometry to create data points
+  let SCENE; // Webgl scene
+  let CAMERA; // Webgl camera
+  let RENDERER; // Webgl renderer
+  let SPHERES; // Array of sphere meshes representing data points
+  let GEOMETRIES; // Array of geometry meshes representing prediction surface
+  let MOUSE = new THREE.Vector2(-1, -1); // 2D vector to store normalized mouse coordinates
+  let RAYCASTER = new THREE.Raycaster(); // First raycaster for interacting with residual points
+  let TEXT_RAYCASTER = new THREE.Raycaster(); // Second raycaster for hiding axis text when behind surface
+  let CONTROLS; // Trackball controls object
+  let COMPOSER; // Scene composer for post processing
+  let RENDER_PASS; // Initial pass to render frame
+  let OUTLINE_PASS; // Secondary pass to process highlighting
+
+  /*************************************************** Setup Callback Functions ***************************************************/
+
+  // Display tooltip if sphere is clicked
+  window.addEventListener("click", function(event) {
+    // Look for intersection with spheres
+    MOUSE.x = (event.clientX / WIDTH) * 2 - 1;
+    MOUSE.y = -(event.clientY / HEIGHT) * 2 + 1;
+    RAYCASTER.setFromCamera(MOUSE, CAMERA);
+    const intersects = RAYCASTER.intersectObjects(SPHERES);
+    if (intersects.length) {
+      let d = intersects[0].object.data;
+
+      // Set outline
+      OUTLINE_PASS.selectedObjects = [intersects[0].object];
+
+      // Set tooltip values
+      d3.select(".cov1").html(
+        METADATA.cov1 + ": " + METADATA.cov1Format(d.cov1)
+      );
+
+      d3.select(".cov2").html(
+        METADATA.cov2 + ": " + METADATA.cov2Format(d.cov2)
+      );
+
+      d3.select(".pred").html(
+        METADATA.pred + ": " + METADATA.predFormat(d.pred)
+      );
+
+      d3.select(".resid").html(
+        METADATA.resid + ": " + METADATA.residFormat(d.resid)
+      );
+
+      d3.select(".actual").html(
+        "Observed: " + METADATA.predFormat(d.actual)
+      );
+    } else {
+      // Clear outline
+      OUTLINE_PASS.selectedObjects = [];
+
+      // Clear tooltip values
+      d3.selectAll(".tooltip-value").html("");
+    }
+  });
+
+  // Expose event handler for control reset
+  window.controlReset = function() {
+    CONTROLS.reset();
+  };
+
+  // Attach event for data message from VA
+  va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+  // If not being rendered in iFrame (outside VA), render with sample data
+  if (!inIframe()) {
+    onDataReceived(SAMPLE_MESSAGE);
+  }
+
+  // Listen for resize event
+  va.contentUtil.setupResizeListener(resize);
+
+  /****************************************************** Callback Functions ******************************************************/
+
+  // Take action on received data
+  function onDataReceived(messageFromVA) {
+    // Initialize data variables
+    VA_MESSAGE = messageFromVA;
+    VA_RESULT_NAME = messageFromVA.resultName;
+
+    // Validate data roles
+    if (
+      !va.contentUtil.validateRoles(
+        messageFromVA,
+        ["number", "number", "number", "number"],
+        ["number"]
+      )
+    ) {
+      va.messagingUtil.postInstructionalMessage(
+        VA_RESULT_NAME,
+        "D3 3D Residual Plot expects columns to be assigned in this order:\n" +
+          " 1. Covariate 1 (X) (number)\n" +
+          " 2. Covariate 2 (Z) (number)\n" +
+          " 3. Predicted (Y) (number)\n" +
+          " 4. Residual (Y) (number)"
+      );
+      return;
+    }
+
+    // Restructure metadata from data message
+    METADATA = {
+      cov1: VA_MESSAGE.columns[0].label,
+      cov1Format: translateFormat(VA_MESSAGE.columns[0].format.formatString),
+      cov2: VA_MESSAGE.columns[1].label,
+      cov2Format: translateFormat(VA_MESSAGE.columns[1].format.formatString),
+      pred: VA_MESSAGE.columns[2].label,
+      predFormat: translateFormat(VA_MESSAGE.columns[2].format.formatString),
+      resid: VA_MESSAGE.columns[3].label,
+      residFormat: translateFormat(VA_MESSAGE.columns[3].format.formatString)
+    };
+
+    console.log(VA_MESSAGE.data);
+
+    // Restructure data from 2d array to array of objects
+    DATA = [];
+    for (let i = 0; i < VA_MESSAGE.data.length; i++) {
+      DATA.push({
+        cov1: VA_MESSAGE.data[i][0],
+        cov2: VA_MESSAGE.data[i][1],
+        pred: VA_MESSAGE.data[i][2],
+        resid: VA_MESSAGE.data[i][3] == "." ? undefined : VA_MESSAGE.data[i][3],
+        actual: VA_MESSAGE.data[i][3] == "." ? VA_MESSAGE.data[i][2] : VA_MESSAGE.data[i][2] + VA_MESSAGE.data[i][3]
+      });
+    }
+
+    DATA.sort(function(a, b) {
+      return a.cov1 - b.cov1;
+    }).sort(function(a, b) {
+      return a.cov2 - b.cov2;
+    });
+
+    // Extract covariate values into arrays
+    COV1 = d3
+      .map(DATA, function(d) {
+        return d.cov1;
+      })
+      .keys();
+
+    COV1.map(function(d, i) {
+      COV1[i] = parseFloat(d);
+    });
+
+    COV2 = d3
+      .map(DATA, function(d) {
+        return d.cov2;
+      })
+      .keys();
+
+    COV2.map(function(d, i) {
+      COV2[i] = parseFloat(d);
+    });
+
+    // Create world scales using min/max values from data
+    COV1_SCALE = d3
+      .scaleLinear()
+      .domain([
+        d3.min(DATA, function(d) {
+          return d.cov1;
+        }),
+        d3.max(DATA, function(d) {
+          return d.cov1;
+        })
+      ])
+      .range([-0.5, 0.5]);
+
+    COV2_SCALE = d3
+      .scaleLinear()
+      .domain([
+        d3.min(DATA, function(d) {
+          return d.cov2;
+        }),
+        d3.max(DATA, function(d) {
+          return d.cov2;
+        })
+      ])
+      .range([-0.5, 0.5]);
+
+    RESULT_SCALE = d3
+      .scaleLinear()
+      .domain([
+        d3.min(DATA, function(d) {
+          return Math.min(d.pred, d.actual);
+        }),
+        d3.max(DATA, function(d) {
+          return Math.max(d.pred, d.actual);
+        })
+      ])
+      .range([-0.5, 0.5]);
+
+    COLOR_SCALE = d3
+      .scaleLinear()
+      .domain([
+        0,
+        d3.max(DATA, function(d) {
+          return Math.abs(d.actual - d.pred);
+        })
+      ])
+      .range(["#bbbbbb", "#ff0000"]);
+
+    // Generate ticks for axes
+    COV1_TICKS = getTickValues(
+      COV1_SCALE.domain()[0],
+      COV1_SCALE.domain()[1],
+      10,
+      0.01
+    );
+    COV2_TICKS = getTickValues(
+      COV2_SCALE.domain()[0],
+      COV2_SCALE.domain()[1],
+      10,
+      0.01
+    );
+    RESULT_TICKS = getTickValues(
+      RESULT_SCALE.domain()[0],
+      RESULT_SCALE.domain()[1],
+      10,
+      0.01
+    );
+
+    // Initialize chart if first draw, otherwise clear canvas and then init
+    if (!SCENE) {
+      init();
+    } else {
+      update();
+    }
+  }
+
+  // Draw elements for first time and on resize event
+  function init() {
+    // Calculate dimensions for graph based on container dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Check if webgl is supported by browser
+    if (!THREE.WEBGL.isWebGLAvailable()) {
+      document.body.appendChild(THREE.WEBGL.getWebGLErrorMessage());
+      return;
+    }
+
+    // Init scene
+    SCENE = new THREE.Scene();
+    SCENE.background = new THREE.Color("#f5f5f5");
+
+    // Init camera and set position
+    CAMERA = new THREE.PerspectiveCamera(
+      45, // field of view (fov) in degrees
+      WIDTH / HEIGHT, // aspect ratio
+      0.01, // near field distance
+      1000 // far field distance
+    );
+    CAMERA.position.set(1.5, 0.25, 1.5);
+
+    // Init renderer and set size
+    RENDERER = new THREE.WebGLRenderer({
+      antialias: true, // turn on antialiasing to smooth jaggies,
+      canvas: d3.select("canvas").node()
+    });
+    RENDERER.setSize(WIDTH, HEIGHT);
+
+    // Add lights
+    SCENE.add(new THREE.AmbientLight("#404040"));
+    let pointLight = new THREE.PointLight("#ffffff");
+    pointLight.position.set(0, 2, 0);
+    SCENE.add(pointLight);
+    let pointLight2 = new THREE.PointLight("#ffffff");
+    pointLight2.position.set(0, -2, 0);
+    SCENE.add(pointLight2);
+
+    // Draw axes box
+    drawAxesBox();
+
+    // Draw grid lines
+    drawGridLines();
+
+    // Create meshes for predicted curve
+    let index, geometry, mesh;
+    GEOMETRIES = [];
+    for (let i = 0; i < COV2.length - 1; i++) {
+      for (let j = 0; j < COV1.length - 1; j++) {
+        index = i * COV1.length + j;
+        for (let k = 0; k < 2; k++) {
+          // Create geometry
+          geometry = new THREE.Geometry();
+          if (k) {
+            geometry.vertices.push(
+              new THREE.Vector3(
+                COV1_SCALE(DATA[index + COV1.length + 1].cov1),
+                RESULT_SCALE(DATA[index + COV1.length + 1].pred),
+                COV2_SCALE(DATA[index + COV1.length + 1].cov2)
+              )
+            );
+          } else {
+            geometry.vertices.push(
+              new THREE.Vector3(
+                COV1_SCALE(DATA[index].cov1),
+                RESULT_SCALE(DATA[index].pred),
+                COV2_SCALE(DATA[index].cov2)
+              )
+            );
+          }
+          geometry.vertices.push(
+            new THREE.Vector3(
+              COV1_SCALE(DATA[index + 1].cov1),
+              RESULT_SCALE(DATA[index + 1].pred),
+              COV2_SCALE(DATA[index + 1].cov2)
+            )
+          );
+          geometry.vertices.push(
+            new THREE.Vector3(
+              COV1_SCALE(DATA[index + COV1.length].cov1),
+              RESULT_SCALE(DATA[index + COV1.length].pred),
+              COV2_SCALE(DATA[index + COV1.length].cov2)
+            )
+          );
+          geometry.faces.push(new THREE.Face3(0, 1, 2));
+          geometry.computeFaceNormals();
+
+          // Create mesh from custom geometry and add to scene
+          mesh = new THREE.Mesh(geometry, PREDICTION_MATERIAL);
+          GEOMETRIES.push(mesh);
+          SCENE.add(mesh);
+        }
+      }
+    }
+
+    // Create spheres for each residual and append to scene
+    let sphere;
+    SPHERES = [];
+    DATA.forEach(function(d) {
+      if (d.resid) {
+        // Create new sphere
+        sphere = new THREE.Mesh(
+          SPHERE_GEOMETRY,
+          new THREE.MeshBasicMaterial({
+            color: COLOR_SCALE(Math.abs(d.actual - d.pred))
+          })
+        );
+
+        // Set sphere position
+        sphere.position.set(
+          COV1_SCALE(d.cov1),
+          RESULT_SCALE(d.actual),
+          COV2_SCALE(d.cov2)
+        );
+
+        // Store data in sphere
+        sphere.data = d;
+
+        // Push into array of spheres
+        SPHERES.push(sphere);
+
+        // Add to scene
+        SCENE.add(sphere);
+      }
+    });
+
+    // Init camera controls
+    CONTROLS = new THREE.TrackballControls(CAMERA, RENDERER.domElement);
+
+    // postprocessing
+
+    COMPOSER = new THREE.EffectComposer(RENDERER);
+
+    RENDER_PASS = new THREE.RenderPass(SCENE, CAMERA);
+    COMPOSER.addPass(RENDER_PASS);
+
+    OUTLINE_PASS = new THREE.OutlinePass(
+      new THREE.Vector2(WIDTH, HEIGHT),
+      SCENE,
+      CAMERA
+    );
+    OUTLINE_PASS.visibleEdgeColor.set("#ff0000");
+    OUTLINE_PASS.hiddenEdgeColor.set("#ffffff");
+    OUTLINE_PASS.edgeStrength = 10;
+    OUTLINE_PASS.edgeGlow = 0;
+    OUTLINE_PASS.edgeThickness = 1;
+    COMPOSER.addPass(OUTLINE_PASS);
+
+    // Start render loop
+    render();
+
+    // Append axes values
+    d3.select("body")
+      .selectAll(".x-axis-text")
+      .data(COV1_TICKS)
+      .enter()
+      .append("div")
+      .classed("axis-text x-axis-text", true)
+      .html(function(d) {
+        return Math.round(d * 100) / 100;
+      })
+      .each(function(d) {
+        this.position = new THREE.Vector3(COV1_SCALE(d), -0.53, +0.5);
+      })
+      .each(setXY);
+
+    d3.select("body")
+      .selectAll(".z-axis-text")
+      .data(COV2_TICKS)
+      .enter()
+      .append("div")
+      .classed("axis-text z-axis-text", true)
+      .html(function(d) {
+        return Math.round(d * 100) / 100;
+      })
+      .each(function(d) {
+        this.position = new THREE.Vector3(+0.5, -0.53, COV2_SCALE(d));
+      })
+      .each(setXY);
+
+    d3.select("body")
+      .selectAll(".y-axis-text")
+      .data(RESULT_TICKS)
+      .enter()
+      .append("div")
+      .classed("axis-text y-axis-text", true)
+      .html(function(d) {
+        return Math.round(d * 100) / 100;
+      })
+      .each(function(d) {
+        this.position = new THREE.Vector3(-0.54, RESULT_SCALE(d) + 0.03, +0.54);
+      })
+      .each(setXY);
+
+    // Render loop function
+    function render() {
+      // Update controls
+      CONTROLS.update();
+
+      // Render frame
+      requestAnimationFrame(render);
+      COMPOSER.render();
+
+      // Update axis text positions
+      d3.selectAll(".axis-text")
+        .style("display", setDisplay)
+        .each(setXY);
+    }
+  }
+
+  // Update canvas on new data message
+  function update() {
+    // Reload page
+    document.location.reload(true);
+  }
+
+  // Update renderer using new window dimensions
+  function resize() {
+    // Update dimensions
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+
+    // Update camera/renderer
+    CAMERA.aspect = WIDTH / HEIGHT;
+    CAMERA.updateProjectionMatrix();
+    RENDERER.setSize(WIDTH, HEIGHT);
+    COMPOSER.setSize(WIDTH, HEIGHT);
+  }
+
+  /******************************************************* Helper Functions *******************************************************/
+
+  // Determine whether or not page is being rendered in iFrame
+  function inIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  // Translate SAS format to D3 format
+  function translateFormat(formatString) {
+    if (formatString.indexOf(".") == formatString.length - 1) formatString += 0;
+
+    if (formatString.includes("DOLLAR"))
+      return d3.format(
+        formatString.replace("DOLLAR", "$").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("COMMA"))
+      return d3.format(
+        formatString.replace("COMMA", "").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("F"))
+      return d3.format(formatString.replace("F", "") + "f");
+    else if (formatString.includes("BEST"))
+      return d3.format(formatString.replace("BEST", "") + "f");
+    else if (formatString.includes("PERCENT"))
+      return d3.format(
+        formatString.replace("PERCENT", "").replace(".", ",.") + "%"
+      );
+  }
+
+  // Draw axes box in 3d space
+  function drawAxesBox() {
+    // YZ Plane
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, -0.5, -0.5),
+      new THREE.Vector3(-0.5, -0.5, +0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, -0.5, +0.5),
+      new THREE.Vector3(-0.5, +0.5, +0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, +0.5, +0.5),
+      new THREE.Vector3(-0.5, +0.5, -0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, +0.5, -0.5),
+      new THREE.Vector3(-0.5, -0.5, -0.5)
+    );
+
+    // XY Plane
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, -0.5, -0.5),
+      new THREE.Vector3(+0.5, -0.5, -0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(+0.5, -0.5, -0.5),
+      new THREE.Vector3(+0.5, +0.5, -0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(+0.5, +0.5, -0.5),
+      new THREE.Vector3(-0.5, +0.5, -0.5)
+    );
+
+    // XZ Plane
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(-0.5, -0.5, +0.5),
+      new THREE.Vector3(+0.5, -0.5, +0.5)
+    );
+    drawLine(
+      AXIS_MATERIAL,
+      new THREE.Vector3(+0.5, -0.5, +0.5),
+      new THREE.Vector3(+0.5, -0.5, -0.5)
+    );
+  }
+
+  // Draw grid lines in 3d space
+  function drawGridLines() {
+    // Draw result lines in YZ plane
+    for (let d, i = 1; i < RESULT_TICKS.length; i++) {
+      d = RESULT_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(-0.5, RESULT_SCALE(d), -0.5),
+        new THREE.Vector3(-0.5, RESULT_SCALE(d), +0.5)
+      );
+    }
+
+    // Draw cov2 lines in YZ Plane
+    for (let d, i = 1; i < COV2_TICKS.length; i++) {
+      d = COV2_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(-0.5, -0.5, COV2_SCALE(d)),
+        new THREE.Vector3(-0.5, +0.5, COV2_SCALE(d))
+      );
+    }
+
+    // Draw result lines in XY plane
+    for (let d, i = 1; i < RESULT_TICKS.length; i++) {
+      d = RESULT_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(-0.5, RESULT_SCALE(d), -0.5),
+        new THREE.Vector3(+0.5, RESULT_SCALE(d), -0.5)
+      );
+    }
+
+    // Draw cov1 lines in XY plane
+    for (let d, i = 1; i < COV1_TICKS.length; i++) {
+      d = COV1_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(COV1_SCALE(d), -0.5, -0.5),
+        new THREE.Vector3(COV1_SCALE(d), +0.5, -0.5)
+      );
+    }
+
+    // Draw cov1 lines in XZ plane
+    for (let d, i = 1; i < COV1_TICKS.length; i++) {
+      d = COV1_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(COV1_SCALE(d), -0.5, -0.5),
+        new THREE.Vector3(COV1_SCALE(d), -0.5, +0.5)
+      );
+    }
+
+    // Draw cov2 lines in XZ plane
+    for (let d, i = 1; i < COV2_TICKS.length; i++) {
+      d = COV2_TICKS[i];
+      drawLine(
+        GRID_MATERIAL,
+        new THREE.Vector3(-0.5, -0.5, COV2_SCALE(d)),
+        new THREE.Vector3(+0.5, -0.5, COV2_SCALE(d))
+      );
+    }
+  }
+
+  // Draw line in 3d space
+  function drawLine(material, start, end) {
+    // Create geometry from start to end point
+    let geometry = new THREE.Geometry();
+    geometry.vertices.push(start);
+    geometry.vertices.push(end);
+
+    // Create line from geometry and add to scene
+    let line = new THREE.Line(geometry, material);
+    SCENE.add(line);
+  }
+
+  // Compute array of readable tick values between min (inclusive) and max (exclusive) of length less than count
+  function getTickValues(min, max, count, minInterval) {
+    const pattern = [5, 2, 1];
+    let tickValues;
+    let range = max - min;
+    let pow = Math.floor(Math.log10(range));
+    let p = 0;
+    let interval = pattern[p] * Math.pow(10, pow);
+
+    do {
+      tickValues = d3.range(min, max, interval);
+
+      if (p == 2) {
+        p = 0;
+        pow--;
+      } else {
+        p++;
+      }
+
+      interval = pattern[p] * Math.pow(10, pow);
+    } while (d3.range(min, max, interval).length <= count && interval >= minInterval);
+
+    return tickValues;
+  }
+
+  // Set XY values of element in window given XYZ in world coordinates
+  function setXY() {
+    const vector = this.position.clone();
+    const canvas = RENDERER.domElement;
+
+    vector.project(CAMERA);
+
+    vector.x = Math.round(
+      (0.5 + vector.x / 2) * (canvas.width / window.devicePixelRatio)
+    );
+    vector.y = Math.round(
+      (0.5 - vector.y / 2) * (canvas.height / window.devicePixelRatio)
+    );
+
+    d3.select(this)
+      .style("top", vector.y + "px")
+      .style("left", vector.x + "px");
+  }
+
+  // Determine whether to display text based on text position and camera position
+  function setDisplay() {
+    const vector = this.position.clone();
+    const camToText = CAMERA.position.distanceTo(vector);
+
+    vector.project(CAMERA);
+
+    // Update text raycaster with new mouse and camera location
+    TEXT_RAYCASTER.setFromCamera(vector, CAMERA);
+
+    // Get intersections from raycaster
+    const intersects = TEXT_RAYCASTER.intersectObjects(GEOMETRIES);
+
+    let intersected = false;
+    for (let i = 0; i < intersects.length; i++) {
+      if (intersects[i].distance < camToText) {
+        intersected = true;
+        break;
+      }
+    }
+
+    return intersected || CAMERA.position.length() < this.position.length()
+      ? "none"
+      : "initial";
+  }
+});
+</script>
+<div class="container">
+  <canvas></canvas>
+  <button class="control-reset" onclick="controlReset();">Reset Camera</button>
+  <div class="tooltip-container">
+    <div class="tooltip-row">
+      <p class="tooltip-value cov1"></p>
+    </div>
+    <div class="tooltip-row">
+      <p class="tooltip-value cov2"></p>
+    </div>
+    <div class="tooltip-row">
+      <p class="tooltip-value pred"></p>
+    </div>
+    <div class="tooltip-row">
+      <p class="tooltip-value resid"></p>
+    </div>
+    <div class="tooltip-row">
+      <p class="tooltip-value actual"></p>
+    </div>
+  </div>
+</div>
+</body>
+</html>
