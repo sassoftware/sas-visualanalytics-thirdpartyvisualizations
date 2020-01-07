@@ -85,3 +85,27 @@ This post explores how we can modify our previously created sunburst to visualiz
 <img width="600" height="600" src="./images/15.gif">
 
 This post details how to create a circle packing graph to visualize the output of a cluster model.
+
+### Basic 3D Choropleth | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/16_Basic_3D_Choropleth.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/16_Basic_3D_Choropleth.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Combining-the-Power-of-D3-with-Three-js-to-Create-a-3D/ta-p/569501)
+
+<img width="600" height="600" src="./images/16.gif">
+
+This post explores how a 3D choropleth can be created by using D3.js alongside the popular 3D graphics library Three.js.
+
+### Interactive 3D Choropleth | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/17_Interactive_3D_Choropleth.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/17_Interactive_3D_Choropleth.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Adding-Interactivity-to-a-3D-Choropleth-in-SAS-Visual-Analytics/ta-p/571002)
+
+<img width="600" height="600" src="./images/17.gif">
+
+This post discusses how to make our basic 3D choropleth interactive using raycasters and the performance considerations when making a complex 3D data visualization.
+
+### Animated 3D Choropleth | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/18_Animated_3D_Choropleth.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/18_Animated_3D_Choropleth.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Animating-a-3D-Choropleth-Over-Time-with-D3Thursday/ta-p/572453)
+
+<img width="600" height="600" src="./images/18.gif">
+
+This post wraps up our 3D choropleth by adding the ability to animate the visualization over time.
+
+### 3D Residual Plot | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/D3Thursday/19_3D_Residual_Plot.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/D3Thursday/19_3D_Residual_Plot.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Creating-a-3D-Residual-Plot-with-D3Thursday/ta-p/595494)
+
+<img width="600" height="600" src="./images/19.gif">
+
+This post explores how to draw a 3D surface from a list of coordinates and how to use 2D text elements to create tick labels for our 3D visualization.

@@ -349,6 +349,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // Dynamic data variables
   let VA_MESSAGE; // Data message to be received from VA
   let VA_RESULT_NAME; // Result name required to send messages back to VA
+  let METADATA; // Metadata to be parsed from VA data message
   let DATA; // Data to be parsed from VA data message
   let NEST; // Nested data used to make hierarchy
   let ROOT; // Current root of hierarchy
@@ -507,6 +508,14 @@ document.addEventListener("DOMContentLoaded", function() {
       return;
     }
 
+    // Extract metadata from data message
+    METADATA = {
+      measure: VA_MESSAGE.columns[0].label,
+      measureFormat: translateFormat(VA_MESSAGE.columns[0].format.formatString),
+      cluster: VA_MESSAGE.columns[1].label,
+      label: VA_MESSAGE.columns[3].label
+    };
+
     // Restructure data from 2d array to array of objects
     DATA = [];
 
@@ -558,7 +567,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .range([1, 0.2]);
 
     // Assign data variables for legend
-    LEG.title = "Cluster ID";
+    LEG.title = METADATA.cluster;
     LEG.data = NEST;
 
     // Assign data variable for gradients
@@ -598,9 +607,17 @@ document.addEventListener("DOMContentLoaded", function() {
           .attr("class", "d3-tip")
           .offset([-8, 0])
           .html(function(d) {
+            console.log(d);
             return (
               "<table class='d3-tip-content'> <tr> <td> " +
+              METADATA.label +
+              ":\t</td> <td>" +
               d.data.label +
+              "</td> </tr>" +
+              "<tr> <td> " +
+              METADATA.measure +
+              ":\t</td> <td>" +
+              METADATA.measureFormat(d.data.distance) +
               "</td> </tr> </table>"
             );
           });
@@ -739,6 +756,28 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch (e) {
       return true;
     }
+  }
+
+  // Translate SAS format to D3 format
+  function translateFormat(formatString) {
+    if (formatString.indexOf(".") == formatString.length - 1) formatString += 0;
+
+    if (formatString.includes("DOLLAR"))
+      return d3.format(
+        formatString.replace("DOLLAR", "$").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("COMMA"))
+      return d3.format(
+        formatString.replace("COMMA", "").replace(".", ",.") + "f"
+      );
+    else if (formatString.includes("F"))
+      return d3.format(formatString.replace("F", "") + "f");
+    else if (formatString.includes("BEST"))
+      return d3.format(formatString.replace("BEST", "") + "f");
+    else if (formatString.includes("PERCENT"))
+      return d3.format(
+        formatString.replace("PERCENT", "").replace(".", ",.") + "%"
+      );
   }
 
   // Deselect all on svg click
