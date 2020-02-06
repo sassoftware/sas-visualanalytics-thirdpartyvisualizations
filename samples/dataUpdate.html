@@ -18,6 +18,7 @@ limitations under the License.
   <head>
     <script type="text/javascript" src="../util/messagingUtil.js"></script>
     <script type="text/javascript" src="../util/contentUtil.js"></script>
+    <script type="text/javascript" src="../util/casUtil.js"></script>
   </head>
   
   <body>
@@ -39,9 +40,9 @@ limitations under the License.
 		//   caslib - the CAS library containing the table to be updated (e.g. public)
 		//   castab - the name of the table to be updated
 		//   target_column_name - the column to be updated with the input text
-		//   id_column_name - the column that contains the row id
+		//   id_column_name - the column that contains unique id of row to be updated (column name, not label)
 		//
-		var _idVal, _idType, _resultName, _selections;
+		var _idVal, _idType, _idFormat, _resultName, _selections;
 
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
@@ -75,6 +76,7 @@ limitations under the License.
 		var _caslib = getUrlParams("caslib");							// source caslib
 		var _castab = getUrlParams("castab");							// source cas table name
 		var _target_column_name = getUrlParams("target_column_name");	// column to be updated (column name, not label)
+		var _target_column_type = getUrlParams("target_column_type");	// column to be updated (column type: string/number)
 		var _id_column_name = getUrlParams("id_column_name");			// column containing unique id of row to be updated (column name, not label)
 		
 		// Changes the form title
@@ -86,11 +88,12 @@ limitations under the License.
 			_resultName = resultData.resultName;
 			_selections = va.contentUtil.initializeSelections(resultData);
 			
-			if (!_caslib || !_castab || !_target_column_name || !_id_column_name) {
+			if (!_caslib || !_castab || !_target_column_name || !_target_column_type || !_id_column_name) {
 				var msg = 	"Check URL input parameters for:\n" +
 							"caslib = source table CAS library\n" +
 							"castab = source table\n" +
 							"target_column_name = column to be updated (column name, not label)\n" +
+							"target_column_type = column to be updated (accepts: string/number/date/datetime/time)\n" +
 							"id_column_name = column containing unique id of row to be updated (column name, not label)";
 				va.messagingUtil.postInstructionalMessage(_resultName, msg);
 				disableDataEntry();
@@ -105,7 +108,7 @@ limitations under the License.
 				return;
 			}
 			
-			if (_selections.length !== 1) { // || resultData.columns.length !== 1 ) {
+			if (_selections.length !== 1) {
 				console.log("There is no row selected (or more than one was selected)");
 				var textarea = document.getElementById('text-input');
 				textarea.value = "Please, select one row";
@@ -115,14 +118,17 @@ limitations under the License.
 			
 			enableDataEntry();
 			
-			if (_selections[0]) {
-				var rowId = _selections[0].row;
-				_idVal = resultData.data[rowId][0];
-			}
+			var rowId = _selections[0].row;
+			_idVal = resultData.data[rowId][0];
 			
 			console.log("_id_column_name:",_id_column_name);
 			console.log("_idVal:",_idVal);
+			
 			_idType = resultData.columns[0].type;
+			if (_idType != "string") {
+				// only non-string data have formats
+			  _idFormat = resultData.columns[0].format.formatString;	
+			}
 			fetchData();
 		}
 
@@ -146,99 +152,108 @@ limitations under the License.
 			}
 		}
 		
-    </script>
-    <script>
 		window.jq = window.parent.$;
 
-		function getCsrfToken(_url) {
-
-			return jq.ajax({
-				url: _url,
-				method: "GET",
-				headers: {"X-CSRF-TOKEN": "Fetch"}
-			}).then(function(data, status, xhr){
-				return xhr.getResponseHeader("X-CSRF-TOKEN");
-			});
-		}
-
-		function getCasServerName() {
-
-			return jq.get("/casManagement/servers").then(function(data){
-			  
-				var serverList = [], casServer = {};
-
-				if (data && data.items) {
-					serverList = data.items;
-					casServer = serverList[0] || {};
-				}
-
-				window.serverName = casServer.name;
-
-				return casServer.name;
-
-			});
-		}
-
-		function createCasSession(serverName, headers) {
-
-			return jq.ajax({
-				url: ("/casProxy/servers/" + serverName + "/cas/sessions"), 
-				headers: headers, 
-				method: "POST"
-			}).then(function (data) {
-				return data.session;
-			});
-
-		}
-
-		function casAction(serverName, sessId, action, data) {
-
-			return jq.ajax({
-				url: ("/casProxy/servers/" + serverName + "/cas/sessions/" + sessId + "/actions/" + action),
-				method: "POST",
-				contentType: 'application/json',
-				data: data
-			}).then(function(data) {
-				return data;
-			});
-
-		}
-
-		function startSession() {
-
-			return getCasServerName().then(function(casServerName) {
-				console.log("casServerName: ");
-				console.log(casServerName);
-
-				return getCsrfToken('/casProxy').then(function(proxyToken) {
-					console.log("proxyToken: ");
-					console.log(proxyToken);
-					var requestHeaders = {
-						"X-CSRF-TOKEN": proxyToken,
-						"Accept": "application/json"
-					};
-
-					return createCasSession(casServerName, requestHeaders).then(function(sessionId) {
-						console.log("sessionId: ");
-						console.log(sessionId);
-						return sessionId;
-					});
-
-				});
-
-			});
-
-		}
-
+		var _serverName;
 		var _currentSessionId;
 
-		startSession().then(function(sessionId){
-			_currentSessionId = sessionId;
+		va.casUtil.startSession().then(function(sessionInfo){
+			console.log("casServerName: "+sessionInfo.casServerName);
+			console.log("sessionId: "+sessionInfo.sessionId);
+			_serverName = sessionInfo.casServerName
+			_currentSessionId = sessionInfo.sessionId;
 			if (!_currentSessionId) {
-				alert("Write-back Data-driven content failed to obtain the session ID\nPlease refresh/re-open the report");
+				alert("Unable to obtain the session ID.\nPlease refresh/re-open the report.");
+				var textarea = document.getElementById('text-input');
+				textarea.value = "Unable to obtain the session ID.\nPlease refresh/re-open the report.";
 			}
 		});
 
+		function fetchData() {
+			if (_idVal && _currentSessionId) {
+				var whereExpression = _id_column_name + ' = ' + getSASStandardConstantValue (_idType, _idFormat, _idVal);
+				
+				var actionPostData = {
+					"table": {
+						"name":_castab, 
+						"caslib":_caslib, 
+						"where": whereExpression
+					}, 
+					"fetchVars": [
+						{"name":_target_column_name}		
+					]
+				};
+				console.log("actionPostData:", actionPostData);
+				va.casUtil.casAction(_serverName, _currentSessionId, "fetch", JSON.stringify(actionPostData))
+				.then(function(response) {
+					if (response.status != 0) {
+						console.log("Fetch failed:", response);
+						return;	
+					}
+					if (response.results.Fetch.rows.length == 0)  {
+						console.log("Fetch failed (no data returned):", response);
+						return;	
+					}
+					console.log("Fetched data:", response);
+					document.getElementById('text-input').value = response.results.Fetch.rows[0][1];
+				});
+			}
+		}
+
+		// Formats the value according to its type and informat
+		// String  : 'value'
+		// Number* : value
+		// Date    : 'DDMMMYYYY'd
+		// Datetime: 'DDMMMYYYY:HH:MM:SS'dt
+		// (*) includes Time elements
+		function getSASStandardConstantValue (type, informat, value) {
+		    var constValue;
+			if (type == "string") {
+				constValue="'"+value+"'";
+			}
+			// One of the Date() constructors accept input dates as strings in ISO format, short, and long date formats, such as:
+			// "02/22/2012", "02-22-2012", 
+			// "Feb/22/2012", "February/22/2012", "February 22, 2012", "Feb 22, 2012", "February 22 2012", "Feb 22 2012", 
+			// "22February2012", "22Feb2012", "22 February 2012", "22 Feb 2012", 
+			// "Wednesday, February 22, 2012", "2012/02/22", "2012-02-22" (ISO), "Feb2012", "Feb 2012", "February2012", "February 2012"
+			// Support for formats other than ISO may be browser vendor and version dependent).
+			// It does NOT accept Julian, DD/MM/YYYY, MM/YYYY, MMMMMMM formats. In those cases, a transformation is necessary
+			// to put the date string in a supported format.
+			// https://www.w3schools.com/js/js_date_formats.asp
+			else if (type == "date") {
+				// There is room for a lot of improvement here.
+				if (informat == "DDMMYY8") { // DD/MM/YYYY
+					value = value.substr(6)+'-'+value.substr(3,2)+'-'+value.substr(0,2); // = YYYY-MM-DD (international standard)
+				}
+				else if (informat == "DATE9") { // DDMMMYY
+					value = value.substr(0,2)+value.substr(2,3)+value.substr(5); // = DDMMMYY
+				}
+				else if (informat == "MMYY8") { // MM/YYYY
+					value = value.substr(3)+'-'+value.substr(0,2)+'-01'; // = YYYY-MM-01
+				}
+				else if (informat == "MONTH7") { // MMMMMM -> this format should not be used because it's too much guessing (year and day) to form the date
+					value = '1960-'+value+'-01'; // = 1960-MMMMMM-01
+				}
+				else if (informat == "JULIAN7") {
+					// This is just a placeholder. Need code for this transformation.
+				}
+				// Other transformations should be added here as needed.
+				
+				var dateTime = new Date(value);
+				var dateStr= dateTime.toDateString(); // "Mon Jul 15 2019"
+				constValue = "'"+dateStr.substr(8,2)+dateStr.substr(4,3)+dateStr.substr(11,4)+"'d"; // = 'DDMMMYYYY'd = '15Jul2019'd
+			}
+			else if (type == "datetime") {
+				var dateTime = new Date(value);
+				var dateStr= dateTime.toString(); // "Mon Jul 15 2019 15:46:00 GMT-0500 (Eastern Standard Time)"
+				constValue = "'"+dateStr.substr(8,2)+dateStr.substr(4,3)+dateStr.substr(11,4)+":"+dateStr.substr(16,8)+"'dt"; // = 'DDMMMYYYY:HH:MM:SS'dt = '15Jul2019:20:45:00'dt
+			}
+			else constValue=value; // columns formatted as Time have type equals to number
+			
+			return constValue; 
+		};
+		
+		// Set the event handler for the submit button
 		jq(document).ready(function() {
 			var submitButton1 = document.getElementById('submit-button');
 
@@ -250,13 +265,8 @@ limitations under the License.
 				console.log("New value:",textVal);
 
 				if (_idVal) {
-					var whereExpression = _id_column_name + ' = ';
-					if (_idType == 'string') {
-						whereExpression = whereExpression + "'" + _idVal + "'";
-					}
-					else {
-						whereExpression = whereExpression + _idVal;
-					}
+					var whereExpression = _id_column_name + ' = ' + getSASStandardConstantValue (_idType, _idFormat, _idVal);
+					
 					var actionPostData = {
 						"table": {
 							"name":_castab, 
@@ -264,13 +274,23 @@ limitations under the License.
 							"where": whereExpression
 						}, 
 						"set": [
-							{"var":_target_column_name, "value": '"' + textVal + '"'}
+							{
+							 "var":_target_column_name, 
+							 "value": ((_target_column_type=='string')?('"' + textVal + '"'):
+									  ((_target_column_type=='date')?("'" + textVal + "'d"):
+									  ((_target_column_type=='datetime')?("'" + textVal + "'dt"):
+									  (textVal))))
+							}
 						]
 					};
 					console.log("actionPostData (update):", actionPostData);
-					casAction(serverName, _currentSessionId, "update", JSON.stringify(actionPostData))
-					.then(function(response) {
-						// refreshes the object to display updated field
+					va.casUtil.casAction(_serverName, _currentSessionId, "update", JSON.stringify(actionPostData))
+					.then(function(response) { // resolved callback
+						if (response.status != 0) {
+							console.log("Update failed:", response);
+							return;
+						}
+						// forces VA objects that have selection actions defined with the DDC object to refresh and display updated field: remove current selection, then add it back
 						va.messagingUtil.postSelectionMessage(_resultName,[]);
 						
 						// re-selects the data in the source object after 1 second (timer needed to allow VA to refresh - empyric)
@@ -278,7 +298,6 @@ limitations under the License.
 							va.messagingUtil.postSelectionMessage(_resultName,_selections);
 						}, 1000);
 						
-						console.log(response);
 						//****************************************
 						// this block saves the table to disk (uncomment it if needed)
 						/*
@@ -294,49 +313,20 @@ limitations under the License.
 							}
 						};
 						console.log("actionPostData (save):", actionPostData);
-						casAction(serverName, _currentSessionId, "save", JSON.stringify(actionPostData))
+						va.casUtil.casAction(_serverName, _currentSessionId, "save", JSON.stringify(actionPostData))
 						.then(function(response) {
-							console.log(response);
+							//console.log("response:", response);
 						});
 						*/
 						//****************************************
+					}, function(reason) { // rejected callback
+						console.log("Update failed, reason:", reason);
 					});
 				}
 
 			});
 		});
 		  
-		function fetchData() {
-			if (_idVal) {
-				var serverName = window.serverName;
-				var whereExpression = _id_column_name + ' = ';
-				if (_idType == 'string') {
-					whereExpression = whereExpression + "'" + _idVal + "'";
-				}
-				else {
-					whereExpression = whereExpression + _idVal;
-				}
-				var actionPostData = {
-					"table": {
-						"name":_castab, 
-						"caslib":_caslib, 
-						"where": whereExpression
-					}, 
-					"fetchVars": [
-						{"name":_target_column_name}
-					]
-				};
-				console.log("actionPostData:", actionPostData);
-				casAction(serverName, _currentSessionId, "fetch", JSON.stringify(actionPostData))
-				.then(function(response) {
-					//if (response.status == 0) {
-					document.getElementById('text-input').value = response.results.Fetch.rows[0][1];
-					//}
-					console.log(response);
-				});
-			}
-		}
-        
     </script>
   </body>
 </html>
