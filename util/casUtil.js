@@ -80,10 +80,10 @@ limitations under the License.
 
 	casUtil.startSession = function() {
 		// for compatibility only
-		return casUtil.startCASSession();
+		return casUtil.startCasSession();
 	}
 
-	casUtil.startCASSession = function() {
+	casUtil.startCasSession = function() {
 
 		return casUtil.getCasServerName().then(function(casServerName) {
 			//console.log("casServerName: ", casServerName);

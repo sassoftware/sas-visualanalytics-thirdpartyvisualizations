@@ -9,13 +9,13 @@ It contains the functions you need to create CAS sessions and execute CAS action
 ```html
 <script type="text/javascript" src="../util/casUtil.js"></script>
 ```
-### startCASSession
+### startCasSession
 
 Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It users the following endpoints internally: /casManagement/servers and /casManagement/servers/<serverName>/sessions.
 
 _Usage:_
 ```javascript
-va.casUtil.startCASSession()
+va.casUtil.startCasSession()
 ```
 * Returns a promise for an object containing casServerName and sessionId (e.g. `{'casServerName': 'cas-shared-default', 'sessionId': '233c1c87-2016-1a41-8e99-461233aa306f'}` )
 
