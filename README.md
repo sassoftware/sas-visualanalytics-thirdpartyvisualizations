@@ -3,6 +3,50 @@
 This project contains code samples that can be used as data-driven content within a SAS Visual Analytics (VA) report. For additional information, see [Programming Considerations for Data-Driven Visualizations](http://go.documentation.sas.com/?cdcId=vacdc&cdcVersion=8.2&docsetId=varef&docsetTarget=n109mqtyl6quiun1mwfgtcn2s68b.htm&locale=en).
 
 ---
+## util/casUtil.js
+
+It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. You must include the following line in the _\<head\>_ of the web page:
+```html
+<script type="text/javascript" src="../util/casUtil.js"></script>
+```
+### startCasSession
+
+Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It users the following endpoints internally: /casManagement/servers and /casManagement/servers/<serverName>/sessions.
+
+_Usage:_
+```javascript
+va.casUtil.startCasSession()
+```
+* Returns a promise for an object containing casServerName and sessionId (e.g. `{'casServerName': 'cas-shared-default', 'sessionId': '233c1c87-2016-1a41-8e99-461233aa306f'}` )
+
+_Note:_
+If you have more than one server, it uses the first one on the list.
+
+### casAction
+
+Leverages SAS Viya REST API to execute CAS actions by using the following endpoint: /casProxy/servers/<serverName>/cas/sessions/<sessId>/actions/<action>
+
+_Usage:_
+```javascript
+va.casUtil.casAction(serverName, sessId, action, data)
+```
+* `serverName` is the SAS Viya server name (e.g. 'cas-shared-default')
+* `sessId` is the CAS session ID (e.g. '233c1c87-2016-1a41-8e99-461233aa306f')
+* `action` is the CAS action (e.g. 'update', 'fetch', etc.)
+* `data` is the CAS action dependent payload in stringified JSON format. E.g. for a fetch action:
+`{`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"table": {`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "CARS",`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"caslib": "Public",`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"where": "Origin='Asia'"`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},` 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fetchVars": [`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{"name": "Invoice"}`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`
+`}`
+* Returns a promise for an object containing the data for the action called. See documentation in [developers.sas.com](https://developer.sas.com/home.html).
+
+---
 ## util/messagingUtil.js
 
 It contains the functions you need to send/receive messages to/from SAS Visual Analytics. You must include the following line in the _\<head\>_ of the web page:
