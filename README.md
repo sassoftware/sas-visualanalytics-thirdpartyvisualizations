@@ -3,50 +3,6 @@
 This project contains code samples that can be used as data-driven content within a SAS Visual Analytics (VA) report. For additional information, see [Programming Considerations for Data-Driven Visualizations](http://go.documentation.sas.com/?cdcId=vacdc&cdcVersion=8.2&docsetId=varef&docsetTarget=n109mqtyl6quiun1mwfgtcn2s68b.htm&locale=en).
 
 ---
-## util/casUtil.js
-
-It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. You must include the following line in the _\<head\>_ of the web page:
-```html
-<script type="text/javascript" src="../util/casUtil.js"></script>
-```
-### startCasSession
-
-Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It users the following endpoints internally: /casManagement/servers and /casManagement/servers/<serverName>/sessions.
-
-_Usage:_
-```javascript
-va.casUtil.startCasSession()
-```
-* Returns a promise for an object containing casServerName and sessionId (e.g. `{'casServerName': 'cas-shared-default', 'sessionId': '233c1c87-2016-1a41-8e99-461233aa306f'}` )
-
-_Note:_
-If you have more than one server, it uses the first one on the list.
-
-### casAction
-
-Leverages SAS Viya REST API to execute CAS actions by using the following endpoint: /casProxy/servers/<serverName>/cas/sessions/<sessId>/actions/<action>
-
-_Usage:_
-```javascript
-va.casUtil.casAction(serverName, sessId, action, data)
-```
-* `serverName` is the SAS Viya server name (e.g. 'cas-shared-default')
-* `sessId` is the CAS session ID (e.g. '233c1c87-2016-1a41-8e99-461233aa306f')
-* `action` is the CAS action (e.g. 'update', 'fetch', etc.)
-* `data` is the CAS action dependent payload in stringified JSON format. E.g. for a fetch action:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"table": {`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "CARS",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"caslib": "Public",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"where": "Origin='Asia'"`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fetchVars": [`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{"name": "Invoice"}`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`
-`}`
-* Returns a promise for an object containing the data for the action called. See documentation in [developers.sas.com](https://developer.sas.com/home.html).
-
----
 ## util/messagingUtil.js
 
 It contains the functions you need to send/receive messages to/from SAS Visual Analytics. You must include the following line in the _\<head\>_ of the web page:
@@ -84,6 +40,7 @@ va.messagingUtil.postInstructionalMessage(resultName, strMessage)
 ```
 * `resultName`is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
 * `strMessage` is the text message to be sent.
+
 ---
 ## util/contentUtil.js
 
@@ -134,6 +91,18 @@ _Usage:_
 va.contentUtil.convertDateColumns(resultData)
 ```
 * `resultData` is the message received from VA (event.data).
+
+### getVAParameters
+
+Extracts parameter information from message received from VA. 
+
+_Usage:_
+```javascript
+parameters = va.messagingUtil.getVAParameters(resultData)
+```
+* `resultData` is the message received from VA (event.data).
+* Returns `parameters`, an object containing each parameter name and value (e.g. `{<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}`). If a certain `<param_label>` contains multiple values, its `<param_value>` is an array.
+
 ---
 ## thirdPartyHelpers/google.js
 
@@ -236,3 +205,124 @@ chartData = va.c3Helper.configureChartData(resultData, chartType, previousConfig
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`value: <array of all numeric columns labels>`   
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`}`   
 `}`
+
+---
+## util/casUtil.js
+
+It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. You must include the following line in the _\<head\>_ of the web page:
+```html
+<script type="text/javascript" src="../util/casUtil.js"></script>
+```
+### startCasSession
+
+Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It users the following endpoints internally: `/casManagement/servers` and `/casManagement/servers/<serverName>/sessions`.
+
+_Usage:_
+```javascript
+va.casUtil.startCasSession().then(function(sessionInfo){...})
+```
+* Returns a promise for `sessionInfo`, an object containing casServerName and sessionId (e.g. `{casServerName: 'cas-shared-default', sessionId: '233c1c87-2016-1a41-8e99-461233aa306f'}` )
+
+_Note:_
+If you have more than one server, it returns the first one on the list.
+
+### casAction
+
+Leverages SAS Viya REST API to execute CAS actions by using the following endpoint: `/casProxy/servers/<serverName>/cas/sessions/<sessId>/actions/<action>`
+
+_Usage:_
+```javascript
+va.casUtil.casAction(serverName, sessId, action, data).then(function(response){...})
+```
+* `serverName` is the SAS Viya server name (e.g. 'cas-shared-default')
+* `sessId` is the CAS session ID (e.g. '233c1c87-2016-1a41-8e99-461233aa306f')
+* `action` is the CAS action (e.g. 'update', 'fetch', etc.)
+* `data` is the CAS action dependent payload in stringified JSON format. E.g. for a fetch action:
+`{`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"table": {`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "CARS",`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"caslib": "Public",`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"where": "Origin='Asia'"`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},` 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fetchVars": [`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{"name": "Invoice"}`
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`
+`}`
+* Returns a promise for `response`, an object containing the data for the action called. See documentation in [developers.sas.com](https://developer.sas.com/home.html).
+
+---
+## util/jobUtil.js
+
+It contains utility functions to support easier integration between SAS Visual Analytics and SAS Jobs. You must include the following line in the _\<head\>_ of the web page:
+```html
+<script type="text/javascript" src="../util/jobUtil.js"></script>
+```
+### PrepareVADataForSASJobs
+
+Transforms the data received from VA and adds extra format information for SAS Jobs to use. 
+
+_Usage:_
+```javascript
+va.jobUtil.PrepareVADataForSASJobs(resultData)
+```
+* `resultData` is the message received from VA (event.data).
+
+_Notes:_
+* Modifications performed on `resultData.data` depend on the data type:
+	* String:
+		* missing values come as "(missing)" and are modified to "".
+	* Date:
+		* values come as formatted strings according to their date formats. They are transformed to their corresponding SAS date numbers expressed as number of days since January 1st, 1960.
+		* The following date formats are not supported (generate missing values): 
+			* Day of Year (JULDAY1). E.g.: 176
+			* Week (WEEKV2). E.g.: 26
+			* Week (WEEKV3). E.g.: W26
+			* Year, Week (WEEKV5). E.g.: 15W26
+			* Year, Week, Day (WEEKV7). E.g.: 15W2604
+			* Year, Week, Day (WEEKV9). E.g.: 2015W2604
+			* Year, Week, Day (WEEKV0). E.g.: 2015-W26-04
+		* Some date string representations cannot accurately be mapped to one specific date. The formats below are treated by making up day, month, and year values as needed:
+			* Day of Month (DAY9). E.g.: 25
+			* Day of Week (DOWNAME11). E.g.: Thursday
+			* Day of Week (DOWNAME1). E.g.: Thu
+			* Day, Date (WEEKDATE9). E.g.: Thursday
+			* Day, Date (WEEKDATE3). E.g.: Thu
+			* MMMYYYY (MONYY7). E.g.: Jun2015
+			* MMYYYY (MMYY8). E.g.: 06/2015
+			* Month (MONTH7). E.g.: June
+			* Month (MONTH3). E.g.: Jun
+			* Month (MONTH2). E.g.: 6
+			* Month, Day, Year (WORDDATE9). E.g.: June
+			* Month, Day, Year (WORDDATE3). E.g.: Jun
+			* Quarter (QTR4). E.g.: Q2
+			* Quarter (QTR6). E.g.: 2nd quarter
+			* Quarter, Year (YYQC5). E.g.: 2nd quarter 2015
+			* Year (YEAR4). E.g.: 2015
+			* YYYYMM (YYMM8). E.g.: 2015/06
+	* Datetime:
+		* values come as formatted strings according to their datetime formats. They are transformed to their corresponding SAS datetime numbers expressed as number of seconds since January 1st, 1960.
+		* Some datetime string representations cannot accurately be mapped to one specific datetime. The formats below are treated by making up day, month, and year values as needed:
+			* Day, Date (DTWKDATX3). E.g.: Thu
+			* Day, Date (DTWKDATX9). E.g.: Thursday
+			* Quarter, Year (DTYYQC5). E.g.: 2nd quarter 2015
+			* Time (TIMEAMPM5). E.g.: 03:42 PM
+			* Time (TIMEAMPM8). E.g.: 03:42:12 PM
+			* Time (TIMEAMPM2). E.g.: 15
+			* Year (DTYEAR10). E.g.: 2015
+
+* Formats in VA for number/date/datetime are slightly different compared to SAS Jobs. Job-specific format information is added under `resultData.columns` and depends on the data type and VA format:
+`{`   
+&nbsp;&nbsp;`... ,`   
+&nbsp;&nbsp;`columns: [`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`... ,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`name4job: <format_name>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`type4job: <format_type>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`width4job: <format_width>,`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`precision4job: <format_precision>`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`...`   
+&nbsp;&nbsp;`],`   
+&nbsp;&nbsp;`... `   
+`}`
+
