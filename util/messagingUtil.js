@@ -36,11 +36,10 @@ limitations under the License.
 		}
 	};
 	
-	/*
-	ExampleS of valid selectedRows: 
-	[0, 3, 4]
-	[{row: 0}, {row: 3}, {row: 4}]
-	*/
+	
+	// Examples of valid selectedRows: 
+	// [0, 3, 4]
+	// [{row: 0}, {row: 3}, {row: 4}]
 	messagingUtil.postSelectionMessage = function(resultName, selectedRows) 
 	{
 		var selections;
@@ -77,6 +76,7 @@ limitations under the License.
 			
 		window.parent.postMessage(message, url);
 	};
+	
 	
 	if (!window.va)
 		window.va = {};

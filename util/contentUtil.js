@@ -133,6 +133,18 @@ limitations under the License.
 		}
 	};
 	
+	// Returns the object: {<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}
+	// If <parameter_label> has multiple values, <param_value> is an array
+    contentUtil.getVAParameters = function(resultData) {
+		var parameters = {};
+		if (resultData.parameters) {
+			resultData.parameters.forEach(function (parameter, index) {
+				parameters[parameter.label] = parameter.value;
+			});
+		}
+		return parameters;
+    };
+	
 	if (!window.va)
 		window.va = {};
     window.va.contentUtil = contentUtil;
