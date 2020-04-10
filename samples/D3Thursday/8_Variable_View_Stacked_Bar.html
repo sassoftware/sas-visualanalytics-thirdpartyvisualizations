@@ -494,10 +494,6 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
 
-    console.clear();
-    console.log(VA_MESSAGE.data);
-    console.log(DATA);
-
     // Get maximum measure for each country
     let entry;
     MAXIMUMS = {};
@@ -515,7 +511,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Sort alphabetically to keep centered columns in same order as legend
     MAXIMUMS = sortObject(MAXIMUMS);
-    console.log(MAXIMUMS);
 
     // Sum maximums to determine domain of x scale
     MAX_CENTERED = 0;
