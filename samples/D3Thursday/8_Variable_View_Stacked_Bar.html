@@ -455,6 +455,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Restructure data from 2d array format into associative array format
     DATA = [];
+    LEG.data = {};
     MAX_LEFT = 0;
     let year, category, measure, datum, cumMeasure;
     for (let i = 0, length = VA_MESSAGE.data.length; i < length; i++) {
@@ -481,10 +482,21 @@ document.addEventListener("DOMContentLoaded", function() {
       cumMeasure += measure;
       MAX_LEFT = Math.max(cumMeasure, MAX_LEFT);
 
+      if (!LEG.data[category]) {
+        LEG.data[category] = {
+          key: category,
+          id: "id-" + category.replace(/[\W]/g, "_")
+        };
+      }
+
       if (i == length - 1 || year != parseInt(VA_MESSAGE.data[i + 1][0])) {
         DATA.push(datum);
       }
     }
+
+    console.clear();
+    console.log(VA_MESSAGE.data);
+    console.log(DATA);
 
     // Get maximum measure for each country
     let entry;
@@ -501,6 +513,10 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     }
 
+    // Sort alphabetically to keep centered columns in same order as legend
+    MAXIMUMS = sortObject(MAXIMUMS);
+    console.log(MAXIMUMS);
+
     // Sum maximums to determine domain of x scale
     MAX_CENTERED = 0;
     for (const country in MAXIMUMS) {
@@ -509,11 +525,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Assign data variables for legend
     LEG.title = METADATA.category;
-    LEG.data = DATA[0].entries.map(function(d) {
-      return {
-        key: d.category,
-        id: d.categoryId
-      };
+    LEG.data = Object.values(LEG.data).sort(function (a, b) {
+      return a.key > b.key ? 1 : -1;
     });
 
     // Assign data variable for gradients
@@ -1512,6 +1525,17 @@ document.addEventListener("DOMContentLoaded", function() {
     } while (d3.range(min, max, interval).length <= count && interval >= minInterval);
 
     return tickValues;
+  }
+
+  // Return new object with keys sorted alphabetically
+  function sortObject(obj) {
+    let newObj = {};
+
+    Object.keys(obj).sort().forEach(function(d) {
+      newObj[d] = obj[d];
+    });
+
+    return newObj;
   }
 });
 </script>
