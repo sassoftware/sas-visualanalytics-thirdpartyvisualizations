@@ -49,6 +49,9 @@ limitations under the License.
 		
 		const sasDateBaseline = Date.parse('1960-01-01T00:00:00.000Z');
 		const numMillisecInADay = 1000*60*60*24;
+		const getMonthNumber = function(month) {
+			return new Date(Date.parse(month+" 1, 2000")).getMonth()+1;
+		}
 		
 		var columnsInfo = resultData.columns;
 		var arrayData = resultData.data;
@@ -103,13 +106,24 @@ limitations under the License.
 				// to put the date string in a supported format for the Date object.
 				// The code below determines what transformations must be performed depending on the column type and format.
 				// There is room for a lot of improvement here.
-				if (colInfo.format.formatString == "DATEN9"  || // MM/DD/YYYY
+				if (colInfo.format.formatString == "DATE9") { // DDMMMYYYY
+					for (var r = 0; r < arrayData.length; r++) {
+						var dateStr = arrayData[r][c].trim();
+						if (dateStr != '.') {
+							//dateStr = dateStr.substr(0,2)+'-'+dateStr.substr(2,3)+'-'+dateStr.substr(5)+' 00:00:00.000Z'; // = DD MMM YY 00:00:00.000Z
+							dateStr = dateStr.substr(5,4)+'-'+getMonthNumber(dateStr.substr(2,3))+'-'+dateStr.substr(0,2)+' 00:00:00.000Z'; // = DD MMM YY 00:00:00.000Z
+							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
+						}
+					}
+				}
+				else if (colInfo.format.formatString == "DATEN9"  || // MM/DD/YYYY
 						 colInfo.format.formatString == "MMDDYY8") { // MM/DD/YYYY
 					// These date formats are one of those already supported by Date object: no transformation needed
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = dateStr+' 00:00:00.000Z'; // = MM/DD/YYYY 00:00:00.000Z
+							//dateStr = dateStr+' 00:00:00.000Z'; // = MM/DD/YYYY 00:00:00.000Z
+							dateStr = dateStr.substr(6)+'-'+dateStr.substr(0,2)+'-'+dateStr.substr(3,2)+' 00:00:00.000Z'; // = MM/DD/YYYY 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
@@ -121,7 +135,8 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = dateStr+' 00:00:00.000Z'; // = YYYY/MM/DD 00:00:00.000Z
+							//dateStr = dateStr+' 00:00:00.000Z'; // = YYYY/MM/DD 00:00:00.000Z
+							dateStr = dateStr.replace(/\//g, '-')+' 00:00:00.000Z'; // = YYYY/MM/DD 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
@@ -133,12 +148,35 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = dateStr+' 00:00:00.000Z'; // = Wednesday, September 23, 2020 00:00:00.000Z
+							//dateStr = dateStr+' 00:00:00.000Z'; // = Wednesday, September 23, 2020 00:00:00.000Z
+							dateStr = dateStr.substr(dateStr.indexOf(',')+1).trim(); // = September 23, 2020
+							var month = dateStr.substr(0,dateStr.indexOf(' ')); // = September
+							dateStr = dateStr.substr(dateStr.indexOf(' ')+1).trim(); // = 23, 2020
+							var day = dateStr.substr(0,dateStr.indexOf(',')); // = 23
+							var year = dateStr.substr(dateStr.indexOf(' ')+1).trim(); // = 2020
+							dateStr = year+'-'+getMonthNumber(month)+'-'+day+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
 					colInfo.format.name4job = 'WEEKDATE'; // has not changed, just for clarity
 					colInfo.format.width4job = 29;
+				}
+				else if (colInfo.format.formatString == "WORDDATE28") { // September 23, 2020
+					// This date format is one of those already supported by Date object: no transformation needed
+					for (var r = 0; r < arrayData.length; r++) {
+						var dateStr = arrayData[r][c].trim();
+						if (dateStr != '.') {
+							//dateStr = dateStr+' 00:00:00.000Z'; // = September 23, 2020 00:00:00.000Z
+							var month = dateStr.substr(0,dateStr.indexOf(' ')); // = September
+							dateStr = dateStr.substr(dateStr.indexOf(' ')+1).trim(); // = 23, 2020
+							var day = dateStr.substr(0,dateStr.indexOf(',')); // = 23
+							var year = dateStr.substr(dateStr.indexOf(' ')+1).trim(); // = 2020
+							dateStr = year+'-'+getMonthNumber(month)+'-'+day+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
+							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
+						}
+					}
+					colInfo.format.name4job = 'WORDDATE'; // has not changed, just for clarity
+					colInfo.format.width4job = 18;
 				}
 				else if (colInfo.format.formatString == "DDMMYY8") { // DD/MM/YYYY
 					for (var r = 0; r < arrayData.length; r++) {
@@ -151,14 +189,15 @@ limitations under the License.
 					colInfo.format.name4job = 'DDMMYY'; // has not changed, just for clarity
 					colInfo.format.width4job = 10;
 				}
-				else if (colInfo.format.formatString == "DATE9") { // DDMMMYY
+				else if (colInfo.format.formatString == "DATE11") { // MMM/DD/YYYY
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = dateStr.substr(0,2)+' '+dateStr.substr(2,3)+' '+dateStr.substr(5)+' 00:00:00.000Z'; // = DD MMM YY 00:00:00.000Z
+							dateStr = dateStr.substr(7,4)+'-'+getMonthNumber(dateStr.substr(0,3))+'-'+dateStr.substr(4,2)+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
+					// cannot reproduce the original format: it will be displayed as DD-MMM-YYYY
 				}
 				else if (colInfo.format.formatString == "DAY9") { // DD
 					for (var r = 0; r < arrayData.length; r++) {
@@ -219,7 +258,8 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = '01 '+dateStr.substr(0,3)+' '+dateStr.substr(3)+' 00:00:00.000Z'; // = 01 Mnn YYYY 00:00:00.000Z
+							//dateStr = '01 '+dateStr.substr(0,3)+' '+dateStr.substr(3)+' 00:00:00.000Z'; // = 01 Mnn YYYY 00:00:00.000Z
+							dateStr = dateStr.substr(3)+'-'+getMonthNumber(dateStr.substr(0,3))+'-'+'01'+' 00:00:00.000Z'; // = YYYY-MM-01 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
@@ -242,7 +282,8 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var dateStr = arrayData[r][c].trim();
 						if (dateStr != '.') {
-							dateStr = '1960-'+dateStr+'-01 00:00:00.000Z'; // = 1960-MMMMMM-01 00:00:00.000Z
+							//dateStr = '1960-'+dateStr+'-01 00:00:00.000Z'; // = 1960-MMMMMM-01 00:00:00.000Z
+							dateStr = '1960-'+getMonthNumber(dateStr)+'-01 00:00:00.000Z'; // = 1960-MMMMMM-01 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
 						}
 					}
@@ -253,6 +294,15 @@ limitations under the License.
 					else if (colInfo.format.formatString == "MONTH3") {
 						colInfo.format.name4job = 'MONNAME';
 						colInfo.format.width4job = 3; // has not changed, just for clarity
+					}
+				}
+				else if (colInfo.format.formatString == "MONTH2") { // MM as number
+					for (var r = 0; r < arrayData.length; r++) {
+						var dateStr = arrayData[r][c].trim();
+						if (dateStr != '.') {
+							dateStr = '1960-'+dateStr+'-01 00:00:00.000Z'; // = 1960-MM-01 00:00:00.000Z
+							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
+						}
 					}
 				}
 				else if (colInfo.format.formatString == "QTR4" || // Qn  
@@ -322,17 +372,17 @@ limitations under the License.
 					console.log("WARNING: Columns formated as JULDAY1, WEEKV2, WEEKV3, WEEKV5, WEEKV7, WEEKV9, WEEKV0 are not supported: values set to missing.");
                 }
 				// Other transformations should be added here as needed.
-				else {  
-					// The actual date format must be one of those already supported by Date object: no transformation needed
-					// E.g.: DATE11, MONTH2
-					for (var r = 0; r < arrayData.length; r++) {
-						var dateStr = arrayData[r][c].trim();
-						if (dateStr != '.') {
-							dateStr = dateStr+' 00:00:00.000Z';
-							arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
-						}
-					}	
-				}
+				//else {  
+				//	// The actual date format must be one of those already supported by Date object: no transformation needed
+				//	// E.g.: DATE11, WORDDATE28
+				//	for (var r = 0; r < arrayData.length; r++) {
+				//		var dateStr = arrayData[r][c].trim();
+				//		if (dateStr != '.') {
+				//			dateStr = dateStr+' 00:00:00.000Z';
+				//			arrayData[r][c] = (Date.parse(dateStr)-sasDateBaseline)/numMillisecInADay; // number of days from Jan 1st 1960
+				//		}
+				//	}	
+				//}
 			}
 			else { // colInfo.type == "datetime"
 				colInfo.type4job = "NUMERIC"; // corresponding type for SAS job
@@ -341,17 +391,28 @@ limitations under the License.
 				colInfo.format.name4job = colInfo.format.name;
 				colInfo.format.width4job = colInfo.format.width; 
 				colInfo.format.precision4job = colInfo.format.precision; // almost always 0 for datetime
-				if (colInfo.format.formatString == "DTDATE11" || // MMM/DD/YYYY
-					colInfo.format.formatString == "DTDATE9") {  // DDMMMYYYY
+				if (colInfo.format.formatString == "DTDATE11") {  // MMM/DD/YYYY
 					// This date format is one of those already supported by Date object: no transformation needed
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = datetimeStr+' 00:00:00.000Z'; // = MMM/DD/YYYY 00:00:00.000Z
+							//datetimeStr = datetimeStr+' 00:00:00.000Z'; // = MMM/DD/YYYY 00:00:00.000Z
+							datetimeStr = datetimeStr.substr(7,4)+'-'+getMonthNumber(datetimeStr.substr(0,3))+'-'+datetimeStr.substr(4,2)+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
 					colInfo.format.width4job = 9;
+				}
+				else if (colInfo.format.formatString == "DTDATE9") {  // DDMMMYYYY
+					// This date format is one of those already supported by Date object: no transformation needed
+					for (var r = 0; r < arrayData.length; r++) {
+						var datetimeStr = arrayData[r][c].trim();
+						if (datetimeStr != '.') {
+							//datetimeStr = datetimeStr+' 00:00:00.000Z'; // = MMM/DD/YYYY 00:00:00.000Z
+							datetimeStr = datetimeStr.substr(5,4)+'-'+getMonthNumber(datetimeStr.substr(2,3))+'-'+datetimeStr.substr(0,2)+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
+							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
+						}
+					}
 				}
 				else if (colInfo.format.formatString == "DATETIME0"    ||  // MMMMMM DD, YYYY HH:mm:SS AM/PM
 						 colInfo.format.formatString == "DATETIME10"   ||  // MMM DD, YYYY HH:mm:SS AM/PM
@@ -362,19 +423,49 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = datetimeStr+' Z'; // = <WWWWWW> MMM<MMM> DD, YYYY HH:mm:SS<.zzz> AM/PM Z
+							//datetimeStr = datetimeStr+' Z'; // = <WWWWWW> MMM<MMMMMM> DD, YYYY HH:mm:SS<.zzz> AM/PM Z
+							var firstSpace = datetimeStr.indexOf(' ');
+							if (datetimeStr.substr(firstSpace-1,1) == ',') datetimeStr = datetimeStr.substr(firstSpace+1).trim();  // = MMM<MMMMMM> DD, YYYY HH:mm:SS<.zzz> AM/PM
+							var month = datetimeStr.substr(0,datetimeStr.indexOf(' ')); // = MMM<MMMMMM>
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = DD, YYYY HH:mm:SS<.zzz> AM/PM
+							var day = datetimeStr.substr(0,datetimeStr.indexOf(',')); // = DD
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = YYYY HH:mm:SS<.zzz> AM/PM
+							var year = datetimeStr.substr(0,datetimeStr.indexOf(' ')); // = YYYY
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = HH:mm:SS<.zzz> AM/PM
+							var hour = datetimeStr.substr(0,datetimeStr.indexOf(':')); // = HH
+							var ampm = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = AM/PM
+							if (ampm == "PM") hour = parseInt(hour,10)+12;
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(':')+1,datetimeStr.indexOf(' ')-datetimeStr.indexOf(':')-1).trim(); // = mm:SS<.zzz>
+							if (datetimeStr.length == 5) datetimeStr = datetimeStr + ".000";
+							datetimeStr = year+'-'+getMonthNumber(month)+'-'+day+' '+hour+':'+datetimeStr+'Z'; // = YYYY-MM-DD HH:mm:SS<.zzz>Z
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
 					colInfo.format.width4job = 22;
 				}
-				else if (colInfo.format.formatString == "DTWKDATX28" ||  // WWWWWW, MMMMMM DD, YYYY
-						 colInfo.format.formatString == "DTMONYY7") {    // MMMYYYY
+				else if (colInfo.format.formatString == "DTWKDATX28") {  // WWWWWW, MMMMMM DD, YYYY
 					// This date format is one of those already supported by Date object: no transformation needed
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = datetimeStr+' 00:00:00.000Z'; // = WWWWWW, MMMMMM DD, YYYY 00:00:00.000Z *OR* MMMYYYY 00:00:00.000Z
+							//datetimeStr = datetimeStr+' 00:00:00.000Z'; // = WWWWWW, MMMMMM DD, YYYY 00:00:00.000Z
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(',')+1).trim(); // = September 23, 2020
+							var month = datetimeStr.substr(0,datetimeStr.indexOf(' ')); // = September
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = 23, 2020
+							var day = datetimeStr.substr(0,datetimeStr.indexOf(',')); // = 23
+							var year = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = 2020
+							datetimeStr = year+'-'+getMonthNumber(month)+'-'+day+' 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
+							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
+						}
+					}
+				}
+				else if (colInfo.format.formatString == "DTMONYY7") {  // MMMYYYY
+					// This date format is one of those already supported by Date object: no transformation needed
+					for (var r = 0; r < arrayData.length; r++) {
+						var datetimeStr = arrayData[r][c].trim();
+						if (datetimeStr != '.') {
+							//datetimeStr = datetimeStr+' 00:00:00.000Z'; // = MMMYYYY 00:00:00.000Z
+							datetimeStr = datetimeStr.substr(3)+'-'+getMonthNumber(datetimeStr.substr(0,3))+'-01 00:00:00.000Z'; // = YYYY-MM-DD 00:00:00.000Z
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
@@ -415,7 +506,13 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = 'Jan 1960 '+datetimeStr+' Z'; // = MMM YYYY HH:MM AM/PM Z *OR* MMM YYYY HH:MM:SS AM/PM Z 
+							//datetimeStr = 'Jan 1960 '+datetimeStr+' Z'; // = MMM YYYY HH:MM AM/PM Z *OR* MMM YYYY HH:MM:SS AM/PM Z 
+							var hour = datetimeStr.substr(0,datetimeStr.indexOf(':')); // = HH
+							var ampm = datetimeStr.substr(datetimeStr.indexOf(' ')+1).trim(); // = AM/PM
+							if (ampm == "PM") hour = parseInt(hour,10)+12;
+							datetimeStr = datetimeStr.substr(datetimeStr.indexOf(':')+1,datetimeStr.indexOf(' ')-datetimeStr.indexOf(':')-1).trim(); // = MM *OR* MM:SS
+							if (datetimeStr.length == 2) datetimeStr = datetimeStr + ":00";
+							datetimeStr = '1960-01-01 '+hour+':'+datetimeStr+'.000Z'; // = 1960-01-01 HH:MM:00.000Z *OR* 1960-01-01 HH:MM:SS.000Z 
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
@@ -426,7 +523,8 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = 'Jan 1960 '+datetimeStr+':00:00.000Z'; // = Jan 1960 HH:00:00.000Z 
+							//datetimeStr = 'Jan 1960 '+datetimeStr+':00:00.000Z'; // = Jan 1960 HH:00:00.000Z 
+							datetimeStr = '1960-01-01 '+datetimeStr+':00:00.000Z'; // = 1960-01-01 HH:00:00.000Z 
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
@@ -437,7 +535,8 @@ limitations under the License.
 					for (var r = 0; r < arrayData.length; r++) {
 						var datetimeStr = arrayData[r][c].trim();
 						if (datetimeStr != '.') {
-							datetimeStr = 'Jan '+datetimeStr+' 00:00:00.000Z'; // = Jan YYYY 00:00:00.000Z 
+							//datetimeStr = 'Jan '+datetimeStr+' 00:00:00.000Z'; // = Jan YYYY 00:00:00.000Z 
+							datetimeStr = datetimeStr+'-01-01 00:00:00.000Z'; // = YYYY-01-01 00:00:00.000Z 
 							arrayData[r][c] = (Date.parse(datetimeStr)-sasDateBaseline)/1000; // number of seconds from Jan 1st 1960
 						}
 					}
