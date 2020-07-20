@@ -57,12 +57,9 @@ limitations under the License.
 			resultName: resultName, 
 			selections: selections
 		};
-		var url = (window.location != window.parent.location)
-			? document.referrer
-			: document.location.href;
-			
-		window.parent.postMessage(message, url);
+		messagingUtil.postMessage(message);
 	};
+	
 	
 	messagingUtil.postInstructionalMessage = function(resultName, strMessage) 
 	{
@@ -70,11 +67,39 @@ limitations under the License.
 			resultName: resultName,
 			message: strMessage
 		};
+		messagingUtil.postMessage(message);
+	};
+	
+	
+	messagingUtil.postMessage = function(objMessage) 
+	{
 		var url = (window.location != window.parent.location)
 			? document.referrer
 			: document.location.href;
 			
-		window.parent.postMessage(message, url);
+		window.parent.postMessage(objMessage, url);
+	};
+	
+	
+	messagingUtil.getUrlParams = function(name) 
+	{
+		// If name is a parameter --> return name's value
+		// If name is not a parameter --> return null
+		// If name is not informed --> return object with all parameters: {name1:value1, name2:value2, name3:value3, ...}
+		var params = {};
+		var search = window.location.search.slice( window.location.search.indexOf( '?' ) + 1 );
+		var name_value = search.split( '&' );
+
+		name_value.forEach( function( pair, key ) {
+			if (pair.indexOf('=') === -1) {
+				params[ pair ] = "";
+			}
+			else {
+				params[ decodeURIComponent(pair.substr(0,pair.indexOf('='))) ] = decodeURIComponent(pair.substr(pair.indexOf('=')+1));
+			}
+		} );
+
+		return name ? (name in params ? params[name] : null) : params;
 	};
 	
 	

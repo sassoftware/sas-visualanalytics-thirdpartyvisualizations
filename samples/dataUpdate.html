@@ -46,38 +46,18 @@ limitations under the License.
 
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
-  
-		function getUrlParams( name ) {
-		// If name is a parameter --> return name's value
-		// If name is not a parameter --> return null
-		// If name is not informed --> return object with all parameters: {name1:"value1", name2:"value2", name3:"value3, ...}
-			var params = {};
-			var search = window.location.search.slice( window.location.search.indexOf( '?' ) + 1 );
-			var name_value = search.split( '&' );
 
-			name_value.forEach( function( pair, key ) {
-				if (pair.indexOf('=') === -1) {
-					params[ pair ] = "";
-				}
-				else {
-					params[ decodeURIComponent(pair.substr(0,pair.indexOf('='))) ] = decodeURIComponent(pair.substr(pair.indexOf('=')+1));
-				}
-			} );
-
-			return name ? (name in params ? params[name] : null) : params;
-		}	
-		
 		console.log(">>>>>>>>>>>> Parameters from URL (BEGIN) >>>>>>>>>>>"); 
-		var urlParams = getUrlParams();
+		var urlParams = va.messagingUtil.getUrlParams();
 		Object.keys(urlParams).forEach(function(key) {
 			console.log(key+"="+urlParams[key]);
 		});	
 
-		var _caslib = getUrlParams("caslib");							// source caslib
-		var _castab = getUrlParams("castab");							// source cas table name
-		var _target_column_name = getUrlParams("target_column_name");	// column to be updated (column name, not label)
-		var _target_column_type = getUrlParams("target_column_type");	// column to be updated (column type: string/number)
-		var _id_column_name = getUrlParams("id_column_name");			// column containing unique id of row to be updated (column name, not label)
+		var _caslib = va.messagingUtil.getUrlParams("caslib");							// source caslib
+		var _castab = va.messagingUtil.getUrlParams("castab");							// source cas table name
+		var _target_column_name = va.messagingUtil.getUrlParams("target_column_name");	// column to be updated (column name, not label)
+		var _target_column_type = va.messagingUtil.getUrlParams("target_column_type");	// column to be updated (column type: string/number)
+		var _id_column_name = va.messagingUtil.getUrlParams("id_column_name");			// column containing unique id of row to be updated (column name, not label)
 		
 		// Changes the form title
 		document.getElementById('form-label').innerHTML="Update " + _target_column_name;
@@ -207,48 +187,67 @@ limitations under the License.
 		// Datetime: 'DDMMMYYYY:HH:MM:SS'dt
 		// (*) includes Time elements
 		function getSASStandardConstantValue (type, informat, value) {
-		    var constValue;
+			var constValue;
 			if (type == "string") {
 				constValue="'"+value+"'";
 			}
 			// One of the Date() constructors accept input dates as strings in ISO format, short, and long date formats, such as:
-			// "02/22/2012", "02-22-2012", 
+			// "02/22/2012", "02-22-2012" (not Firefox), 
 			// "Feb/22/2012", "February/22/2012", "February 22, 2012", "Feb 22, 2012", "February 22 2012", "Feb 22 2012", 
 			// "22February2012", "22Feb2012", "22 February 2012", "22 Feb 2012", 
-			// "Wednesday, February 22, 2012", "2012/02/22", "2012-02-22" (ISO), "Feb2012", "Feb 2012", "February2012", "February 2012"
-			// Support for formats other than ISO may be browser vendor and version dependent).
+			// "Wednesday, February 22, 2012", "2012/02/22", "2012-02-22" (ISO), 
+			// "Feb2012" (not Firefox), "Feb 2012" (not Firefox), "February2012"(not Firefox), "February 2012" (not Firefox)
+			// Support for formats other than ISO may be browser and version dependent.
 			// It does NOT accept Julian, DD/MM/YYYY, MM/YYYY, MMMMMMM formats. In those cases, a transformation is necessary
 			// to put the date string in a supported format.
 			// https://www.w3schools.com/js/js_date_formats.asp
 			else if (type == "date") {
 				// There is room for a lot of improvement here.
 				if (informat == "DDMMYY8") { // DD/MM/YYYY
-					value = value.substr(6)+'-'+value.substr(3,2)+'-'+value.substr(0,2); // = YYYY-MM-DD (international standard)
+					value = value.substr(6)+'/'+value.substr(3,2)+'/'+value.substr(0,2); // = YYYY/MM/DD
 				}
-				else if (informat == "DATE9") { // DDMMMYY
-					value = value.substr(0,2)+value.substr(2,3)+value.substr(5); // = DDMMMYY
+				else if (informat == "DATE9") { // DDMMMYYYY
+					value = value.substr(0,2)+value.substr(2,3)+value.substr(5); // = DDMMMYYYY
 				}
 				else if (informat == "MMYY8") { // MM/YYYY
-					value = value.substr(3)+'-'+value.substr(0,2)+'-01'; // = YYYY-MM-01
+					value = value.substr(3)+'/'+value.substr(0,2)+'/01'; // = YYYY/MM/01
 				}
-				else if (informat == "MONTH7") { // MMMMMM -> this format should not be used because it's too much guessing (year and day) to form the date
-					value = '1960-'+value+'-01'; // = 1960-MMMMMM-01
+				else if (informat == "MONTH7" || // MMMYYYY
+						 informat == "MMYY8") {  // MM/YYYY
+					value = '01 '+value; // = 01 MMMYYYY or 01 MM/YYYY
 				}
-				else if (informat == "JULIAN7") {
-					// This is just a placeholder. Need code for this transformation.
+				else if (informat == "MONYY7" || informat == "WORDDATE9" || // MMMMMMMMM -> this format should not be used because it's too much guessing (year and day) to form the date
+						 informat == "MONTH3" || informat == "WORDDATE3") { // MMM       -> this format should not be used because it's too much guessing (year and day) to form the date
+					value = value+' 01 1960'; // = MMM<MMMMMM> 01 1960
+				}
+				else if (informat == "DAY9") { // DD
+					value = '1960/01/'+value; // = 1960/01/DD
+				}
+				else if (informat == "MONTH2") { // MM
+					value = '1960/'+value+'/01'; // = YYYY/MM/01
+				}
+				else if (informat == "YEAR4") { // YYYY
+					value = value+'/01/01'; // = YYYY/01/01
+				}
+				else if (informat == "YYMM8") { // YYYY/MM
+					value = value+'/01'; // = YYYY/MM/01
 				}
 				// Other transformations should be added here as needed.
+				// For example: DOWNAME11, DOWNAME1, JULDAY1, WEEKDATE9, WEEKDATE3, JULIAN7,
+				// QTR4, QTR6, YYQC5, WEEKV2, WEEKV3, WEEKV5, WEEKV7, WEEKV9, WEEKV0
 				
 				var dateTime = new Date(value);
 				var dateStr= dateTime.toDateString(); // "Mon Jul 15 2019"
 				constValue = "'"+dateStr.substr(8,2)+dateStr.substr(4,3)+dateStr.substr(11,4)+"'d"; // = 'DDMMMYYYY'd = '15Jul2019'd
 			}
 			else if (type == "datetime") {
+				// This generic transformation willl not work for every datetime format.
+				// Format specific transformations should be added here as needed.
 				var dateTime = new Date(value);
 				var dateStr= dateTime.toString(); // "Mon Jul 15 2019 15:46:00 GMT-0500 (Eastern Standard Time)"
 				constValue = "'"+dateStr.substr(8,2)+dateStr.substr(4,3)+dateStr.substr(11,4)+":"+dateStr.substr(16,8)+"'dt"; // = 'DDMMMYYYY:HH:MM:SS'dt = '15Jul2019:20:45:00'dt
 			}
-			else constValue=value; // columns formatted as Time have type equals to number
+			else constValue=value; // columns formatted as Time have type equals to number and don't need any transformation
 			
 			return constValue; 
 		};
