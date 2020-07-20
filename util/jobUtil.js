@@ -561,14 +561,14 @@ limitations under the License.
 			console.log("textStatus: ",textStatus);
 			console.log("errorThrown: ",errorThrown);
 		});
-	}
+	};
 	
 	
 	jobUtil.keepAppAlive = function(app) {
 		setInterval(function(){
 			jobUtil.pingApp(app);
 		}, 1000 * 60);
-	}
+	};
 
 	if (!window.va)
 		window.va = {};
