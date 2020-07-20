@@ -546,6 +546,30 @@ limitations under the License.
 		}
 	};
 	
+	
+	jobUtil.pingApp = function(app) {
+		jq.ajax({
+			url: ("/"+app+"/keepalive"), 
+			method: "GET"
+		})
+		.then(function (data) {
+			// do nothing
+		})
+		.fail(function(jqXHR, textStatus, errorThrown) {
+			console.error('******ERROR:pingApp******');
+			console.log("jqXHR: ",jqXHR);
+			console.log("textStatus: ",textStatus);
+			console.log("errorThrown: ",errorThrown);
+		});
+	}
+	
+	
+	jobUtil.keepAppAlive = function(app) {
+		setInterval(function(){
+			jobUtil.pingApp(app);
+		}, 1000 * 60);
+	}
+
 	if (!window.va)
 		window.va = {};
     window.va.jobUtil = jobUtil;
