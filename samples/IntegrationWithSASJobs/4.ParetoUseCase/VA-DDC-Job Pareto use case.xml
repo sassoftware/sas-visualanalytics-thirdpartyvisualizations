@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?><SASReport xmlns="http://www.sas.com/sasreportmodel/bird-4.1.2" label="VA-DDC-Job Pareto use case" createdLocale="en" createdVersion="4.1.2" dateCreated="2020-04-20T23:53:28Z" dateModified="2020-07-17T23:54:52Z" createdApplication="SAS Visual Analytics 8.3" lastModifiedApplication="SAS Visual Analytics 8.3.1" nextUniqueNameIndex="580">
+    <DataDefinitions>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds7" name="dd22">
+            <BusinessItems>
+                <RelationalDataItem name="bi26" base="bi11"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds7" type="relational" name="dd23">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi26"/>
+                        </Axis>
+                    </Axes>
+                    <SortItems>
+                        <SortItem ref="bi26" sortDirection="ascending"/>
+                    </SortItems>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="dropdown" maxRowsBehavior="truncate" name="dd24"/>
+                </ResultDefinitions>
+            </DataDefinition>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds117" name="dd84">
+            <BusinessItems>
+                <RelationalDataItem binOption="formatBin" name="bi159" base="bi120" usage="quantitative" aggregation="min"/>
+                <RelationalDataItem binOption="formatBin" name="bi160" base="bi120" usage="quantitative" aggregation="max"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds117" type="relational" name="dd85">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi159"/>
+                            <BusinessItem ref="bi160"/>
+                        </Axis>
+                    </Axes>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" name="dd86"/>
+                </ResultDefinitions>
+            </DataDefinition>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds7" name="dd98">
+            <BusinessItems>
+                <RelationalDataItem name="bi106" base="bi9"/>
+                <RelationalDataItem name="bi107" base="bi10"/>
+                <RelationalFilterItem label="Force parameters to be passed to DDC" name="bi487">
+                    <EditorProperties>
+                        <Property key="complexity">ADVANCED</Property>
+                    </EditorProperties>
+                    <Expression>and(eq(#{pr484},#{pr484}),eq(#{pr486},#{pr486}),eq(#{pr485},#{pr485}))</Expression>
+                </RelationalFilterItem>
+                <RelationalDataItem name="bi579" base="bi11"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds7" type="procedural" name="dd99">
+                <ProceduralQuery type="standard">
+                    <Arguments>
+                        <ListArgument purpose="column">
+                            <ReferenceValue>bi106</ReferenceValue>
+                            <ReferenceValue>bi107</ReferenceValue>
+                        </ListArgument>
+                    </Arguments>
+                </ProceduralQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="customContent" maxRowsBehavior="truncate" name="dd100"/>
+                    <ResultDefinition purpose="formatted" maxRowsLookup="customContent" maxRowsBehavior="truncate" format="JSONX" name="dd101"/>
+                </ResultDefinitions>
+            </DataDefinition>
+            <AppliedFilters>
+                <DetailFilters>
+                    <BusinessItem ref="bi487"/>
+                </DetailFilters>
+            </AppliedFilters>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds117" name="dd129">
+            <BusinessItems>
+                <RelationalDataItem name="bi162" base="bi118"/>
+                <RelationalDataItem name="bi163" base="bi121"/>
+                <RelationalDataItem name="bi164" base="bi120"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds117" type="multidimensional" name="dd130">
+                <MultidimensionalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi162"/>
+                        </Axis>
+                        <Axis type="row">
+                            <BusinessItem ref="bi163"/>
+                            <BusinessItem ref="bi164"/>
+                        </Axis>
+                    </Axes>
+                    <ColumnSortItems>
+                        <MeasureSortItem ref="bi163" sortDirection="descending"/>
+                        <SortItem ref="bi162" sortDirection="ascending"/>
+                    </ColumnSortItems>
+                </MultidimensionalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="graphDefault" maxRowsBehavior="noData" name="dd126"/>
+                </ResultDefinitions>
+            </DataDefinition>
+            <AppliedFilters>
+                <DetailFilters>
+                    <BusinessItem ref="bi165"/>
+                </DetailFilters>
+            </AppliedFilters>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds117" name="dd142">
+            <BusinessItems>
+                <RelationalDataItem name="bi149" base="bi118"/>
+                <RelationalDataItem name="bi150" base="bi121"/>
+                <RelationalDataItem name="bi151" base="bi122"/>
+                <RelationalDataItem name="bi152" base="bi120"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds117" type="relational" name="dd143">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi149"/>
+                            <BusinessItem ref="bi150"/>
+                            <BusinessItem ref="bi151"/>
+                            <BusinessItem ref="bi152"/>
+                        </Axis>
+                    </Axes>
+                    <SortItems>
+                        <SortItem ref="bi151" sortDirection="ascending"/>
+                    </SortItems>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="listTable" maxRowsBehavior="truncate" name="dd138"/>
+                </ResultDefinitions>
+            </DataDefinition>
+            <AppliedFilters>
+                <DetailFilters>
+                    <BusinessItem ref="bi165"/>
+                </DetailFilters>
+            </AppliedFilters>
+        </ParentDataDefinition>
+    </DataDefinitions>
+    <DataSources>
+        <DataSource label="GDP_COUNTRY_YEAR_TRANSPOSED" type="relational" name="ds7">
+            <CasResource server="cas-shared-default" library="Public" table="GDP_COUNTRY_YEAR_TRANSPOSED" locale="en_US"/>
+            <BusinessItemFolder>
+                <DataItem name="bi8" xref="Country Code"/>
+                <DataItem name="bi9" xref="Country Name"/>
+                <DataItem name="bi10" xref="GDP (current US$)"/>
+                <DataItem name="bi11" label="Year" xref="Year"/>
+                <PredefinedDataItem calculation="totalCount" name="bi12" label="Frequency" usage="quantitative" format="COMMA12."/>
+                <PredefinedDataItem calculation="totalCountPercent" name="bi13" label="Frequency Percent" usage="quantitative" format="PERCENT20.2"/>
+                <AggregateCalculatedItem dataType="double" name="bi40" label="GDP (cumulative % total)" format="PERCENT12.2">
+                    <Expression>div(aggregateCells(sum,${bi10,raw},default,cellIndex(start,0),cellIndex(current,0)),aggregate(sum,all,${bi10,raw}))</Expression>
+                </AggregateCalculatedItem>
+                <RelationalFilterItem name="bi43">
+                    <Expression>and(notIn(${bi9,binned},'Central African Republic','Central Europe and the Baltics','Early-demographic dividend','East Asia &amp; Pacific','East Asia &amp; Pacific (excluding high income)','East Asia &amp; Pacific (IDA &amp; IBRD countries)','Euro area','Europe &amp; Central Asia','Europe &amp; Central Asia (excluding high income)','Europe &amp; Central Asia (IDA &amp; IBRD countries)','European Union','Fragile and conflict affected situations','Heavily indebted poor countries (HIPC)','High income','IBRD only','IDA &amp; IBRD total','IDA blend','IDA only','IDA total','Late-demographic dividend','Latin America &amp; Caribbean','Latin America &amp; Caribbean (excluding high income)','Latin America &amp; the Caribbean (IDA &amp; IBRD countries)','Least developed countries: UN classification','Low &amp; middle income','Low income','Lower middle income','Middle East &amp; North Africa','Middle East &amp; North Africa (excluding high income)','Middle East &amp; North Africa (IDA &amp; IBRD countries)','Middle income','North America','Not classified','OECD members','Oman','Other small states','Post-demographic dividend','Pre-demographic dividend','South Asia','South Asia (IDA &amp; IBRD)','Sub-Saharan Africa','Sub-Saharan Africa (excluding high income)','Sub-Saharan Africa (IDA &amp; IBRD countries)','Upper middle income','World'),notMissing(${bi10,raw}))</Expression>
+                </RelationalFilterItem>
+                <AggregateCalculatedItem dataType="double" name="bi381" label="GDP (% of total)" format="PERCENT12.2">
+                    <Expression>div(aggregate(sum,group,${bi10,raw}),aggregate(sum,all,${bi10,raw}))</Expression>
+                </AggregateCalculatedItem>
+            </BusinessItemFolder>
+            <AppliedFilters>
+                <DataSourceSubsetFilters>
+                    <BusinessItem ref="bi43"/>
+                </DataSourceSubsetFilters>
+            </AppliedFilters>
+        </DataSource>
+        <DataSource label="PARETO_RANK" type="relational" name="ds117">
+            <CasResource server="cas-shared-default" library="CASUSER" table="PARETO_RANK" locale="en_US"/>
+            <BusinessItemFolder>
+                <DataItem name="bi118" label="Country Name" xref="Country_Name"/>
+                <DataItem name="bi119" label="GDP (cumulative total)" xref="CUM_FREQ"/>
+                <DataItem name="bi120" label="GDP (cumulative % total)" xref="CUM_PCT" format="PERCENT12.2"/>
+                <DataItem name="bi121" label="GDP (current US$)" xref="COUNT"/>
+                <DataItem name="bi122" label="GDP (% of total)" xref="PERCENT" format="PERCENT12.2"/>
+                <PredefinedDataItem calculation="totalCount" name="bi123" label="Frequency" usage="quantitative" format="COMMA12."/>
+                <PredefinedDataItem calculation="totalCountPercent" name="bi124" label="Frequency Percent" usage="quantitative" format="PERCENT20.2"/>
+                <RelationalFilterItem label="Common Advanced Filter 1" name="bi165">
+                    <EditorProperties>
+                        <Property key="complexity">ADVANCED</Property>
+                    </EditorProperties>
+                    <Expression>le(${bi120,raw},#{pr161})</Expression>
+                </RelationalFilterItem>
+            </BusinessItemFolder>
+        </DataSource>
+    </DataSources>
+    <VisualElements>
+        <Prompt ref="pr25" name="ve21" label="Drop-Down List - Year 1" selectionDisabled="true" applyDynamicBrushes="promptsOnly" sourceInteractionVariables="bi26">
+            <EditorProperties>
+                <Property key="autoChartCategory">CONTROL</Property>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+            <Title><P><Span>Year</Span></P></Title>
+            <ComboBox/>
+        </Prompt>
+        <Prompt ref="pr161" name="ve83" label="Slider - GDP (cumulative % total) 1" selectionDisabled="true" applyDynamicBrushes="no" sourceInteractionVariables="bi159">
+            <EditorProperties>
+                <Property key="autoChartCategory">CONTROL</Property>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+            <Title><P><Span>Rank</Span></P></Title>
+            <Slider orientation="horizontal"/>
+        </Prompt>
+        <WebContent url="http://your.host.name/SASJobExecution/?_program=/Public/Jobs/SAS Communities/Pareto" webContentType="webDataContent" supplementalVisuals="ve102" resultDefinitions="dd100 dd101" name="ve97" data="dd98" label="Data-Driven Content - Country Name 1" applyDynamicBrushes="yes" sourceInteractionVariables="bi106">
+            <EditorProperties>
+                <Property key="isAutoLabel">true</Property>
+                <Property key="addedInteractionQueryDataItems">bi579</Property>
+            </EditorProperties>
+        </WebContent>
+        <Table columnSizing="autoFill" resultDefinitions="dd100" name="ve102" data="dd98" applyDynamicBrushes="yes">
+            <Columns>
+                <Column variable="bi106"/>
+                <Column variable="bi107"/>
+            </Columns>
+        </Table>
+        <Graph graphType="dualAxisBarLine" supplementalVisuals="ve131" resultDefinitions="dd126" refresh="fixed" refreshRate="2" name="ve132" data="dd129" label="Dual Axis Bar-Line - Country Name 1" applyDynamicBrushes="yes" sourceInteractionVariables="bi162">
+            <EditorProperties>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+<![CDATA[<StatGraph border="false" opaque="false" includeMissingDiscrete="true" selectionMode="multiple" missingValueDisplay="autolabel">
+    <PadAttrs top="0px" bottom="0px" left="0px" right="0px"/>
+    <Meta>
+        <DynVars>
+            <DynVar name="CATEGORY" description="CATEGORY_VAR" required="true" assignedType="any" type="character">
+                <DefaultValues>
+                    <Value>dd126.bi162</Value>
+                </DefaultValues>
+            </DynVar>
+            <DynVar name="RESPONSE" description="BAR_MEASURE_VAR" required="true" assignedType="any" type="numeric">
+                <DefaultValues>
+                    <Value>dd126.bi163</Value>
+                </DefaultValues>
+            </DynVar>
+            <DynVar name="RESPONSE2" description="LINE_MEASURE_VAR" required="true" assignedType="any" type="numeric" multiplesAllowed="false">
+                <DefaultValues>
+                    <Value>dd126.bi164</Value>
+                </DefaultValues>
+            </DynVar>
+            <DynVar name="COLUMN" description="HORIZONTAL_SERIES_VAR" required="false" type="character" multiplesAllowed="true"/>
+            <DynVar name="ROW" description="VERTICAL_SERIES_VAR" required="false" type="character" multiplesAllowed="true"/>
+            <DynVar name="TIP" description="TIP_VAR" required="false" assignedType="numeric" type="any" multiplesAllowed="true">
+                <DefaultValues>
+                    <Value>dd126.bi162</Value>
+                    <Value>dd126.bi163</Value>
+                    <Value>dd126.bi164</Value>
+                </DefaultValues>
+            </DynVar>
+            <DynVar name="KEY_FRAME" description="ANIMATION" required="false" type="time" multiplesAllowed="false"/>
+            <DynVar name="HIDDEN" description="HIDDEN_VAR" required="false" type="character" multiplesAllowed="true"/>
+        </DynVars>
+    </Meta>
+    <LayoutDataMatrix includeMissingClass="true" rowVars="ROW" columnVars="COLUMN">
+        <LayoutPrototypeOverlay2D cycleAttrs="true" alignVerticalAxisTicks="true">
+            <BarChartParm name="BarChart" tipListPolicy="replace" _stmt="barchart" stat="none" tip="TIP" category="CATEGORY" responseVars="RESPONSE">
+                <OutlineAttrs color="Outlines:line_color"/>
+            </BarChartParm>
+            <LineChart name="LineChart" tipListPolicy="replace" _stmt="linechart" yAxis="y2" contributeOffsets="XMAX XMIN YMAX" stat="none" fadeType="auto" tip="TIP" category="CATEGORY" responseVars="RESPONSE2">
+                <LineAttrs thickness="2px"/>
+            </LineChart>
+            <XAxisOpts name="categoryAxis" offsetMin="0" offsetMax="0">
+                <DiscreteOpts tickValueFitPolicy="staggertruncatedrop" sortOrder="data" tickValueAppearance="auto"/>
+            </XAxisOpts>
+            <YAxisOpts display="LABEL LINE TICKS TICKVALUES">
+                <DiscreteOpts sortOrder="data"/>
+                <LinearOpts>
+                    <TickValueFormatOpts extractScale="true"/>
+                </LinearOpts>
+            </YAxisOpts>
+            <Y2AxisOpts display="LABEL LINE TICKS TICKVALUES">
+                <LinearOpts viewMin="0" viewMax="1">
+                    <TickValueFormatOpts extractScale="true"/>
+                </LinearOpts>
+            </Y2AxisOpts>
+        </LayoutPrototypeOverlay2D>
+    </LayoutDataMatrix>
+    <LayoutGlobalLegend legendTitlePosition="top" allowCollapsed="true">
+        <AutoLegend>
+            <GraphNames>
+                <Value>BarChart</Value>
+                <Value>LineChart</Value>
+            </GraphNames>
+        </AutoLegend>
+    </LayoutGlobalLegend>
+    <Animation keyFrame="KEY_FRAME"/>
+    <OverviewAxis maxPlotSize="60px" minPlotSize="35px" visible="off" axis="categoryAxis"/>
+</StatGraph>]]>
+        </Graph>
+        <Table columnSizing="autoFill" resultDefinitions="dd138" refresh="fixed" refreshRate="2" name="ve144" data="dd142" label="List Table - Country Name 1" applyDynamicBrushes="yes" sourceInteractionVariables="bi149">
+            <EditorProperties>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+            <Columns>
+                <Column variable="bi149" isVisible="true"/>
+                <Column variable="bi150" isVisible="true" compactFormat="true"/>
+                <Column variable="bi151" isVisible="true" compactFormat="false"/>
+                <Column variable="bi152" isVisible="true" compactFormat="false"/>
+            </Columns>
+        </Table>
+        <Table columnSizing="autoFill" resultDefinitions="dd126" name="ve131" data="dd129" applyDynamicBrushes="yes" sourceInteractionVariables="bi162">
+            <Columns>
+                <Column variable="bi162"/>
+                <Column variable="bi163"/>
+                <Column variable="bi164"/>
+            </Columns>
+        </Table>
+        <VisualContainer name="ve183" label="Layout Container 5" selectionDisabled="true">
+            <EditorProperties>
+                <Property key="visualType">LAYOUT_CONTAINER</Property>
+            </EditorProperties>
+        </VisualContainer>
+        <Text name="ve238" label="Text 1" selectionDisabled="true" applyDynamicBrushes="no">
+            <P><Span>Data source downloaded from:</Span></P>
+            <P><Span action="ac247" class="span1">https://data.worldbank.org/indicator/NY.GDP.MKTP.CD</Span></P>
+            <P><Span> </Span></P>
+            <P><Span>Then transposed to create GDP_COUNTRY_YEAR_TRANSPOSED</Span></P>
+        </Text>
+        <Text name="ve401" label="Text 2" selectionDisabled="true" applyDynamicBrushes="no">
+            <P><Span>GTP (cumulative % of total) is an aggregated measure that depends on the order that the data is displayed to calculate the accumulated values. An attempt to show only countries where the GTP (cumulative % of total) is less or equal to a certain value (e.g. list of countries that are responsible for 80% of the GDP) will produce the wrong results if you try to use ranks, or it will not be possible if you try to use filters. Filtering on aggregated measures is not supported and ranking would return a percentage of the total number of countries based on their GTP, not the countries responsible for a percentage of the total GDP. Using "New data from aggregation" will not work either because of the sequential nature of the cumulative calculation. The solution is to pass the data to a job that will create a new table on the fly with the percentages accumulated in the right order. That table can then be filtered because the cumulative percentage is no longer an aggregated measure.</Span></P>
+        </Text>
+    </VisualElements>
+    <PromptDefinitions>
+        <PromptDefinition data="dd22" labelVariable="bi26" valueVariable="bi26" resultDefinitions="dd24" name="pr25">
+            <DefaultValue>
+                <String>2000</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition data="dd84" label="PctRank" isParameter="true" format="COMMA12.2" labelVariable="bi159" resultDefinitions="dd86" minVariable="bi159" maxVariable="bi160" name="pr161">
+            <DefaultValue>
+                <Number type="double" value="0.8"/>
+            </DefaultValue>
+            <NumericConstraint min="0.0" max="1.0" required="true" minInclusive="true" maxInclusive="true"/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_name" isParameter="true" name="pr484">
+            <DefaultValue>
+                <String>/Public/Jobs/SAS Communities/Pareto</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_output_cas_table" isParameter="true" name="pr485">
+            <DefaultValue>
+                <String>PARETO_RANK</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_executing_message" isParameter="true" name="pr486">
+            <DefaultValue>
+                <String>Calculating Pareto...</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+    </PromptDefinitions>
+    <View>
+        <Section name="vi6" label="Pareto">
+            <Body>
+                <MediaContainer target="mt2">
+                    <ResponsiveLayout orientation="vertical" overflow="fit">
+                        <Weights mediaTarget="mt5" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt4" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt3" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                    </ResponsiveLayout>
+                    <Container ref="ve183" name="vi182">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="shrinkable"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="shrinkable"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                        <ResponsiveLayout orientation="vertical" overflow="grow"/>
+                        <Visual ref="ve21" name="vi20">
+                            <ResponsiveConstraint>
+                                <WidthConstraint>
+                                    <Width mediaTarget="mt3" preferredSizeBehavior="ignore" value="16.67%" flexibility="fixed"/>
+                                </WidthConstraint>
+                                <HeightConstraint>
+                                    <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                                </HeightConstraint>
+                            </ResponsiveConstraint>
+                        </Visual>
+                        <Visual ref="ve83" name="vi82">
+                            <ResponsiveConstraint>
+                                <WidthConstraint>
+                                    <Width mediaTarget="mt3" preferredSizeBehavior="ignore" value="50%" flexibility="fixed"/>
+                                </WidthConstraint>
+                                <HeightConstraint>
+                                    <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                                </HeightConstraint>
+                            </ResponsiveConstraint>
+                        </Visual>
+                        <Visual ref="ve97" name="vi96">
+                            <ResponsiveConstraint>
+                                <WidthConstraint>
+                                    <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                                </WidthConstraint>
+                                <HeightConstraint>
+                                    <Height mediaTarget="mt3" preferredSizeBehavior="ignore" value="18.67%" flexibility="shrinkable"/>
+                                </HeightConstraint>
+                            </ResponsiveConstraint>
+                        </Visual>
+                    </Container>
+                    <Visual ref="ve132" name="vi133">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="ignore" value="47.99%" flexibility="flexible"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve144" name="vi145">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                </MediaContainer>
+            </Body>
+        </Section>
+        <Section name="vi236" label="Data source Info">
+            <Body>
+                <MediaContainer target="mt2">
+                    <ResponsiveLayout orientation="vertical" overflow="fit">
+                        <Weights mediaTarget="mt5" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt4" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt3" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                    </ResponsiveLayout>
+                    <Visual ref="ve238" name="vi237">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve401" name="vi400">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                </MediaContainer>
+            </Body>
+        </Section>
+    </View>
+    <Actions>
+        <NavigationAction type="url" value="https://data.worldbank.org/indicator/NY.GDP.MKTP.CD" label="https://data.worldbank.org/indicator/NY.GDP.MKTP.CD" name="ac247"/>
+    </Actions>
+    <Interactions>
+        <Interaction name="ia168" type="filter" derived="false">
+            <InteractionElementReference purpose="source" ref="ve21" variable="bi26"/>
+            <InteractionElementReference purpose="target" ref="ve97" variable="bi579"/>
+        </Interaction>
+        <Interaction name="ia539" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr484"/>
+            <InteractionElementReference purpose="target" ref="ve97" variable="pr484"/>
+        </Interaction>
+        <Interaction name="ia540" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr485"/>
+            <InteractionElementReference purpose="target" ref="ve97" variable="pr485"/>
+        </Interaction>
+        <Interaction name="ia541" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr486"/>
+            <InteractionElementReference purpose="target" ref="ve97" variable="pr486"/>
+        </Interaction>
+        <Interaction name="ia542" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" ref="ve83" variable="pr161"/>
+            <InteractionElementReference purpose="target" ref="ve132" variable="pr161"/>
+        </Interaction>
+        <Interaction name="ia543" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" ref="ve83" variable="pr161"/>
+            <InteractionElementReference purpose="target" ref="ve144" variable="pr161"/>
+        </Interaction>
+    </Interactions>
+    <MediaSchemes>
+        <MediaScheme name="ms1">
+            <BaseStylesheetResource theme="marine"/>
+            <Stylesheet>
+<![CDATA[
+#ve238 .span1 {
+  color: #3498db;
+}
+]]>
+            </Stylesheet>
+        </MediaScheme>
+    </MediaSchemes>
+    <MediaTargets>
+        <MediaTarget windowSize="default" scheme="ms1" name="mt2"/>
+        <MediaTarget windowSize="small" scheme="ms1" name="mt3"/>
+        <MediaTarget windowSize="medium" scheme="ms1" name="mt4"/>
+        <MediaTarget windowSize="large" scheme="ms1" name="mt5"/>
+    </MediaTargets>
+    <Properties>
+        <Property key="loadedFromXML">true</Property>
+        <Property key="displayDataSource">ds117</Property>
+        <Property key="lastSection">vi6</Property>
+    </Properties>
+    <DataSourceMappings>
+        <InternalDataSourceMapping source="ds7" target="ds117" name="dm154">
+            <InternalColumnMapping source="bi9" target="bi118"/>
+        </InternalDataSourceMapping>
+    </DataSourceMappings>
+    <ExportProperties>
+        <Export destination="pdf">
+            <Property key="showCoverPage" value="true"/>
+            <Property key="showPageNumbers" value="true"/>
+        </Export>
+    </ExportProperties>
+    <History>
+        <Versions>
+            <Version key="4.1.2" lastDate="2020-07-17T22:30:32Z"/>
+        </Versions>
+    </History>
+    <SASReportState>
+        <View/>
+    </SASReportState>
+</SASReport>

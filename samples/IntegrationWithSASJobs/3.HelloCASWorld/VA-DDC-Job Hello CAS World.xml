@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?><SASReport xmlns="http://www.sas.com/sasreportmodel/bird-4.1.2" label="VA-DDC-Job Hello CAS World" createdLocale="en" createdVersion="4.1.2" dateCreated="2020-04-20T23:53:28Z" dateModified="2020-07-17T23:46:02Z" createdApplication="SAS Visual Analytics 8.3" lastModifiedApplication="SAS Visual Analytics 8.3.1" nextUniqueNameIndex="1073">
+    <DataDefinitions>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds7" name="dd427">
+            <BusinessItems>
+                <RelationalDataItem name="bi425" base="bi19"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds7" type="relational" name="dd428">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi425"/>
+                        </Axis>
+                    </Axes>
+                    <SortItems>
+                        <SortItem ref="bi425" sortDirection="ascending"/>
+                    </SortItems>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="buttonBar" maxRowsBehavior="truncate" name="dd426"/>
+                </ResultDefinitions>
+            </DataDefinition>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds7" name="dd442">
+            <BusinessItems>
+                <RelationalDataItem name="bi432" base="bi19"/>
+                <RelationalDataItem name="bi433" base="bi20"/>
+                <RelationalDataItem name="bi438" base="bi12"/>
+                <RelationalDataItem name="bi437" base="bi23"/>
+                <RelationalDataItem name="bi441" base="bi327"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds7" type="relational" name="dd443">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi432"/>
+                            <BusinessItem ref="bi433"/>
+                            <BusinessItem ref="bi438"/>
+                            <BusinessItem ref="bi437"/>
+                            <BusinessItem ref="bi441"/>
+                        </Axis>
+                    </Axes>
+                    <SortItems>
+                        <SortItem ref="bi432" sortDirection="ascending"/>
+                        <SortItem ref="bi433" sortDirection="ascending"/>
+                        <SortItem ref="bi437" sortDirection="ascending"/>
+                    </SortItems>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="listTable" maxRowsBehavior="truncate" name="dd436"/>
+                </ResultDefinitions>
+            </DataDefinition>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds7" name="dd458">
+            <BusinessItems>
+                <RelationalDataItem name="bi446" base="bi20"/>
+                <RelationalDataItem name="bi447" base="bi19"/>
+                <RelationalDataItem name="bi647" base="bi12"/>
+                <RelationalDataItem name="bi826" base="bi23"/>
+                <RelationalDataItem name="bi827" base="bi327"/>
+                <RelationalFilterItem label="Advanced Filter 1" name="bi970">
+                    <EditorProperties>
+                        <Property key="complexity">ADVANCED</Property>
+                    </EditorProperties>
+                    <Expression>and(eq(#{pr341},#{pr341}),eq(#{pr1037},#{pr1037}),eq(#{pr1036},#{pr1036}))</Expression>
+                </RelationalFilterItem>
+            </BusinessItems>
+            <DataDefinition dataSource="ds7" type="procedural" name="dd459">
+                <ProceduralQuery type="standard">
+                    <Arguments>
+                        <ListArgument purpose="column">
+                            <ReferenceValue>bi447</ReferenceValue>
+                            <ReferenceValue>bi446</ReferenceValue>
+                            <ReferenceValue>bi826</ReferenceValue>
+                            <ReferenceValue>bi647</ReferenceValue>
+                            <ReferenceValue>bi827</ReferenceValue>
+                        </ListArgument>
+                    </Arguments>
+                </ProceduralQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="customContent" maxRowsBehavior="truncate" name="dd450"/>
+                    <ResultDefinition purpose="formatted" maxRowsLookup="customContent" maxRowsBehavior="truncate" format="JSONX" name="dd451"/>
+                </ResultDefinitions>
+            </DataDefinition>
+            <AppliedFilters>
+                <DetailFilters>
+                    <BusinessItem ref="bi970"/>
+                </DetailFilters>
+            </AppliedFilters>
+        </ParentDataDefinition>
+        <ParentDataDefinition childQueryRelationship="independent" status="executable" dataSource="ds987" name="dd1003">
+            <BusinessItems>
+                <RelationalDataItem name="bi1006" base="bi991"/>
+                <RelationalDataItem name="bi1007" base="bi992"/>
+                <RelationalDataItem name="bi1008" base="bi988"/>
+                <RelationalDataItem name="bi1009" base="bi989"/>
+                <RelationalDataItem name="bi1010" base="bi990"/>
+            </BusinessItems>
+            <DataDefinition dataSource="ds987" type="relational" name="dd1004">
+                <RelationalQuery detail="false">
+                    <Axes>
+                        <Axis type="column">
+                            <BusinessItem ref="bi1006"/>
+                            <BusinessItem ref="bi1007"/>
+                            <BusinessItem ref="bi1008"/>
+                            <BusinessItem ref="bi1009"/>
+                            <BusinessItem ref="bi1010"/>
+                        </Axis>
+                    </Axes>
+                    <SortItems>
+                        <SortItem ref="bi1006" sortDirection="ascending"/>
+                        <SortItem ref="bi1007" sortDirection="ascending"/>
+                        <SortItem ref="bi1008" sortDirection="ascending"/>
+                    </SortItems>
+                </RelationalQuery>
+                <ResultDefinitions>
+                    <ResultDefinition purpose="primary" maxRowsLookup="listTable" maxRowsBehavior="truncate" name="dd1005"/>
+                </ResultDefinitions>
+            </DataDefinition>
+        </ParentDataDefinition>
+    </DataDefinitions>
+    <DataSources>
+        <DataSource label="CARS" type="relational" name="ds7">
+            <CasResource server="cas-shared-default" library="Public" table="CARS" locale="en_US"/>
+            <BusinessItemFolder>
+                <DataItem name="bi8" xref="Cylinders"/>
+                <DataItem name="bi9" xref="DriveTrain"/>
+                <DataItem name="bi10" xref="EngineSize"/>
+                <DataItem name="bi11" xref="Horsepower"/>
+                <DataItem name="bi12" xref="Invoice" usage="quantitative" format="DOLLAR20."/>
+                <DataItem name="bi13" xref="Length"/>
+                <DataItem name="bi14" xref="Make"/>
+                <DataItem name="bi15" xref="Model"/>
+                <DataItem name="bi16" xref="MPG_City"/>
+                <DataItem name="bi17" xref="MPG_Highway"/>
+                <DataItem name="bi18" xref="MSRP"/>
+                <DataItem name="bi19" xref="Origin"/>
+                <DataItem name="bi20" xref="Type"/>
+                <DataItem name="bi21" xref="Weight"/>
+                <DataItem name="bi22" xref="Wheelbase"/>
+                <PredefinedDataItem calculation="totalCount" name="bi23" label="Frequency" usage="quantitative" format="COMMA12."/>
+                <PredefinedDataItem calculation="totalCountPercent" name="bi24" label="Frequency Percent" usage="quantitative" format="PERCENT20.2"/>
+                <CalculatedItem dataType="double" name="bi327" label="MPG Ratio" usage="quantitative" format="PERCENT12.1" aggregation="average">
+                    <Expression>div(${bi17,raw},${bi16,raw})</Expression>
+                </CalculatedItem>
+                <AggregateCalculatedItem dataType="double" name="bi328" label="Origin Total Invoice" format="DOLLAR12.">
+                    <Expression>aggregateInnerTable(sum,table(sum,groupBy(${bi19,binned}),${bi12,raw}))</Expression>
+                </AggregateCalculatedItem>
+            </BusinessItemFolder>
+        </DataSource>
+        <DataSource label="CARS_COPY" type="relational" name="ds987">
+            <CasResource server="cas-shared-default" library="CASUSER" table="CARS_COPY" locale="en_US"/>
+            <BusinessItemFolder>
+                <DataItem name="bi988" xref="Frequency"/>
+                <DataItem name="bi989" xref="Invoice"/>
+                <DataItem name="bi990" xref="MPG_Ratio"/>
+                <DataItem name="bi991" xref="Origin"/>
+                <DataItem name="bi992" xref="Type"/>
+                <PredefinedDataItem calculation="totalCount" name="bi993" label="Frequency" usage="quantitative" format="COMMA12."/>
+                <PredefinedDataItem calculation="totalCountPercent" name="bi994" label="Frequency Percent" usage="quantitative" format="PERCENT20.2"/>
+            </BusinessItemFolder>
+        </DataSource>
+    </DataSources>
+    <VisualElements>
+        <Prompt ref="pr429" name="ve430" label="Button Bar - Origin 1" selectionDisabled="true" applyDynamicBrushes="promptsOnly" sourceInteractionVariables="bi425">
+            <EditorProperties>
+                <Property key="autoChartCategory">CONTROL</Property>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+            <LinkBar/>
+        </Prompt>
+        <Table columnSizing="autoFill" resultDefinitions="dd436" name="ve444" data="dd442" label="List table - Source" applyDynamicBrushes="yes" sourceInteractionVariables="bi432 bi433">
+            <EditorProperties>
+                <Property key="isAutoLabel">false</Property>
+            </EditorProperties>
+            <Title><P><Span>Visualization of the aggregated table being passed to DDC (and then to the Job) in JSON format</Span></P></Title>
+            <Columns>
+                <Column variable="bi432" isVisible="true"/>
+                <Column variable="bi433" isVisible="true"/>
+                <Column variable="bi437" isVisible="true" compactFormat="false"/>
+                <Column variable="bi438" isVisible="true" compactFormat="false"/>
+                <Column variable="bi441" isVisible="true" compactFormat="false"/>
+            </Columns>
+        </Table>
+        <WebContent url="http://your.host.name/SASJobExecution/?_program=/Public/Jobs/SAS Communities/HelloCASWorld" webContentType="webDataContent" supplementalVisuals="ve460" resultDefinitions="dd450 dd451" name="ve461" data="dd458" label="Data-Driven Content - Origin 1" applyDynamicBrushes="yes" sourceInteractionVariables="bi446 bi447">
+            <EditorProperties>
+                <Property key="isAutoLabel">true</Property>
+            </EditorProperties>
+            <Title><P><Span>Job output is saved in CAS table. This DDC doesn't generate any visible output and could be hidden or made really small, although keeping it visible could be interesting to check status messages.</Span></P></Title>
+        </WebContent>
+        <Table columnSizing="autoFill" resultDefinitions="dd450" name="ve460" data="dd458" applyDynamicBrushes="yes">
+            <Columns>
+                <Column variable="bi447"/>
+                <Column variable="bi446"/>
+                <Column variable="bi826"/>
+                <Column variable="bi647"/>
+                <Column variable="bi827"/>
+            </Columns>
+        </Table>
+        <Text name="ve929" label="Text 1" selectionDisabled="true" applyDynamicBrushes="no">
+            <P><Span>Job output table is loaded in memory in the CASUSER library</Span></P>
+        </Text>
+        <Table columnSizing="autoFill" resultDefinitions="dd1005" refresh="fixed" refreshRate="2" name="ve1002" data="dd1003" label="List table - Job output" applyDynamicBrushes="yes" sourceInteractionVariables="bi1006 bi1007">
+            <EditorProperties>
+                <Property key="isAutoLabel">false</Property>
+            </EditorProperties>
+            <Title><P><Span>Visualization of the table created by the job</Span></P></Title>
+            <Columns>
+                <Column variable="bi1006" isVisible="true"/>
+                <Column variable="bi1007" isVisible="true"/>
+                <Column variable="bi1008" isVisible="true" compactFormat="false"/>
+                <Column variable="bi1009" isVisible="true" compactFormat="false"/>
+                <Column variable="bi1010" isVisible="true" compactFormat="false"/>
+            </Columns>
+        </Table>
+    </VisualElements>
+    <PromptDefinitions>
+        <PromptDefinition label="_job_output_cas_table" isParameter="true" name="pr341">
+            <DefaultValue>
+                <String>CARS_COPY</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition data="dd427" labelVariable="bi425" valueVariable="bi425" resultDefinitions="dd426" name="pr429">
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_wait_refresh_not_used_future" isParameter="true" format="BEST12." name="pr1024">
+            <DefaultValue>
+                <Number type="double" value="1000.0"/>
+            </DefaultValue>
+            <NumericConstraint min="0.0" max="10000.0" minInclusive="true" maxInclusive="true"/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_executing_message" isParameter="true" name="pr1036">
+            <DefaultValue>
+                <String>Waiting for job to finish...</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+        <PromptDefinition label="_job_name" isParameter="true" name="pr1037">
+            <DefaultValue>
+                <String>/Public/Jobs/SAS Communities/HelloCASWorld</String>
+            </DefaultValue>
+            <StringConstraint/>
+        </PromptDefinition>
+    </PromptDefinitions>
+    <View>
+        <Section name="vi496" label="HelloCASWorld">
+            <Body>
+                <MediaContainer target="mt2">
+                    <ResponsiveLayout orientation="vertical" overflow="fit">
+                        <Weights mediaTarget="mt5" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt4" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                        <Weights mediaTarget="mt3" unit="percent">
+                            <Weight value="100%"/>
+                        </Weights>
+                    </ResponsiveLayout>
+                    <Visual ref="ve929" name="vi928">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve430" name="vi431">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="shrinkable"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="honor" flexibility="fixed"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve444" name="vi445">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="ignore" value="29.78%" flexibility="shrinkable"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve461" name="vi462">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="ignore" value="25.38%" flexibility="shrinkable"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                    <Visual ref="ve1002" name="vi1001">
+                        <ResponsiveConstraint>
+                            <WidthConstraint>
+                                <Width mediaTarget="mt3" preferredSizeBehavior="ignore" flexibility="flexible"/>
+                            </WidthConstraint>
+                            <HeightConstraint>
+                                <Height mediaTarget="mt3" preferredSizeBehavior="ignore" value="31.25%" flexibility="flexible"/>
+                            </HeightConstraint>
+                        </ResponsiveConstraint>
+                    </Visual>
+                </MediaContainer>
+            </Body>
+        </Section>
+    </View>
+    <Interactions>
+        <Interaction name="ia497" type="filter" derived="false">
+            <InteractionElementReference purpose="source" ref="ve430" variable="bi425"/>
+            <InteractionElementReference purpose="target" ref="ve444" variable="bi432"/>
+        </Interaction>
+        <Interaction name="ia498" type="filter" derived="false">
+            <InteractionElementReference purpose="source" ref="ve430" variable="bi425"/>
+            <InteractionElementReference purpose="target" ref="ve461" variable="bi447"/>
+        </Interaction>
+        <Interaction name="ia1070" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr341"/>
+            <InteractionElementReference purpose="target" ref="ve461" variable="pr341"/>
+        </Interaction>
+        <Interaction name="ia1071" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr1036"/>
+            <InteractionElementReference purpose="target" ref="ve461" variable="pr1036"/>
+        </Interaction>
+        <Interaction name="ia1072" type="parameter" dataStage="detail" derived="true">
+            <InteractionElementReference purpose="source" variable="pr1037"/>
+            <InteractionElementReference purpose="target" ref="ve461" variable="pr1037"/>
+        </Interaction>
+    </Interactions>
+    <MediaSchemes>
+        <MediaScheme name="ms1">
+            <BaseStylesheetResource theme="marine"/>
+            <Stylesheet><![CDATA[]]></Stylesheet>
+        </MediaScheme>
+    </MediaSchemes>
+    <MediaTargets>
+        <MediaTarget windowSize="default" scheme="ms1" name="mt2"/>
+        <MediaTarget windowSize="small" scheme="ms1" name="mt3"/>
+        <MediaTarget windowSize="medium" scheme="ms1" name="mt4"/>
+        <MediaTarget windowSize="large" scheme="ms1" name="mt5"/>
+    </MediaTargets>
+    <Properties>
+        <Property key="loadedFromXML">true</Property>
+        <Property key="displayDataSource">ds987</Property>
+        <Property key="lastSection">vi496</Property>
+    </Properties>
+    <DataSourceMappings>
+        <InternalDataSourceMapping source="ds7" target="ds987" name="dm1013">
+            <InternalColumnMapping source="bi20" target="bi992"/>
+            <InternalColumnMapping source="bi19" target="bi991"/>
+        </InternalDataSourceMapping>
+    </DataSourceMappings>
+    <ExportProperties>
+        <Export destination="pdf">
+            <Property key="showCoverPage" value="true"/>
+            <Property key="showPageNumbers" value="true"/>
+        </Export>
+    </ExportProperties>
+    <History>
+        <Versions>
+            <Version key="4.1.2" lastDate="2020-07-17T22:30:32Z"/>
+        </Versions>
+    </History>
+    <SASReportState>
+        <View/>
+    </SASReportState>
+</SASReport>
