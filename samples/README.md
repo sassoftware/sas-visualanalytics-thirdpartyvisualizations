@@ -8,3 +8,4 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 ---
 ### Notes:
 1. Due to recent [security measures for sandboxed iframes](https://www.chromestatus.com/feature/5706745674465280) adopted by Chrome browsers that removed download capability, `export2CSV.html` will only work with Chrome in VA 8.5.1.
+2. Example `d3_FunnelChart.html` requires `d3-funnel.js`. This funnel chart implementation was obtained from https://github.com/jakezatecky/d3-funnel
