@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<!--
+Copyright 2020 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="./github/util/messagingUtil.js"></script>
+    <script type="text/javascript" src="./github/util/contentUtil.js"></script>
+
+    <style>
+
+		html {
+			overflow: hidden;
+		}
+        html, body, div {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        div {
+            position: relative;
+        }
+
+		.gen_btn{
+			padding:8px;
+            background-color:#0378cd;
+			color:white;
+			font-family:arial;
+			font-size:13px;
+            border:0px;
+            border-radius:4px;
+		}
+
+		.gen_btn:hover{
+            background-color:#0494fb;
+			cursor:pointer;
+		}
+
+    </style>
+
+    <script type="text/javascript">
+		"use strict";
+		window.$ = window.parent.$;
+
+		var _resultData = null;
+		var _resultName = null;
+		var _selections = null;
+		var _data = null;
+
+        // This is used to take advantage of Google's NumberFormat function
+        google.charts.load('current', {'packages':['corechart']});
+
+        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+
+		// Retrieve data and store message received from VA
+        function onDataReceived(resultData)
+        {
+			_data = null;
+			_resultData = resultData;
+			_resultName = resultData.resultName;
+
+			if (!_resultData.data.length) {
+				va.messagingUtil.postInstructionalMessage(
+					_resultName,
+					"Optional parameters:\n"+
+					"(1) _downloaded_file_name\n"+
+					"(2) _show_column_labels (YES/NO)\n"+
+					"(3) _transpose_data (YES/NO)"
+				);
+				return;
+			}
+
+		}
+
+
+		function treatMissingValues(data, columns) {
+			for (var c = 0; c < columns.length; c++) {
+				var colInfo = columns[c];
+				if (colInfo.type == "string") {
+					for (var r = 0; r < data.length; r++) {
+						if (data[r][c] == "(missing)") data[r][c] = "";
+					}
+				}
+			}
+		}
+
+
+		// Returns JSON:
+		// [{<col0-label>:<col0-row0>, ..., <colC-label>:<colC-row0>}, ..., {<col0-label>:<col0-rowR>, ..., <colC-label>:<colC-rowR>}]
+		function createFormattedJSON (data, columns) {
+			var dataArray = [];
+			for (var r=0; r < data.length; r++) {
+				dataArray.push({});
+				for (var c=0; c < data[r].length; c++) {
+					var formatter = getNumberFormatter(columns[c]);
+					dataArray[r][columns[c].label] = (formatter ? formatter.formatValue(data[r][c]) : data[r][c]);
+				}
+			}
+			return dataArray;
+		}
+
+
+		function getNumberFormatter (colInfo)
+		{
+			var formatter = null;
+			if (colInfo.format)
+			{
+				if (colInfo.format.name == "DOLLAR")
+				{
+					formatter = new google.visualization.NumberFormat({
+						prefix: '$',
+						fractionDigits: colInfo.format.precision
+					});
+				}
+				else if (colInfo.format.name == "COMMA")
+				{
+					formatter = new google.visualization.NumberFormat({
+						fractionDigits: colInfo.format.precision
+					});
+				}
+				else if (colInfo.format.name == "F")
+				{
+					formatter = new google.visualization.NumberFormat({
+						groupingSymbol: '',
+						fractionDigits: colInfo.format.precision
+					});
+				}
+				else if (colInfo.format.name == "PERCENT")
+				{
+					var pattern = '#,###';
+					if (colInfo.format.precision > 0)
+					{
+						pattern += ".";
+						for (var j = 0; j < colInfo.format.precision; j++)
+							pattern += "#";
+					}
+
+					pattern += "%";
+					formatter = new google.visualization.NumberFormat({
+						pattern: pattern
+					});
+				}
+			}
+			return formatter;
+		}
+
+
+		// Code below based on: http://jsfiddle.net/hybrid13i/JXrwM/
+		function JSONToCSV(JSONData, ShowHeader, Transpose) {
+			// If JSONData is not an object then JSON.parse will parse the JSON string in an Object
+			var arrData = typeof JSONData != 'object' ? JSON.parse(JSONData) : JSONData;
+
+			var CSV = '';
+
+			if (Transpose) {
+				// [{<col0-label>:<col0-row0>, ..., <colC-label>:<colC-row0>}, ..., {<col0-label>:<col0-rowR>, ..., <colC-label>:<colC-rowR>}]
+				// 1st loop is to extract each column
+				for (var c = 0; c < Object.keys(arrData[0]).length; c++) {
+					var row = "";
+
+					var colName = Object.keys(arrData[0])[c];
+					if (ShowHeader) {
+						row += '"' + colName + '",';
+					}
+
+					// 2nd loop will extract each row value and convert it to comma-seprated strings
+					for (var r=0; r < arrData.length; r++) {
+						row += '"' + arrData[r][colName] + '",';
+					}
+					// remove the extra comma at the end
+					row = row.slice(0, - 1);
+
+					// add a line break after each row
+					CSV += row + '\r\n';
+				}
+			}
+			else {
+				// This condition will generate the Label/Header
+				if (ShowHeader) {
+					var row = "";
+
+					// This loop will extract the column labels (keys) from 1st object of the array
+					for (var key in arrData[0]) {
+
+						//Now convert each value to string and comma-seprated
+						row += '"' + key + '",';
+					}
+					// remove the extra comma at the end
+					row = row.slice(0, -1);
+
+					// append Label row with line break
+					CSV += row + '\r\n';
+				}
+
+				// 1st loop is to extract each row
+				for (var i = 0; i < arrData.length; i++) {
+					var row = "";
+
+					// 2nd loop will extract each column value and convert to comma-seprated strings
+					for (var key in arrData[i]) {
+						row += '"' + arrData[i][key] + '",';
+					}
+					// remove the extra comma at the end
+					row = row.slice(0, - 1);
+
+					// add a line break after each row
+					CSV += row + '\r\n';
+				}
+			}
+
+			return CSV;
+		}
+
+
+		function DownloadCSV (CSV, FileName) {
+			// Set Report title in first row or line
+
+			// Generate a file name
+			var fileName = "MyReport";
+
+			if (FileName != "") {
+				// This will remove the blank-spaces from the title and replace it with an underscore
+				fileName = FileName.replace(/ /g,"_");
+			}
+
+			// Initialize file format you want csv or xls
+			var uri = 'data:text/csv;charset=utf-8,' + escape(CSV);
+			//var uri = 'data:application/octet-stream,' + escape(CSV); // arbitrary binary data
+
+			// Now the little tricky part.
+			// you can use either>> window.open(uri);
+			// but this will not work in some browsers
+			// or you will not get the correct file extension
+
+			//this trick will generate a temp/hidden <a /> tag and programmatically click on the link
+			var link = document.createElement("a");
+			link.href = uri;
+
+			//set the visibility hidden so it will not affect on your web-layout
+			link.style = "visibility:hidden";
+			link.download = fileName + ".csv";
+
+			//this part will append the anchor tag and remove it after automatic click
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}
+
+
+		function download () {
+			_selections = va.contentUtil.initializeSelections(_resultData); // needed to remove eventual brush columns
+
+            // Process result data: leave data in the right format for downloading
+			treatMissingValues(_resultData.data, _resultData.columns);
+
+			// Two options: transposed or not - this could be a parameter to the DDC
+			// Uncomment the desired option
+			//
+			// Transposed option:
+            // data = createTransposedFormattedJSON(_resultData.data, _resultData.columns);
+			// console.log("formatted and transposed:", data);
+			//
+			// Not transposed option (default tabular view):
+            var data = createFormattedJSON(_resultData.data, _resultData.columns);
+			console.log("formatted (not transposed):", data);
+
+			if(!data.length)
+				return;
+
+			var vaParameters = va.contentUtil.getVAParameters(_resultData);
+			var fileName     = vaParameters._downloaded_file_name;
+			var showHeader   = vaParameters._show_column_labels;
+			var transpose    = vaParameters._transpose_data;
+
+			if (!fileName)   fileName = "DownloadedFromVA";
+			if (!showHeader) showHeader = "YES";
+			showHeader       = (showHeader == 'YES');
+			if (!transpose)  transpose = "NO";
+			transpose        = (transpose == 'YES');
+
+			var csv = JSONToCSV(data, showHeader, transpose);
+
+			console.log("DOWNLOADING...");
+			DownloadCSV(csv, fileName);
+			console.log("DONE!");
+		}
+    </script>
+  </head>
+  <body>
+     <div>
+		<button class='gen_btn' onclick="download()">Download file</button>
+	 </div>
+  </body>
+</html>
