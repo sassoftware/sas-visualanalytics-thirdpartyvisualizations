@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<!--
+Copyright 2020 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+  <head>
+	<script src="https://d3js.org/d3.v4.min.js"></script>
+	<script src="./d3-funnel.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+
+    <style>
+
+		html {
+			overflow: hidden;
+		}
+
+		html, body, #ddc_chart {
+			margin: 0px;
+			padding: 0px;
+			height: 100%;
+			width: 100%;
+		}
+
+		#ddc_chart {
+            position: relative;
+			border-style: none;
+			border-width: 0px;
+		}
+
+	</style>
+
+  </head>
+  <body>
+    <div id="ddc_chart"></div>
+
+    <script type="text/javascript">
+		"use strict";
+
+		// Funnel Chart implementation from:
+		// https://github.com/jakezatecky/d3-funnel
+
+		// This DDC implementation accepts filter and brushing actions and it's able to filter and brush other VA objects
+
+		//Funnel chart options
+		var _OPTIONS = {
+			chart: {
+			    // width of the chart - defaults to container's width (if non-zero)
+			    //width: 350,   
+			    // height of the chart - defaults to container's height (if non-zero)
+			    //height: 400,
+			    // The percent of total width the bottom should be
+			    bottomWidth: 1/3,
+			    // How many blocks to pinch on the bottom to create a funnel "neck"
+			    bottomPinch: 2, 
+			    // Whether the funnel is inverted
+			    inverted: false,
+				// The load animation speed in milliseconds, 0 = disabled
+				animate: 0,
+				curve: {
+				    // Whether the funnel is curved
+				    enabled: false,  
+				    // The curvature amount
+				    height: 30
+				},
+				// Override the total count used in ratio calculations
+				totalCount: null
+			},
+			block: {
+			    // Whether the funnel should calculate the blocks by
+			    // the count values rather than equal heights
+			    dynamicHeight: true, 
+				// Whether the block widths are proportional to their value decrease
+				dynamicSlope: false,
+				// Whether the blocks have bar chart overlays proportional to its weight
+				barOverlay: false,
+				fill: {
+					// The background color scale as an array or function. Default: d3.schemeCategory10
+					//scale: ["#4287f5", "#a142f5", "#f542ec", "#f5428d", "#f54242"],
+					// other example: ["#0d94a6", "#0da615", "#b09e00", "#e08300", "#e02500"]
+				    // Either "solid" or "gradient"
+					type: 'solid'
+				},
+				// The minimum pixel height of a block
+				minHeight: 15,
+			    // Whether the funnel has effects on hover
+				highlight: true
+			},
+		    label: {
+				// Whether the block labels should be displayed.
+				enabled: true,
+				// Any valid font family for the labels. Default: null
+				fontFamily: 'arial',
+		        // Any valid font size. Default: '14px'
+		        fontSize: "14px",
+				// Any valid hex color for the label color. Default: '#fff'
+				fill: '#fff',
+				// Either function(label, value) or a format string. Example of function: percentFormat defined below
+				format: '{l}: {f}'
+		    },
+			tooltip: {
+				// Whether tooltips should be enabled on hover
+				enabled: false,
+				// Either function(label, value) or a format string
+				format: '{l}: {f}'
+
+			},
+			events: {
+				click: {
+					// Callback function(data) for when a block is clicked. Default: null
+					// e.g.:
+					// function (data) {
+					//	selectBlock(data);
+					// }
+					block: null // We need need access to additional information to fully implement selections (brushing and filter) from/to VA,
+					            // so we are not leveraging this callback feature. We implemented our own.
+				}
+			}
+		};
+
+
+		function percentFormat (label, value) {
+			var percentage = value * 100;
+			return label + ': ' + percentage.toFixed(2) + '%';
+		}
+
+
+		// This dummy table will be used as a placeholder while the Data-Driven Content object roles are not set
+		var _dummyDataTable = [
+						{ label: 'Applicants', value: 5000 },
+						{ label: 'Pre-screened', value: 2500 },
+						{ label: 'Interviewed', value: 500 },
+						{ label: 'Hired', value: 200 }
+					];
+
+		// Global variables
+        var _VAMessage = null; 				// this is a pointer to event.data coming from VA
+		var _resultName = null;				// this holds the id used to send messages back to VA
+		var _dataTable = null; 				// this holds the data as an array of ordered objects
+		var _selectionMappingD3toVA = null; // this holds the data order in the D3 object and the VA message, ordered by D3
+		var _selectionMappingVAtoD3 = null; // this holds the data order in the D3 object and the VA message, ordered by how they were received from VA
+		var _chart = null;					// this points to the chart object
+		var _selections = [];				// this contains the linked selections (brush) coming from VA
+
+		// Copy to preserve the original options because color can change based on the data and we may need to reset if data changes
+		var _optionsCopy = deepCopy(_OPTIONS);
+
+
+		var _STROKE_WIDTH = "4.0px";
+
+		// Set up event listener for messages from VA to DDC
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+		// Set up event listener for resizes
+		va.contentUtil.setupResizeListener(drawChart);
+		drawChart();
+
+
+		function drawChart() {
+			//console.log("********************drawChart************************");
+			if (_chart) _chart.destroy();
+
+			// If there is data reveived from VA (roles properly assigned), use it, otherwise use hard coded dummy data as placeholder
+			var dataTable = (_dataTable ? _dataTable : _dummyDataTable);
+			console.log("dataTable=",dataTable);
+
+			// This prevents the funnel to be represented as rectangles (bottom of the funnel) when there is not enough data points to draw
+			if (dataTable.length <= _OPTIONS.chart.bottomPinch) {
+			  _optionsCopy.chart.bottomPinch = 0;
+			}
+			else {
+			  _optionsCopy.chart.bottomPinch = _OPTIONS.chart.bottomPinch;
+			}
+
+			_chart = new D3Funnel("#ddc_chart");
+			console.log("_chart=",_chart);
+			_chart.draw(dataTable, _optionsCopy);
+			// Apply selections after drawing the chart
+			applySelections();
+			//Set event listeners for clicking on blocks and on the background
+			d3.selectAll("g path").on('click', function(d,i){selectBlock(d, i);});
+			d3.select("#ddc_chart").on("click", function(d,i){deselectAllBlocks(d, i);});
+		}
+
+
+		// Apply selections according to message received from VA (other VA objects brushing the DDC)
+		//
+		function applySelections() {
+			// Deselect all blocks to reset
+			d3.selectAll("g path").classed("block-selected", false).style("stroke", null).style("stroke-width", null);
+			// Highlight selected blocks
+			if (_selections) {
+				_selections.forEach(function(selection) {
+					var i = _selectionMappingVAtoD3[selection.row].d3order + 1; // D3 :nth-of-type is one-based
+					d3.select("g:nth-of-type(" + i + ") path")
+						.classed("block-selected", true)
+						.style("stroke", function(d){return d3.rgb(d3.select(this).attr("fill")).darker(1);}) // same fill color, but darker
+						.style("stroke-width", _STROKE_WIDTH);
+				});
+			}
+		}
+
+
+		//
+		// Event handlers for interactions with the Funnel chart
+		//
+
+		// Called when clicked on the chart background
+		//
+		function deselectAllBlocks(d, i) {
+			d3.selectAll("g path").classed("block-selected", false).style("stroke", null).style("stroke-width", null);
+			va.messagingUtil.postSelectionMessage(_resultName, []);
+		}
+
+
+		// Called when clicked on a block
+		// Data brushing from Data-Driven Object to other VA objects
+		//
+		function selectBlock(data){
+			d3.event.stopPropagation();
+			//console.log("********************selectBlock Handler************************");
+			//console.log("data=",data);
+			var clickedBlock = data.node;
+			console.log("clickedBlock=", clickedBlock);
+			if (!_VAMessage) return;
+
+			var blocks = d3.selectAll("g path");
+			// Save the selection state of the clicked block
+			var selectedFlag = d3.select(clickedBlock).classed("block-selected");
+			console.log("selectedFlag=", selectedFlag);
+
+			if (d3.event.ctrlKey) {
+				// Block was clicked on with Ctrl key pressed...
+				// Change selection state of selected block
+				d3.select(clickedBlock)
+					.classed("block-selected", !selectedFlag)
+					.style("stroke", (!selectedFlag ? function(d){return d3.rgb(d3.select(this).attr("fill")).darker(1);} : null))
+					.style("stroke-width", (!selectedFlag ? _STROKE_WIDTH : null));
+			}
+			else {
+				// Block was clicked without Ctrl key pressed...
+				// Clear all selections to reset
+				blocks.classed("block-selected", false).style("stroke", null).style("stroke-width", null);
+				// Change selection state of selected block
+				d3.select(clickedBlock)
+					.classed("block-selected", !selectedFlag)
+					.style("stroke", (!selectedFlag ? function(d){return d3.rgb(d3.select(this).attr("fill")).darker(1);} : null))
+					.style("stroke-width", (!selectedFlag ? _STROKE_WIDTH : null));
+			}
+
+			// Send selections back to VA
+			var selections = [];
+			d3.selectAll("g path").each(function(d,i){
+				if (d3.select(this).classed("block-selected")) {
+					selections.push({row: _selectionMappingD3toVA[i].vaorder});
+				}
+			});
+			va.messagingUtil.postSelectionMessage(_resultName, selections);
+		}
+
+
+		//
+		// Event handler for interactions coming from VA objects
+		//
+
+		// Called when new data comes to the DDC
+		// VA objects filtered/brushed it, or role assignment changed
+		//
+		function onDataReceived(messageFromVA) {
+			//console.log("********************onDataReceived************************");
+			//console.log(messageFromVA);
+
+			_VAMessage = messageFromVA;
+			_resultName = messageFromVA.resultName;
+			// Extract selections (if any) and reformat the data to eliminate the column that indicates "brush"
+			//console.log("--------------------createSelections------------------------");
+			_selections = va.contentUtil.initializeSelections(messageFromVA);
+			//console.log("_selections=",_selections);
+
+			// Validate message contains right attributes
+			// e.g. Google Calendar expects a DataTable object with 2 columns, in this order: date and number
+			//console.log("--------------------validateRoles------------------------");
+			if (!va.contentUtil.validateRoles(messageFromVA, ["string","number"], ["number","string"])) {
+				va.messagingUtil.postInstructionalMessage(_resultName,
+					"Funnel chart expects columns to be assigned in this order:\n" +
+					" 1. Block label (string)\n" +
+					" 2. Block value (number)\n" +
+					" 3. Block order (number, optional)\n" +
+					" 4. Block color (string, optional)");
+				return;
+			}
+
+			// Reset the options to the originals
+			_optionsCopy = deepCopy(_OPTIONS);
+
+			// Transform data as required by target chart
+			//console.log("--------------------convertData------------------------");
+			convertData(messageFromVA);
+
+			// Refresh chart
+			drawChart();
+		}
+
+
+		// Transform input data into an array of objects: {label:, value:, order:, color:}
+		// Funnel chart only requires label and value, the last two attributes are optional
+		//     _dataTable contains the data to be passed to funne chart
+		//     _selectionMappingD3toVA (array of objects {d3order:, vaorder:}) is used to map selected D3 block indexes into VA data indexes
+		//     _selectionMappingVAtoD3 (array of objects {d3order:, vaorder:}) is used to map selected VA data indexes into D3 block indexes
+		//
+		function convertData(messageFromVA) {
+			var arrayData = messageFromVA.data;
+			var columnsInfo = messageFromVA.columns;
+			var numCols = columnsInfo.length;
+
+			// Transform input data into an array of objects: {label:, value:, order:, color:}
+			_dataTable = [];
+			_selectionMappingD3toVA = [];
+			_selectionMappingVAtoD3 = [];
+			if (numCols >= 4) _optionsCopy.block.fill.scale = []; // overwites the scale to be the array of colors provided by VA data
+
+			for (var i = 0; i < arrayData.length; i++) {
+				_dataTable.push({label: arrayData[i][0],
+				                  value: arrayData[i][1],
+								  order: (numCols >= 3 ? arrayData[i][2] : i),
+								  color: (numCols >= 4 ? arrayData[i][3] : null)});
+				_selectionMappingD3toVA.push({d3order: (numCols >= 3 ? arrayData[i][2] : i), vaorder: i});
+			}
+
+			if (numCols >= 3) {
+				// Sort transformed input data array by attribute order
+				_dataTable.sort(compareValues('order'));
+				_selectionMappingD3toVA.sort(compareValues('d3order')); // after sorting, the array indexes are aligned with d3order
+			}
+
+			_selectionMappingD3toVA.forEach(function(mapping,i) {
+				mapping.d3order = i; // change d3order values to be zero-based
+				//_selectionMappingVAtoD3.push({d3order: i, vaorder: mapping.vaorder}); // initialize array VAtoD3 as a copy of D3toVA
+				if (numCols >= 4) _optionsCopy.block.fill.scale.push(_dataTable[i].color); // take advantage of the loop to create the array of block colors
+			});
+			_selectionMappingVAtoD3 = deepCopy(_selectionMappingD3toVA);
+			_selectionMappingVAtoD3.sort(compareValues('vaorder')); // after sorting, the array indexes are aligned with vaorder
+
+			//console.log("_dataTable=", _dataTable);
+			//console.log("_selectionMappingD3toVA=", _selectionMappingD3toVA);
+			//console.log("_selectionMappingVAtoD3=", _selectionMappingVAtoD3);
+		}
+
+
+		// https://www.sitepoint.com/sort-an-array-of-objects-in-javascript/
+		// Function used to custom sort an array.
+		// Array of basic types: [1, 2, 'a', 'b', 'ab12cd']
+		// OR
+		// Array of objects: [{key1: x1, key2: x2, key3: x3}, {key1: y1, key2: y2, key3: y3}, {key1: z1, key2: z2, key3: z3}]
+		//
+		function compareValues(key, order='asc') {
+		  return function(a, b) {
+			var varA;
+			var varB;
+			if (key == null) { // This is an array of basic types
+				varA = (typeof a === 'string') ? a.toUpperCase() : a;
+				varB = (typeof b === 'string') ? b.toUpperCase() : b;
+			}
+			else { // This is a an array of objects
+				if (!a.hasOwnProperty(key) || !b.hasOwnProperty(key)) {
+					return 0;
+				}
+				varA = (typeof a[key] === 'string') ? a[key].toUpperCase() : a[key];
+				varB = (typeof b[key] === 'string') ? b[key].toUpperCase() : b[key];
+			}
+
+			let comparison = 0;
+			if (varA > varB) {
+				comparison = 1;
+			} else if (varA < varB) {
+				comparison = -1;
+			}
+			return (
+				(order == 'desc') ?
+				(comparison * -1) : comparison
+			);
+		  };
+		}
+
+
+		// https://www.codementor.io/avijitgupta/deep-copying-in-js-7x6q8vh5d
+		//
+		function deepCopy (o) {
+			if (o === null) return null;
+			var output, v, key;
+			output = Object.prototype.toString.call(o) == '[object Object]' ? {} : [];
+			for (key in o) {
+				v = o[key];
+				output[key] = (typeof v === "object") ? deepCopy(v) : v;
+			}
+			return output;
+ 		}
+
+    </script>
+
+	</body>
+</html>
