@@ -2,6 +2,8 @@
 
 This project contains code samples that can be used as data-driven content within a SAS Visual Analytics (VA) report. For additional information, see [Programming Considerations for Data-Driven Visualizations](http://go.documentation.sas.com/?cdcId=vacdc&cdcVersion=8.2&docsetId=varef&docsetTarget=n109mqtyl6quiun1mwfgtcn2s68b.htm&locale=en).
 
+The JavaScript content for your third-party visualizations must be stored on a web server. One approach to hosting is to use Node.js. For more information about using Node.js for data-driven content, see [Deploy a custom web application in the cloud for Data-Driven Content object in SAS Viya 4](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-a-custom-web-application-in-the-cloud-for-Data-Driven/ta-p/687141).
+
 ---
 ## util/messagingUtil.js
 
