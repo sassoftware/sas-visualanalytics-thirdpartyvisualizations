@@ -1,7 +1,7 @@
 # Data Editor for CAS tables
 
 When using this page as a data driven content object in VA ensure you have:
-- Added all of your ID variables and editable columns to the roles of the object 
+- Added all of your ID variables and columns you wish to edit to the roles of the DDC object 
 - set a Linked Selection type Object Link Action from another object on the same page, driving a single row selection.  That object must have roles assigned for at least all of the ID variables.  A list table is the easiest option.
 
 ## Url Parameters:
@@ -25,7 +25,7 @@ The table has 4 columns:
 
 
 Example SAS code for setting up a lookup table for the Origin column of the CARS data set.  You would make use of this by applying the following URL Query Parameters:
-?caslib=PUBLIC&castab=CARS&&maptab=CARMAP&id_columns=Make,Model
+?caslib=PUBLIC&castab=CARS&maptab=CARMAP&id_columns=Make,Model
 
 ```SAS
 cas casauto;
