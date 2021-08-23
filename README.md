@@ -51,17 +51,17 @@ _Usage:_
 ```javascript
 va.messagingUtil.postMessage(objMessage)
 ```
-* `objMessage` is an object that contains either the selection or the instructional message to be sent to VA. Functions  `postSelectionMessage` and `postInstructionalMessage` are wrappers for this function. 
-Example of selection message:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`resultName: "dd46",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`selections: [0, 3, 4]`
-`}`
-Example of instructional message:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`resultName: "dd34",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`message: "Please, assign 
-proper roles"`
+* `objMessage` is an object that contains either the selection or the instructional message to be sent to VA. Functions  `postSelectionMessage` and `postInstructionalMessage` are wrappers for this function.   
+Example of selection message:   
+`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`resultName: "dd46",`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`selections: [0, 3, 4]`   
+`}`   
+Example of instructional message:   
+`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`resultName: "dd34",`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`message: "Please, assign
+proper roles"`   
 `}`
 
 ### getUrlParams
@@ -131,7 +131,7 @@ va.contentUtil.convertDateColumns(resultData)
 
 ### getVAParameters
 
-Extracts parameter information from message received from VA. 
+Extracts parameter information from message received from VA.
 
 _Usage:_
 ```javascript
@@ -252,9 +252,9 @@ It contains the functions you need to create CAS sessions and execute CAS action
 ```
 ### startCasSession
 
-Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It uses the following endpoints internally: 
+Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It uses the following endpoints internally:
 VA 8.3 and above on SAS Viya 3.4:
-`/casManagement/servers` and `/casProxy/servers/<serverName>/cas/sessions`
+`/casManagement/servers` and `/casProxy/servers/<serverName>/cas/sessions`   
 VA 8.5 on SAS Viya 3.5:
 `/casManagement/servers` and `/casManagement/servers/<serverName>/sessions`
 
@@ -264,13 +264,13 @@ va.casUtil.startCasSession().then(function(sessionInfo){...})
 ```
 * Alias: `startSession`
 * Uses `getCasServerName` and `getAppVersion` internally
-* Returns a promise for `sessionInfo`, an object containing CAS server name, CSRF token of the service used to create the session (casManagement or casProxy, depending on the VA version), session id, and session owner user id. For example:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`casServerName: 'cas-shared-default',`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`csrfToken: 'f00cc954-040b-4407-b5ac-75a22df56ca3',`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sessionId: '233c1c87-2016-1a41-8e99-461233aa306f',`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`userId: 'sasxyz'`
-`}` 
+* Returns a promise for `sessionInfo`, an object containing CAS server name, CSRF token of the service used to create the session (casManagement or casProxy, depending on the VA version), session id, and session owner user id. For example:   
+`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`casServerName: 'cas-shared-default',`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`csrfToken: 'f00cc954-040b-4407-b5ac-75a22df56ca3',`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`sessionId: '233c1c87-2016-1a41-8e99-461233aa306f',`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`userId: 'sasxyz'`   
+`}`
 
 _Note:_
 If you have more than one server, it returns the first one on the list.
@@ -286,40 +286,40 @@ va.casUtil.casAction(serverName, sessId, action, data).then(function(response){.
 * `serverName` is the SAS Viya server name (e.g. 'cas-shared-default')
 * `sessId` is the CAS session ID (e.g. '233c1c87-2016-1a41-8e99-461233aa306f')
 * `action` is the CAS action (e.g. 'update', 'fetch', etc.)
-* `data` is the CAS action dependent payload as an object or in stringified JSON format. E.g. for a fetch action:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"table": {`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "CARS",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"caslib": "Public",`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"where": "Origin='Asia'"`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},` 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fetchVars": [`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{"name": "Invoice"}`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`
+* `data` is the CAS action dependent payload as an object or in stringified JSON format. E.g. for a fetch action:   
+`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"table": {`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "CARS",`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"caslib": "Public",`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"where": "Origin='Asia'"`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`},`    
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fetchVars": [`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`{"name": "Invoice"}`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`]`   
 `}`
 * Returns a promise for `response`, an object containing the data for the action called. See documentation for specific CAS action in [developers.sas.com](https://developer.sas.com/home.html).
 
 ### getCasServerName
 
-Leverages SAS Viya REST API to obtain the CAS server name. It uses the following endpoint internally: 
+Leverages SAS Viya REST API to obtain the CAS server name. It uses the following endpoint internally:
 `/casManagement/servers`
 
 _Usage:_
 ```javascript
 va.casUtil.getCasServerName().then(function(serverInfo){...})
 ```
-* Returns a promise for `serverInfo`, an object containing CAS server name and CSRF token of the service used to create the session. For example:
-`{`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`casServerName: 'cas-shared-default',`
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`csrfToken: 'f00cc954-040b-4407-b5ac-75a22df56ca3'`
-`}` 
+* Returns a promise for `serverInfo`, an object containing CAS server name and CSRF token of the service used to create the session. For example:   
+`{`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`casServerName: 'cas-shared-default',`   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`csrfToken: 'f00cc954-040b-4407-b5ac-75a22df56ca3'`   
+`}`
 
 _Note:_
 If you have more than one server, it returns the first one on the list.
 
 ### getCsrfToken
 
-Leverages SAS Viya REST API to obtain the CSRF token for a specified service. It uses the following endpoint internally: 
+Leverages SAS Viya REST API to obtain the CSRF token for a specified service. It uses the following endpoint internally:
 `/<service>/`
 
 _Usage:_
@@ -327,14 +327,14 @@ _Usage:_
 va.casUtil.getCsrfToken(service).then(function(token){...})
 ```
 * `service` is the name of the service you want to obtain the CSRF token for, e.g. 'casProxy'.
-* Returns a promise for `token`, a string containing the CSRF token of the service, e.g. `'f00cc954-040b-4407-b5ac-75a22df56ca3'`. 
+* Returns a promise for `token`, a string containing the CSRF token of the service, e.g. `'f00cc954-040b-4407-b5ac-75a22df56ca3'`.
 
 _Note:_
 Token values for each service are cached internally for future calls to this function.
 
 ### getAppVersion
 
-Leverages SAS Viya REST API to obtain the version for a specified application. It uses the following endpoint internally: 
+Leverages SAS Viya REST API to obtain the version for a specified application. It uses the following endpoint internally:
 `/<app>/apiMeta`
 
 _Usage:_
@@ -342,7 +342,7 @@ _Usage:_
 va.casUtil.getAppVersion(app).then(function(version){...})
 ```
 * `app` is the name of the application you want to obtain the version for, e.g. `'SASVisualAnalytics'`.
-* Returns a promise for `version`, a string containing the application version, e.g. `'8.5'`. 
+* Returns a promise for `version`, a string containing the application version, e.g. `'8.5'`.
 
 ---
 ## util/jobUtil.js
@@ -353,7 +353,7 @@ It contains utility functions to support easier integration between SAS Visual A
 ```
 ### PrepareVADataForSASJobs
 
-Transforms the data received from VA and adds extra format information for SAS Jobs to use. 
+Transforms the data received from VA and adds extra format information for SAS Jobs to use.
 
 _Usage:_
 ```javascript
@@ -367,7 +367,7 @@ _Notes:_
 		* missing values come as "(missing)" and are modified to "".
 	* Date:
 		* values come as formatted strings according to their date formats. They are transformed to their corresponding SAS date numbers expressed as number of days since January 1st, 1960.
-		* The following date formats are not supported (generate missing values): 
+		* The following date formats are not supported (generate missing values):
 			* Day of Year (JULDAY1). E.g.: 176
 			* Week (WEEKV2). E.g.: 26
 			* Week (WEEKV3). E.g.: W26
@@ -404,7 +404,7 @@ _Notes:_
 			* Time (TIMEAMPM2). E.g.: 15
 			* Year (DTYEAR10). E.g.: 2015
 
-* Formats in VA for number/date/datetime are slightly different compared to SAS Jobs. Job-specific format information is added under `resultData.columns` and depends on the data type and VA format:
+* Formats in VA for number/date/datetime are slightly different compared to SAS Jobs. Job-specific format information is added under `resultData.columns` and depends on the data type and VA format:   
 `{`   
 &nbsp;&nbsp;`... ,`   
 &nbsp;&nbsp;`columns: [`   
@@ -422,7 +422,7 @@ _Notes:_
 
 ### pingApp
 
-Pings the app to keep it alive. 
+Pings the app to keep it alive.
 
 _Usage:_
 ```javascript
