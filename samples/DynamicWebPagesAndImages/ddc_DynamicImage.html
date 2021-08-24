@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript" src="http://<your.web.server.host>/github/util/messagingUtil.js"></script>
+    <style>
+        html, body {
+            margin: 0px;
+            padding: 0px;
+            height: 100%;
+            width: 100%;
+        }
+		img {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			margin: auto;
+            max-height: 100%;
+            max-width: 100%;
+		}
+    </style>
+</head>
+<body>
+<div>
+	<img id="dynamic_img" src="">
+</div>
+
+<script>
+    "use strict";
+
+    va.messagingUtil.setOnDataReceivedCallback(updateImage);
+	
+	function updateImage(vaMsgObj)
+	{
+		if (vaMsgObj && vaMsgObj.data && vaMsgObj.rowCount === 1) {
+			document.getElementById("dynamic_img").src = "./AnimalImages/"+vaMsgObj.data[0][0];
+		}
+		else {
+			document.getElementById("dynamic_img").src = "";
+		}
+	}
+</script>
+
+</body>
+</html>
