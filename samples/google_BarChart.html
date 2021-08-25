@@ -46,24 +46,20 @@ limitations under the License.
 		var _selections = null;
 		var _bar = null;
 		var _options = {
-			chartArea: {
-				left: 80,
-				bottom: 40,  
-				width: '100%',
-				height: '100%'  
-			},
 			legend: {
 				position: 'bottom'
-			}
+			},
+			hAxis: { minValue: 0 }
 		};
 		
-        google.charts.load('upcoming', {'packages':['corechart']});
+        google.charts.load('current', {'packages':['corechart']});
         google.charts.setOnLoadCallback(onChartLoad);
 		
 		va.contentUtil.setupResizeListener(drawChart);
 		
         function onChartLoad() 
 		{
+			// If you want vertical bars, replace BarChart below with ColumnChart
             _bar = new google.visualization.BarChart(document.getElementById('chart_div'));
 			google.visualization.events.addListener(_bar, 'ready', readyHandler);
 			google.visualization.events.addListener(_bar, 'select', selectHandler);
@@ -82,11 +78,11 @@ limitations under the License.
             if (resultData) 
 			{
 				_resultName = resultData.resultName;
+				_selections = va.contentUtil.initializeSelections(resultData);
                 va.contentUtil.convertDateColumns(resultData);
                 _dataTable = va.googleHelper.createDataTable(resultData);
 				va.googleHelper.formatData(_dataTable, resultData);
 				va.googleHelper.formatAxis('hAxis', _options, resultData);
-				_selections = va.contentUtil.initializeSelections(resultData);
             }
 
 			drawChart();
