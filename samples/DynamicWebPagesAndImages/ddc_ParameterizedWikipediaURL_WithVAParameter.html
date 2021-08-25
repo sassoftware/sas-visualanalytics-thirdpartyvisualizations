@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript" src="http://<your.web.server.host>/github/util/messagingUtil.js"></script>
+	<script type="text/javascript" src="http://<your.web.server.host>/github/util/contentUtil.js"></script>
+    <style>
+        html, body {
+            margin: 0px;
+            padding: 0px;
+            height: 100%;
+            overflow: hidden;
+        }
+        iframe {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+            height: 100%;
+            width: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+<div>
+	<iframe id="target_url" src=""></iframe>
+</div>
+
+<script>
+    "use strict";
+
+    va.messagingUtil.setOnDataReceivedCallback(updateURL);
+
+	function updateURL(vaMsgObj)
+	{
+		// Function getVAParameters returns the object: {<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}
+		// If <parameter_label> has multiple values, <param_value> is an array
+		var vaParameters = va.contentUtil.getVAParameters(vaMsgObj);
+		var searchKey = vaParameters._search_key; // it will return undefined if the specific parameter doesn't exist
+
+		if (searchKey && !Array.isArray(searchKey)) {
+			document.getElementById("target_url").src = "https://en.wikipedia.org/wiki/"+searchKey;
+		}
+		else {
+			document.getElementById("target_url").src = "";
+		}
+	}
+</script>
+
+</body>
+</html>
