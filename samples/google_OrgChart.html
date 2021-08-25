@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    https://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+<head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+    <script type="text/javascript" src="../thirdPartyHelpers/google.js"></script>
+
+    <style>
+		html {
+			overflow: hidden;
+		}
+        html, body, #chart_div {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #chart_div {
+            position: relative;
+			border-style: none;
+			border-width: 0px;
+			overflow: auto;
+        }
+    </style>
+
+    <script>
+        "use strict";
+		
+		// The Organizational Chart code used in this example was based on:
+		// https://developers.google.com/chart/interactive/docs/gallery/orgchart
+
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+		var _resultName = null;
+		var _dataTable = null;
+		var _selections = null;
+		var _chart = null;
+		var _options = {
+			allowCollapse: true,
+			allowHtml: true,
+			size: 'small', // options: small, medium, large
+		};
+		var _sampleDataTable = null;
+		
+		google.charts.load("current", {packages:["orgchart"]});
+        google.charts.setOnLoadCallback(onChartLoad);
+		
+		va.contentUtil.setupResizeListener(drawChart);
+		
+        function onChartLoad() 
+		{
+			// By providing dummy data, the report designer is able to see the object 
+			// as a placeholder/template even before data is assigned to the Roles pane in Visual Analytics
+			_sampleDataTable = new google.visualization.DataTable();
+			_sampleDataTable.addColumn({ type: 'string', id: 'Name' });
+			_sampleDataTable.addColumn({ type: 'string', id: 'Manager' });
+			_sampleDataTable.addColumn({ type: 'string', id: 'ToolTip' });
+			_sampleDataTable.addRows([
+			  [{v:'Mike', f:'Mike<div style="color:red; font-style:italic">President</div>'}, '', 'The President'],
+			  [{v:'Jim', f:'Jim<div style="color:red; font-style:italic">Vice President</div>'}, 'Mike', 'VP'],
+			  ['Alice', 'Mike', ''],
+			  ['Bob', 'Jim', 'Bob Sponge'],
+			  ['Carol', 'Bob', '']
+			]);
+			
+            _chart = new google.visualization.OrgChart(document.getElementById('chart_div'));
+
+			google.visualization.events.addListener(_chart, 'ready', readyHandler);
+			google.visualization.events.addListener(_chart, 'select', selectHandler);
+			
+			drawChart();
+        };
+		
+		function readyHandler(e) 
+		{
+			if (_selections && _selections.length > 0)
+			{
+				_chart.setSelection(_selections);
+			}
+		}
+
+		function selectHandler(e) 
+		{
+			var selection = _chart.getSelection();
+			console.log(selection);
+			va.messagingUtil.postSelectionMessage(_resultName, selection);
+		}
+
+		function drawChart()
+		{
+			if (_chart) {
+				var dataTable = (_dataTable ? _dataTable : _sampleDataTable);
+				_chart.draw(dataTable, _options);
+			}
+		}
+
+        function onDataReceived(messageFromVA)
+        {
+			_resultName = messageFromVA.resultName;
+			_selections = va.contentUtil.initializeSelections(messageFromVA);
+			
+			if (!va.contentUtil.validateRoles(messageFromVA, ["string","string"], ["string"])) {
+				va.messagingUtil.postInstructionalMessage(_resultName, 
+					"Google OrgChart expects columns to be assigned in this order:\n" +
+					" 1. Node ID (string)\n" +
+					" 2. Parent ID (string)\n" + 
+					" 3. Formatted Node ID (string, optional). An empty string means no formatted value\n" + 
+					" 4. Tooltip (any type, optional)");
+				return;
+			}
+			_dataTable = va.googleHelper.createDataTable(messageFromVA);
+			// Numeric values can be assigned to the tooltip, so we should format the data
+			va.googleHelper.formatData(_dataTable, messageFromVA);
+			// Data transformation specific to this OrgChart
+			formatDataOrgChart(_dataTable);
+			drawChart();
+        }
+
+		// This function is specific to this implementation
+		function formatDataOrgChart(dataTable) {
+			var numCols = dataTable.getNumberOfColumns();
+			for (var r = 0; r < dataTable.getNumberOfRows(); r++) {
+				// At the highest level, there is no parent ID (= "missing" for string column or "." for numeric column).
+				// An empty string as the parent ID will prevent the node to be displayed with a missing value.
+				if (dataTable.getValue(r, 1) === "(missing)" || dataTable.getValue(r, 1) === ".") {dataTable.setCell(r, 1, "");}
+				if (numCols >= 3 && dataTable.getValue(r, 2) !== '') {
+					// If an optional format role is provided (3rd column), add that to node ID (1st column)
+					// Example of formatted value is provided in the dummy data, e.g.: 'Jim<div style="color:red; font-style:italic">Vice President</div>'
+					// You can use a calculated item in VA to derive this formatted value
+					// Note: an empty 3rd column means no formatted value
+					dataTable.setFormattedValue(r, 0, dataTable.getValue(r, 2));
+				}
+			}
+			if (numCols >= 3) {
+				// Tooltip (if any) must be the third column for Google OrgChart
+				// Remove column #3 (format) and let column #4 (tooltip, if any) automatically become column #3
+				dataTable.removeColumn(2);
+			}
+		}
+		
+    </script>
+</head>
+<body>
+    <div id="chart_div"/>
+</body>
+</html>
