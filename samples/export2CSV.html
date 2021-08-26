@@ -76,10 +76,10 @@ limitations under the License.
 			if (!_resultData.data.length) {
 				va.messagingUtil.postInstructionalMessage(
 					_resultName,
-					"Optional parameters:\n"+
-					"(1) _downloaded_file_name\n"+
-					"(2) _show_column_labels (YES/NO)\n"+
-					"(3) _transpose_data (YES/NO)"
+					"Optional VA parameters:\n"+
+					"(1) _downloaded_file_name (no extension, default: DownloadedFromVA)\n"+
+					"(2) _show_column_labels (YES/NO, default: YES)\n"+
+					"(3) _transpose_data (YES/NO, default: NO)"
 				);
 				return;
 			}
