@@ -13,28 +13,28 @@ Here you will find the following:
 
 <img width="757" height="600" src="./README_Images/ddc_ParameterizedWikipediaURL.png">
 
-This example shows how to dynamically load a Web page based on information received from report objects and passed to DDC in the 'data' portion of the JSON message.
+This example shows how to dynamically load a Web page based on information received from report objects and passed to DDC in the `data` portion of the JSON message.
 
 ### Dynamic Web Page Using VA Parameter | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/DynamicWebPagesAndImages/ddc_ParameterizedWikipediaURL_WithVAParameter.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Embedding-Dynamic-Web-Pages-and-Images-in-SAS-Visual-Analytics/ta-p/763378)
 
 <img width="757" height="600" src="./README_Images/ddc_ParameterizedWikipediaURL_WithVAParameter.png">
 
-This example shows how to dynamically load a Web page based on information received from report objects and passed to DDC in the 'parameters' portion of the JSON message.
+This example shows how to dynamically load a Web page based on information received from report objects and passed to DDC in the `parameters` portion of the JSON message.
 
 ### Dynamic Image | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/DynamicWebPagesAndImages/ddc_DynamicImage.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Embedding-Dynamic-Web-Pages-and-Images-in-SAS-Visual-Analytics/ta-p/763738)
 
 <img width="757" height="600" src="./README_Images/ddc_DynamicImage.png">
 
-This example shows how to dynamically load an image based on information received from report objects and passed to DDC in the 'data' portion of the JSON message.
+This example shows how to dynamically load an image based on information received from report objects and passed to DDC in the `data` portion of the JSON message.
 
 ### Dynamic Image Using VA Parameter | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/DynamicWebPagesAndImages/ddc_DynamicImage_WithVAParameter.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Embedding-Dynamic-Web-Pages-and-Images-in-SAS-Visual-Analytics/ta-p/763738)
 
 <img width="757" height="600" src="./README_Images/ddc_DynamicImage_WithVAParameter.png">
 
-This example shows how to dynamically load an image based on information received from report objects and passed to DDC in the 'parameters' portion of the JSON message.
+This example shows how to dynamically load an image based on information received from report objects and passed to DDC in the `parameters` portion of the JSON message.
 
 ### Dynamic Image With Link to Web Page | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/DynamicWebPagesAndImages/ddc_DynamicImageWithLink.html) | [Blog Post](https://communities.sas.com/t5/SAS-Communities-Library/Embedding-Dynamic-Web-Pages-and-Images-in-SAS-Visual-Analytics/ta-p/763749)
 
 <img width="757" height="600" src="./README_Images/ddc_DynamicImageWithLink.png">
 
-This example combines the previous and shows how to dynamically load an image based on information received from report objects and then dynamically load a Web page when the image is clicked. 
+This example combines the previous and shows how to dynamically load an image based on information received from report objects and then dynamically load a Web page when the image is clicked.
