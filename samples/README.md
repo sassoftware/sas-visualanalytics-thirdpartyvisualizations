@@ -1,13 +1,13 @@
 # Using samples within SAS Visual Analytics
 
-These samples can be directly used by data-driven content within a SAS Visual Analytics (VA) report.  For example, to reference the circle packing sample, set the url of the data-driven content to be:
+These samples can be directly used by data-driven content within a SAS Visual Analytics (VA) report. For example, to reference the circle packing sample, set the url of the data-driven content to be:
 
 ```html
 https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/d3_circlePacking.html
 ```
 ---
 ### Notes:
-1. Due to recent [security measures for sandboxed iframes](https://www.chromestatus.com/feature/5706745674465280) adopted by Chrome browsers that removed download capability, `export2CSV.html` will only work with Chrome in VA 8.5.1.
+1. Due to recent [security measures for sandboxed iframes](https://www.chromestatus.com/feature/5706745674465280) adopted by Chrome browsers that removed download capability, `export2CSV.html` will only work with Chrome in VA 8.5.1 and above.
 2. Example `d3_FunnelChart.html` requires `d3-funnel.js`. This funnel chart implementation was obtained from https://github.com/jakezatecky/d3-funnel
 
 # Sample Visualizations for Data-Driven Content Objects
@@ -16,7 +16,7 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="600" height="600" src="./images/c3_BarChart.png">
 
-### D3 Bar Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_BarChart.html)
+### D3 Bar Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_BarChart.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/d3_BarChart.html)
 
 <img width="600" height="600" src="./images/d3_BarChart.png">
 
@@ -24,11 +24,11 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="600" height="600" src="./images/google_BarChart.png">
 
-### D3 Circle Packing | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_circlePacking.html)
+### D3 Circle Packing | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_circlePacking.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/d3_circlePacking.html)
 
-<img width="600" height="600" src="./images/d3_circlePacking.png">
+<img width="757" height="600" src="./images/d3_circlePacking.png">
 
-### D3 Funnel Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_FunnelChart.html)
+### D3 Funnel Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/d3_FunnelChart.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/d3_FunnelChart.html)
 
 <img width="600" height="600" src="./images/d3_FunnelChart.png">
 
@@ -44,7 +44,7 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="600" height="600" src="./images/d3_spiralPlot.png">
 
-### Data Update | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/dataUpdate.html)
+### Data Update | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/dataUpdate.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/dataUpdate.html)
 
 <img width="600" height="600" src="./images/dataUpdate.png">
 
@@ -56,7 +56,7 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="788" height="600" src="./images/google_Calendar.png">
 
-### Google Organizational Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/google_OrgChart.html)
+### Google Organizational Chart | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/google_OrgChart.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/google_OrgChart.html)
 
 <img width="600" height="600" src="./images/google_OrgChart.png">
 
