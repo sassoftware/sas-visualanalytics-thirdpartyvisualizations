@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<!--
+Copyright 2020 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+  <head>
+    <title>Network Diagram</title>
+    <style>
+      body {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+        margin: 0;
+        overflow: hidden;
+        font-family: sans-serif;
+      }
+	  .link {
+	    stroke-width: 2.5px;
+	  }
+	  <!--
+	  .link.hovered {
+	    stroke-width: 2.5px;
+	  }
+	  -->
+      .node {
+        stroke-width: 0px;
+      }
+	  .node, .link {
+		cursor: pointer;
+	  }
+	  .node.fixed {
+        stroke: #286A99;
+        stroke-width: 2.5px;
+      }
+      .svg-tooltip {
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple   Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+        background: rgba(69,77,93,.9);
+		border-radius: .1rem;
+		color: #fff;
+		display: block;
+		font-size: 11px;
+		max-width: 320px;
+		padding: .2rem .4rem;
+		position: absolute;
+		text-overflow: ellipsis;
+		white-space: pre;
+		z-index: 300;
+		visibility: hidden;
+      }
+	  .node-text {
+		font-size: 12px;
+		text-shadow: 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff;
+	  }
+	  .context-menu {
+		/*fill: rgba(69,77,93,.9);
+		font-size: 12px;*/
+	  }
+  </style>
+    <script src="https://unpkg.com/d3@6.2.0/dist/d3.min.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+  </head>
+  <body>
+  <script type="text/javascript">
+	"use strict";
+
+  //=======================================================
+  // D3 NETWORK DIAGRAM IMPLEMENTATION
+  //=======================================================  
+
+  ///////////////////////////////////////////////////////// 
+  // DUMMY DATA
+  ///////////////////////////////////////////////////////// 
+  const sampleData = 
+  {
+    "version": "1",
+    "resultName": "dd22",
+    "rowCount": 10,
+    "availableRowCount": 10,
+    "data": [
+        [
+            "Table 1",
+            "Table 1a",
+            "Y",
+            "Y",
+            "columnX<br>columnY",
+            "columnXa<br>columnYa",
+            "Inner join on<br>columnX = columnXa"
+        ],
+        [
+            "Table 1",
+            "Table 1b",
+            "Y",
+            "y",
+            "columnX<br>columnY",
+            "columnXb<br>columnYb",
+            "Inner join on<br>columnX = columnXb"
+        ],
+        [
+            "Table 1",
+            "Table 2",
+            "Yes",
+            "YES",
+            "columnX<br>columnY",
+            "columnM<br>columnN<br>columnO",
+            "Inner join on<br>columnMX= columnM"
+        ],
+        [
+            "Table 1",
+            "Table 4",
+            "yes",
+            "YES",
+            "columnX<br>columnY",
+            "columnH<br>columnI<br>columnJ<br>columnK",
+            "Inner join on<br>columnX = columnJ"
+        ],
+        [
+            "Table 2",
+            "Table 2a",
+            "yEs",
+            "YeS",
+            "columnM<br>columnN<br>columnO",
+            "columnMa<br>columnNa<br>columnOa",
+            "Inner join on<br>columnM = columnMa"
+        ],
+        [
+            "Table 2",
+            "Table 4",
+            "yeS",
+            "YEs",
+            "columnM<br>columnN<br>columnO",
+            "columnH<br>columnI<br>columnJ<br>columnK",
+            "Inner join on<br>columnM = columnJ"
+        ],
+        [
+            "Table 3",
+            "Table 1",
+            "Y",
+            "Y)",
+            "columnA<br>columnB<br>columnC",
+            "columnX<br>columnY",
+            "Inner join on<br>columnA = columnX"
+        ],
+        [
+            "Table 3",
+            "Table 4",
+            "Y",
+            "Y)",
+            "columnA<br>columnB<br>columnC",
+            "columnH<br>columnI<br>columnJ<br>columnK",
+            "Inner join on<br>columnA = columnJ and columnH > 0"
+        ],
+        [
+            "Table 4",
+            "Table 4a",
+            "Y",
+            "Y",
+            "columnH<br>columnI<br>columnJ<br>columnK",
+            "columnHa<br>columnIa<br>columnJa<br>columnKa",
+            "Inner join on<br>columnH = columnHa"
+        ],
+        [
+            "Table 4",
+            "Table 4b",
+            "Y",
+            "Y",
+            "columnH<br>columnI<br>columnJ<br>columnK",
+            "columnHb<br>columnIb<br>columnJb<br>columnKb",
+            "Inner join on<br>columnH = columnHb"
+        ]
+    ],
+    "columns": [
+        {
+            "name": "bi31",
+            "label": "Table A",
+            "type": "string"
+        },
+        {
+            "name": "bi32",
+            "label": "Table B",
+            "type": "string"
+        },
+        {
+            "name": "bi36",
+            "label": "Visible A",
+            "type": "string"
+        },
+        {
+            "name": "bi37",
+            "label": "Visible B",
+            "type": "string"
+        },
+        {
+            "name": "bi33",
+            "label": "Attrib Table A",
+            "type": "string"
+        },
+        {
+            "name": "bi34",
+            "label": "Attrib Table B",
+            "type": "string"
+        },
+        {
+            "name": "bi35",
+            "label": "Relationship",
+            "type": "string"
+        }
+    ]
+  };
+
+  let nodes;
+  let links;
+
+  const MAIN_NODE_SIZE = 40; // not used
+  const CHILD_NODE_SIZE = 15;  // not used
+  const DEFAULT_DISTANCE = 20;
+  const MAIN_NODE_DISTANCE = 90;
+  const MANY_BODY_STRENGTH = -30; // default: -30   / -400
+  const EXPANDED_NODE_COLOR = '#D4EAFF';
+  const COLLAPSED_NODE_COLOR = '#42B0FF';
+  const HOVER_OPACITY = 0.10;
+  const LINK_COLOR = 'gray';
+  const HOVER_LINK_COLOR = '#42B0FF';
+
+  const addNode = (id, visibility, attribute) => {
+	  let node = nodes.find(element => element.id == id);
+	  if (nodes.find(element => element.id == id) == undefined) {
+		node = {};
+		node.id = id;
+		node.attribute = attribute != undefined ? attribute : null;
+		visibility = visibility != undefined ? visibility.toUpperCase() : visibility;
+		node.visibilityLevel = visibility == undefined || visibility == "Y" || visibility == "YES" ? 1 : null;
+		node.expanded = false;
+		nodes.push(node);
+	  }
+	  return node;
+  };
+
+  const addLink = (node1, node2, attribute) => {
+	  //const node1 = nodes.find(element => element.id == idA);
+	  //const node2 = nodes.find(element => element.id == idB);
+	  links.push({
+		source: node1,
+		target: node2,
+		attribute: ((attribute != undefined) ? attribute : null)
+	  });
+  }
+
+  const loadNodesLinks = (vaMessage) => {
+	  nodes = [];
+	  links = [];
+	  vaMessage.data.forEach(row => {
+		let node1 = addNode(row[0], row[2], row[4]);
+		let node2 = addNode(row[1], row[3], row[5]);
+		addLink(node1, node2, row[6]);
+	  });
+  }
+
+  loadNodesLinks(sampleData);
+  
+  ///////////////////////////////////////////////////////// 
+  // GRAPH
+  ///////////////////////////////////////////////////////// 
+  const width = document.body.clientWidth,
+        height = document.body.clientHeight;
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  //let activeNodes;
+  //let activeLinks;
+  let [activeNodes, activeLinks] = copyActiveNodesLinks(nodes,links);
+  
+  const menuItems = [
+    {
+      title: 'Pin all',
+      action: (d) => {
+        // TODO: add any action you want to perform
+        console.log(d);
+		pinAllNodes();
+      }
+    },
+    {
+      title: 'Unpin all',
+      action: (d) => {
+        // TODO: add any action you want to perform
+        console.log(d);
+		unpinAllNodes();
+      }
+    }
+  ];
+  
+  const popupMenu = contextMenu().items(menuItems);
+  
+  
+  const svg = d3.select("body").append("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .attr("width", width)
+    .attr("height", height)
+    .on('contextmenu', (event) => { 
+        event.preventDefault();
+        popupMenu(event.pageX, event.pageY);
+    });
+    //.on('onkeydown', keyDown);
+
+  svg.call(d3.zoom()
+      .extent([[0, 0], [width, height]])
+      .scaleExtent([1/2, 8])
+      .on('zoom', zoomed));
+  svg.on("dblclick.zoom", null); // disable zoom on double click
+
+  const g = svg.append("g");
+
+  // marker references:
+  // https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/marker-end
+  // https://observablehq.com/@brunolaranjeira/d3-v6-force-directed-graph-with-directional-straight-arrow
+  //
+  const def = svg.append("defs");
+   
+  def.append("marker")
+        .attr("id", 'arrowtarget')
+        .attr("viewBox", "0 -5 10 10") // 0 -5 10 5 ?
+        .attr("refX", 21)
+        .attr("refY", 0)
+        .attr("markerWidth", 4)
+        .attr("markerHeight", 4)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("fill", LINK_COLOR)
+        .attr("d", 'M0,-5L10,0L0,5');
+
+  def.append("marker")
+        .attr("id", 'arrowsource')
+        .attr("viewBox", "0 -5 10 10") // 0 -5 10 5 ?
+        .attr("refX", -11)
+        .attr("refY", 0)
+        .attr("markerWidth", 4)
+        .attr("markerHeight", 4)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("fill", LINK_COLOR)
+        .attr("d", 'M10,-5L0,0L10,5');
+
+  def.append("marker")
+        .attr("id", 'arrowtarget-hover')
+        .attr("viewBox", "0 -5 10 10") // 0 -5 10 5 ?
+        .attr("refX", 21)
+        .attr("refY", 0)
+        .attr("markerWidth", 4)
+        .attr("markerHeight", 4)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("fill", HOVER_LINK_COLOR)
+        .attr("d", 'M0,-5L10,0L0,5');
+
+  def.append("marker")
+        .attr("id", 'arrowsource-hover')
+        .attr("viewBox", "0 -5 10 10") // 0 -5 10 5 ?
+        .attr("refX", -11)
+        .attr("refY", 0)
+        .attr("markerWidth", 4)
+        .attr("markerHeight", 4)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("fill", HOVER_LINK_COLOR)
+        .attr("d", 'M10,-5L0,0L10,5');
+
+  const simulation = d3.forceSimulation()
+    .force('charge', d3.forceManyBody().strength(MANY_BODY_STRENGTH))
+    .force('link', d3.forceLink().distance(80))
+    .force('collide', d3.forceCollide().radius(50))
+    .force('center', d3.forceCenter(centerX, centerY))
+	//.force('x', d3.forceX(0.1))
+	//.force('y', d3.forceX(0.23))
+	.on('tick',tick)
+	.stop();
+	//.on('end',fixNodes);
+
+
+  // create a tooltip
+
+  /* https://www.d3-graph-gallery.com/graph/interactivity_tooltip.html
+  const Tooltip = d3.select("body").append("div")
+    .style("opacity", 0)
+    .attr("class", "tooltip")
+    .style("background-color", "white")
+    .style("border", "solid")
+    .style("border-width", "2px")
+    .style("border-radius", "5px")
+    .style("padding", "5px");
+  */
+  
+  // https://observablehq.com/@jianan-li/basic-tooltip
+  //
+  const tooltip = d3.select("body").append("div")
+  //const tooltip = svg.append("div")
+    .attr("class", "svg-tooltip")
+    .style("position", "absolute")
+    .style("visibility", "hidden");
+    //.text("I'm a circle!");
+
+  // Adding lines, circles and texts in that order and in separated groups guarantees
+  // that the order they are displayed is preserved.
+  const linesGroup = g.append("g");
+  const circlesGroup = g.append("g");
+  const textsGroup = g.append("g");
+
+  let lines;
+  let circles;
+  let texts;
+
+  function updateNetwork(optReset) {
+	if (optReset) {
+		lines.remove();
+		circles.remove();
+		texts.remove();
+	}
+	
+	lines = linesGroup
+		.selectAll('line')
+		.data(activeLinks, link => link.source.id + ' TO ' + link.target.id)
+		.join(
+			enter => {
+				return enter
+					.append('line')
+					.classed('link', true)
+					//.attr('stroke', (link) => link.color || 'black')
+					.attr('stroke', LINK_COLOR)
+					.attr('marker-end', (link) => link.source.visibilityLevel > link.target.visibilityLevel ? 'url(#arrowtarget)' : 'none')
+					.attr('marker-start', (link) => link.target.visibilityLevel > link.source.visibilityLevel ? 'url(#arrowsource)' : 'none')
+					.on('mouseover', linkMouseover)
+					.on('mousemove', linkMousemove)
+					.on('mouseout', linkMouseout);
+			},
+			update => {
+				return update;
+			},
+			exit => {
+				return exit
+					.remove();
+			}
+		)
+	;
+	
+	circles = circlesGroup
+		.selectAll('circle')
+		.data(activeNodes, node => node.id)
+		.join(
+			enter => {
+				return enter
+					.append('circle')
+					.classed('node', true)
+					.classed('fixed', (node) => node.fixed ? true : false)
+					.attr('fill', (node) => node.expanded ? EXPANDED_NODE_COLOR : COLLAPSED_NODE_COLOR)
+					.attr('r', 12)
+					.on('click', nodeClick)
+					.on('dblclick', nodeDblclick)
+					.on('mouseover', nodeMouseover)
+					.on('mousemove', nodeMousemove)
+					.on('mouseout', nodeMouseout)
+					.on('mouseenter', nodeMouseEnter)
+					.on('mouseleave', nodeMouseLeave);
+			},
+			update => {
+				return update
+					.attr('fill', (node) => node.expanded ? EXPANDED_NODE_COLOR : COLLAPSED_NODE_COLOR);
+			},
+			exit => {
+				return exit
+					.remove();
+			}
+		)
+	;
+
+	texts = textsGroup
+		.selectAll('text')
+		.data(activeNodes, node => node.id)
+		.join(
+			enter => {
+				return enter
+					.append('text')
+					.classed('node-text', true)
+					.attr('id', node => node.id)
+					.attr('text-anchor', 'middle')
+					.attr('alignment-baseline', 'middle')
+					.style('pointer-events', 'none')
+					.text((node) => node.id);
+					//.text((node) => node.id + ' ('+node.visibilityLevel+')');
+			},
+			update => {
+				return update;
+			},
+			exit => {
+				return exit
+					.remove();
+			}
+		)
+	;
+  
+	const drag = d3
+		.drag()
+		.on("start", dragstart)
+		.on("drag", dragging)
+		.on("end", dragend);
+
+	circles.call(drag);
+
+	simulation.nodes(activeNodes);
+	simulation.force('link').links(activeLinks);
+	simulation.alpha(1);
+	simulation.restart();
+  }
+
+
+  //function copyArray(ArrIn) {
+  //  let ArrOut = [];
+  //  ArrIn.forEach(element => ArrOut.push(element));
+  //  return ArrOut;
+  //}
+
+  function copyActiveNodesLinks(nodes, links) {
+    let activeNodes;
+    const activeLinks = [];
+	activeNodes = nodes.filter(node => node.visibilityLevel != null);
+	
+	links.forEach(link => {
+		if (activeNodes.find(node => node.id === link.source.id) && 
+		    activeNodes.find(node => node.id === link.target.id)) {
+			activeLinks.push(link);
+		}
+	});
+    return [activeNodes, activeLinks];
+  }
+
+  //
+  // Context menu solution based on: 
+  // http://bl.ocks.org/jakosz/ce1e63d5149f64ac7ee9
+  // https://gilfink.medium.com/adding-a-context-menu-to-d3-force-graph-def5f197f343
+  //  
+  function contextMenu() {
+    var height,
+        width, 
+        margin,
+        items = [], 
+        rescale = false, 
+        menuStyle = {
+            'rect': {
+                'mouseout': {
+                    'fill': 'rgb(244,244,244)',
+                    'stroke': 'white'
+                    //'stroke-width': '1px'
+                }, 
+                'mouseover': {
+                    'fill': 'rgb(200,200,200)'
+                }
+            }, 
+            'text': {
+                'fill': 'steelblue', 
+                'font_size': '12px'
+            }
+        }; 
+    
+    function menu(x, y) {
+        d3.select('.context-menu').remove();
+        scaleItems();
+
+        // Draw the menu
+        d3.select('svg')
+            .append('g').attr('class', 'context-menu')
+			.style('font-size', menuStyle.text.font_size)
+            .selectAll('tmp')
+            .data(items).enter()
+            .append('g').attr('class', 'menu-entry')
+            .style('cursor', 'pointer')
+            .on('mouseover', function(){ 
+                d3.select(this).select('rect')
+					.style('fill', menuStyle.rect.mouseover.fill)
+				})
+            .on('mouseout', function(){ 
+                d3.select(this).select('rect')
+					.style('fill', menuStyle.rect.mouseout.fill) 
+				})
+			.on('click', (e, d) => {
+				d.action(d.title);
+			});
+        
+        d3.selectAll('.menu-entry')
+            .append('rect')
+            .attr('x', x)
+            .attr('y', function(d, i){ return y + (i * height); })
+            .attr('width', width)
+            .attr('height', height)
+			.style('fill', menuStyle.rect.mouseout.fill)
+			.style('stroke', menuStyle.rect.mouseout.stroke);
+        
+        d3.selectAll('.menu-entry')
+            .append('text')
+            .text(function(d){ return d.title; })
+            .attr('x', x)
+            .attr('y', function(d, i){ return y + (i * height); })
+            .attr('dy', height - margin)
+            .attr('dx', margin)
+			.style('fill', menuStyle.text.fill);
+
+        // Other interactions
+        d3.select('body')
+            .on('click', function() {
+                d3.select('.context-menu').remove();
+            });
+
+    }
+    
+    menu.items = function(itemList) {
+        if (!arguments.length) return items;
+		if (Array.isArray(itemList)) {
+			items = itemList;
+		}
+		else {
+			// this was just left here to remind me that we can also access arguments
+			// that were not listed as parameters of this function
+			items = [];
+			for (i in arguments) items.push(arguments[i]);
+		}
+        rescale = true;
+        return menu;
+    }
+
+    // Automatically set width, height, and margin;
+    function scaleItems() {
+        if (rescale) {
+			d3.select('svg').selectAll('tmp')
+                .data(items).enter()
+                .append('text')
+                //.attr('class', 'tmp')
+				.classed('tmp', true)
+                .attr('x', -1000) // add texts out of visible window
+                .attr('y', -1000)
+				.style('font-size', menuStyle.text.font_size)
+                .text(function(d){ return d.title; });
+            var textsBBox = d3.selectAll('.tmp').nodes()
+					.map(textEntry => { return textEntry.getBBox(); });
+            width = d3.max(textsBBox.map(textBBox => { return textBBox.width; }));
+            margin = 8; //width / 10;
+            width =  width + 2 * margin;
+            height = d3.max(textsBBox.map(function(textBBox){ return textBBox.height + margin; }));
+            
+            // cleanup
+            d3.selectAll('.tmp').remove();
+            rescale = false;
+        }
+    }
+
+    return menu;
+  }
+  
+  function pinAllNodes () {
+	d3.selectAll('.node').classed('fixed', true);
+	activeNodes.forEach(node => {
+		// the existence of fx and fy is what sets the node fixed
+		node.fx = node.x;  // similar to dragging
+		node.fy = node.y;
+		node.fixed = true;
+	});
+  }
+
+  function unpinAllNodes () {
+	d3.selectAll('.node').classed('fixed', false);
+	activeNodes.forEach(node => {
+		// the existence of fx and fy is what sets the node fixed
+		delete node.fx;
+		delete node.fy;
+		node.fixed = false;
+	});
+	// restart the simulation because there might still be nodes moving
+	//simulation.alpha(1).restart();
+  }
+
+  
+  //--------------------------------------------
+  // SIMULATION EVENTS
+  //--------------------------------------------
+  
+  function tick() {
+    circles
+	  .attr('cx', (node) => node.x)
+	  .attr('cy', (node) => node.y);
+    texts
+	  .attr('x', (node) => node.x)
+	  .attr('y', (node) => node.y);
+    lines
+      .attr('x1', (link) => link.source.x)
+      .attr('y1', (link) => link.source.y)
+      .attr('x2', (link) => link.target.x)
+      .attr('y2', (link) => link.target.y);
+  }
+
+
+
+  //--------------------------------------------
+  // ZOOM EVENTS
+  //--------------------------------------------
+  
+  function zoomed(event) {
+    const {transform} = event;
+    g.attr("transform", transform);
+  }
+  
+  
+  
+  //--------------------------------------------
+  // NODE EVENTS
+  //--------------------------------------------
+  
+  let isDragging = false;
+  
+  function dragstart(event, node) {
+    clearTimeout(timeout);
+	//console.log("in dragstart");
+
+	const thisNode = this;
+	// if another click occurs in less than 300 milliseconds, 
+	// the double click handler executes, clearing the timeout
+	// and preventing this code to execute.
+    timeout = setTimeout(function() {
+		d3.select(thisNode).classed('fixed', true);
+		node.fixed = true;
+		// turn off tooltip while dragging
+		isDragging = true;
+		tooltip
+			.style("visibility", "hidden");
+
+		//console.log('dragstart node', node);
+	}, 300);
+  }
+  
+  function dragging(event, node) {
+    node.fx = clamp(event.x, 0, width);
+    node.fy = clamp(event.y, 0, height);
+    simulation.alpha(1);
+    simulation.restart();
+	//tooltip
+	//  .style("top", (event.pageY-10)+"px").style("left",(event.pageX+10)+"px")
+	//  .html(node.attribute || "Placeholder for node attribute");
+    //console.log("dragging");
+  }
+
+  function clamp (value, min, max) {
+    return (value < min ? min : (value > max ? max : value));
+  }
+  
+  function dragend(event, node) {
+    //console.log("dragend node:",node);
+	isDragging = false;
+	//tooltip
+	//  .style("visibility", "visible");
+  }
+
+  // Click and double click implementation:
+  // https://stackoverflow.com/questions/49357718/both-single-and-double-click-on-a-node-in-d3-force-directed-graph
+  
+  let timeout = null;
+
+  function nodeClick(event, node) {
+    clearTimeout(timeout);
+	//console.log("in nodeClick");
+
+	const thisNode = this;
+	// if another click occurs in less than 300 milliseconds, 
+	// the double click handler executes, clearing the timeout
+	// and preventing this code to execute.
+    timeout = setTimeout(function() {
+		//console.log("nodeClick node",node);
+		if (event.defaultPrevented) return; // dragged
+		if (event.ctrlKey || event.metaKey) {
+		  // unpin the node
+		  delete node.fx;
+		  delete node.fy;
+		  //d3.select(this).classed("fixed", d.fixed = false);
+		  d3.select(thisNode).classed('fixed', false);
+		  node.fixed = false;
+		  // restart the simulation because there might still be nodes moving
+		  simulation.alpha(1).restart();
+		}
+		else {
+		  // pin the node
+		  d3.select(thisNode).classed('fixed', true); // similar to dragstart
+		  // the existence of fx and fy is what sets the node fixed
+		  node.fx = node.x;  // similar to dragging
+		  node.fy = node.y;
+		  node.fixed = true;
+		  // no need to restart the simulation because the node was not moved/dragged
+		}
+    }, 300);
+  }
+
+/*
+  Double click implementation:
+  https://stackoverflow.com/questions/49357718/both-single-and-double-click-on-a-node-in-d3-force-directed-graph
+  
+  let timeout = null;
+
+  d3.select('rect').on("click", function(d) {
+    clearTimeout(timeout);
+    
+    timeout = setTimeout(function() {
+      console.clear();
+      console.log("node was single clicked", new Date());
+    }, 300)
+  })
+  .on("dblclick", function(d) {
+    clearTimeout(timeout);
+    
+    console.clear();
+    console.log("node was double clicked", new Date());
+  });
+*/
+  function nodeDblclick (event, node) {
+    clearTimeout(timeout);
+	//console.log("nodeDblclick node",node);
+	/*
+	if (!node.hasOwnProperty('fx')) {
+		// for some reason the class is being set even if the node is not fixed
+		d3.select(this).classed('fixed', false);
+	    node.fixed = false;
+	}
+	*/
+	// pin the node
+	//d3.select(this).classed('fixed', true);
+	//node.fx = node.x;  // similar to dragging
+	//node.fy = node.y;
+	//node.fixed = true;
+
+	if (!node.expanded) {
+		// the node is collapsed and needs to be expanded
+		let nodeExpanded = false;
+		///////let addedNodes = [];
+		links.forEach(link => {
+			if (node.id === link.source.id) {
+				if (link.target.visibilityLevel == null) {
+					// connected node is NOT visible: make it an active node
+					link.target.visibilityLevel = node.visibilityLevel+1;
+					activeNodes.push(link.target);
+					activeLinks.push(link);
+					nodeExpanded = true;
+				}
+			}
+			else if (node.id === link.target.id) {
+				if (link.source.visibilityLevel == null) {
+					// connected node is NOT visible: make it an active node
+					link.source.visibilityLevel = node.visibilityLevel+1;
+					activeNodes.push(link.source);
+					activeLinks.push(link);
+					nodeExpanded = true;
+				}
+			}
+		});
+		if (nodeExpanded) {
+			// check for links between this just added node and others that are already visible
+			links.forEach(link => {
+				if (activeNodes.findIndex(node => node.id === link.source.id) >= 0 && // source visible
+					activeNodes.findIndex(node => node.id === link.target.id) >= 0 && // target visible
+					activeLinks.findIndex(activeLink => activeLink.source.id === link.source.id && activeLink.target.id === link.target.id) < 0 ) {  // link not active
+					activeLinks.push(link);
+				}
+			});
+		}
+		node.expanded = true;
+	}
+	else {
+		// the node is already expanded and needs to be collapsed
+		function collapseConnectedNodes(node) {
+			if (node.alreadyVisited) return;
+			node.alreadyVisited = true;
+			let nodeRemoved = false;
+			activeLinks.forEach((activeLink, indx, object) => {
+				if (node.id === activeLink.source.id) {
+					if (activeLink.target.visibilityLevel > node.visibilityLevel) {
+						collapseConnectedNodes(activeLink.target);
+						activeLink.target.visibilityLevel = null;
+						activeLink.target.expanded = false;
+						let indxNode;
+						indxNode = activeNodes.findIndex(v => v.id === activeLink.target.id);
+						activeNodes.splice(indxNode, indxNode >= 0 ? 1 : 0);
+						//indx = activeLinks.findIndex(v => v.source.id === link.source.id && v.target.id === link.target.id);
+						//object.splice(indx, 1);
+						activeLink.markForDeletion = true; // cannot delete it here: it will mess up with the forEach iteration
+						nodeRemoved = true;
+					}
+				}
+				else if (node.id === activeLink.target.id) {
+					if (activeLink.source.visibilityLevel > node.visibilityLevel) {
+						collapseConnectedNodes(activeLink.source);
+						activeLink.source.visibilityLevel = null;
+						activeLink.source.expanded = false;
+						let indxNode;
+						indxNode = activeNodes.findIndex(v => v.id === activeLink.source.id);
+						activeNodes.splice(indxNode, indxNode >= 0 ? 1 : 0);
+						//indx = activeLinks.findIndex(v => v.source.id === link.source.id && v.target.id === link.target.id);
+						//object.splice(indx, 1);
+						activeLink.markForDeletion = true; // cannot delete it here: it will mess up with the forEach iteration
+						nodeRemoved = true;
+					}
+				}
+			});
+			if (nodeRemoved) {
+				// correct node index information (because nodes were deleted)
+				//activeNodes.forEach((activeNode, indx) => {
+				//	activeNode.index = indx;
+				//});
+				// remove eventual links that formed a loop with deleted nodes
+				activeLinks.forEach((activeLink, indx, object) => {
+					if (activeNodes.findIndex(node => node.id === activeLink.source.id) < 0 || // source not visible
+						activeNodes.findIndex(node => node.id === activeLink.target.id) < 0) { // target not visible
+						//object.splice(indx, 1);
+						activeLink.markForDeletion = true;
+					}
+				});
+				// remove links marked for deletion
+				activeLinks = activeLinks.filter(activeLink => {
+					if (activeLink.markForDeletion) {
+						delete activeLink.markForDeletion;
+						return false;
+					} else return true;
+				});
+				// correct link index information (because nodes were deleted)
+				//activeLinks.forEach((activeLink, indx) => {
+				//	activeLink.index = indx;
+				//});
+			}
+			node.expanded = false;
+			delete node.alreadyVisited;
+		}
+		
+		///////let removedNodes = [];
+		collapseConnectedNodes(node);
+	}
+	updateNetwork();
+  }
+
+  function nodeMouseover(event, node) {
+    //console.log("nodeMouseover");
+	if (event.ctrlKey || event.metaKey) {
+      d3.select(this).style('cursor', 'move');
+	}
+	if (!isDragging && node.attribute) {
+		tooltip
+		  .style("visibility", "visible");
+	}
+  }
+
+  function nodeMousemove(event, node) {
+    //console.log("nodeMousemove");
+	if (event.ctrlKey || event.metaKey) {
+      d3.select(this).style('cursor', 'move');
+	}
+	else {
+	  d3.select(this).style('cursor', null);
+	}
+	if (node.attribute) {
+		tooltip
+		  .style("top", (event.pageY-10)+"px").style("left",(event.pageX+10)+"px")
+		  .html(node.attribute || "Placeholder for node attribute");
+	}
+  }
+  
+/*
+  function keyDown(event, node) {
+	  console.log(event);
+	if (event.ctrlKey || event.metaKey) {
+	  console.log(d3.select(this));
+	  console.log(node);
+	}
+  }
+*/  
+  function nodeMouseout(event, node) {
+    //console.log("nodeMouseout");
+    d3.select(this).style('cursor', null);
+	if (node.attribute) {
+		tooltip
+		  .style("visibility", "hidden");
+	}
+  }
+
+  // https://bl.ocks.org/mbostock/5247027
+  //
+  function nodeMouseEnter(event, node) {
+	//get hovered node
+	//var node = d3.select(this);
+
+	//get links
+	//var links = activeLinks;
+
+	//get hovered node connected links
+	var connectedLinks = activeLinks.filter(l => l.source.id == node.id || l.target.id == node.id);
+
+	//get hovered node linked nodes
+	var linkedNodes = connectedLinks.map(s => s.source.id).concat(connectedLinks.map(d => d.target.id)).concat(node.id)
+
+	//reduce all other nodes opacity
+	circlesGroup.selectAll('circle')
+	  .filter(n => linkedNodes.indexOf(n.id) == -1)
+	  .attr('opacity', HOVER_OPACITY);
+
+	//reduce all other texts opacity
+	textsGroup.selectAll('text')
+	  .filter(n => linkedNodes.indexOf(n.id) == -1)
+	  .attr('opacity', HOVER_OPACITY);
+
+	//reduce all links opacity
+	linesGroup.selectAll('line').attr('opacity', HOVER_OPACITY);
+
+	//highlight hovered node's connections
+	linesGroup.selectAll('line')
+	  .filter(l => l.source.id == node.id || l.target.id == node.id)
+	  .attr('opacity', 1);
+	  //.attr('stroke', HIGHLIGHTED_LINK_COLOR)
+  }
+
+  function nodeMouseLeave() {
+	// return things back to normal
+	circlesGroup.selectAll('circle').attr('opacity', 1);
+	linesGroup.selectAll('line').attr('opacity', 1);
+	textsGroup.selectAll('text').attr('opacity', 1);
+	//.attr('stroke', attrs.linkColor)
+  }
+
+
+
+  //--------------------------------------------
+  // LINK EVENTS
+  //--------------------------------------------
+  
+  // Three function that change the tooltip when user hover / move / leave a link
+  function linkMouseover(event, link) {
+	/*
+    Tooltip
+      .style("opacity", 1);
+    d3.select(this)
+      .style("stroke", "black")
+      .style("opacity", 1);
+	*/
+	if (link.attribute) {
+		tooltip
+		  .style("visibility", "visible");
+		d3.select(this)
+		  //.classed('hovered', true)
+		  .attr('stroke', HOVER_LINK_COLOR)
+		  .attr('marker-end', (link) => link.source.visibilityLevel > link.target.visibilityLevel ? 'url(#arrowtarget-hover)' : 'none')
+		  .attr('marker-start', (link) => link.target.visibilityLevel > link.source.visibilityLevel ? 'url(#arrowsource-hover)' : 'none');
+	 }
+  }
+	  
+  function linkMousemove(event, link) {
+    //console.log("linkMousemove",event);
+    //console.log("linkMousemove",link);
+	/*
+    Tooltip
+      .html("The exact value of<br>this cell is: " + "d.value")
+      .style("left", (event.pageY+10) + "px")
+      .style("top", (event.pageY-10) + "px");
+	  */
+	if (link.attribute) {
+		tooltip
+		  .style("top", (event.pageY-10)+"px").style("left",(event.pageX+10)+"px")
+		  .html(link.attribute || "Placeholder for link attribute");
+	}
+  }
+  
+  function linkMouseout(event, link) {
+    //console.log("linkMouseout",link);
+  /*
+    Tooltip
+      .style("opacity", 0)
+    d3.select(this)
+      .style("stroke", "none")
+      .style("opacity", 0.8);
+	*/
+	if (link.attribute) {
+		tooltip
+		  .style("visibility", "hidden");
+		d3.select(this)
+		  //.classed('hovered', false)
+		  .attr('stroke', LINK_COLOR)
+		  .attr('marker-end', (link) => link.source.visibilityLevel > link.target.visibilityLevel ? 'url(#arrowtarget)' : 'none')
+		  .attr('marker-start', (link) => link.target.visibilityLevel > link.source.visibilityLevel ? 'url(#arrowsource)' : 'none');
+		  //.attr('stroke', (link) => link.color || 'black');
+	}
+  }
+
+  updateNetwork();
+  
+  //=======================================================
+  // DDC LOGIC IMPLEMENTATION
+  //=======================================================  
+
+	// Global variables
+	let _VAMessage = null; 				// this is a pointer to event.data coming from VA
+	let _resultName = null;				// this holds the id used to send messages back to VA
+	let _selections = [];				// this contains the linked selections (brush) coming from VA
+
+	// Set up event listener for messages from VA to DDC
+	va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+	// Set up event listener for resizes
+	//va.contentUtil.setupResizeListener(updateNetwork);
+	//loadNodesLinks(sampleData);
+	//updateNetwork();
+
+	// Called when new data comes to the DDC 
+	// VA objects filtered/brushed it, or role assignment changed
+	//
+	function onDataReceived(messageFromVA) {
+		console.log("********************onDataReceived************************");
+		console.log(messageFromVA);
+
+		_VAMessage = messageFromVA;
+		_resultName = messageFromVA.resultName;
+		// Extract selections (if any) and reformat the data to eliminate the column that indicates "brush"
+		console.log("--------------------createSelections------------------------");
+		_selections = va.contentUtil.initializeSelections(messageFromVA);
+		console.log("_selections=",_selections);
+
+		// Validate message contains right attributes
+		// e.g. Google Calendar expects a DataTable object with 2 columns, in this order: date and number
+		console.log("--------------------validateRoles------------------------");
+		if (!va.contentUtil.validateRoles(messageFromVA, ["string","string"], ["string","string","string","string","string"])) {
+			va.messagingUtil.postInstructionalMessage(_resultName, 
+				"Network diagram expects columns to be assigned in this order:\n" +
+				" 1. Node1 label (string)\n" +
+				" 2. Node2 label (string)\n" +
+				" 3. Node1 visibility (default: 'Y','YES', optional)\n" +
+				" 4. Node2 visibility (default: 'Y','YES', optional)\n" +
+				" 5. Node1 attributes (string, optional)\n" +
+				" 6. Node2 attributes (string, optional)\n" +
+				" 7. Link attributes (string, optional)");
+			loadNodesLinks(sampleData);
+		}
+		else {
+			console.log("--------------------loadNodesLinks------------------------");
+			loadNodesLinks(messageFromVA);
+		}
+		
+		[activeNodes, activeLinks] = copyActiveNodesLinks(nodes,links);
+
+		// Refresh chart
+		updateNetwork(true);
+	}
+  
+</script>
+  </body>
+</html>
