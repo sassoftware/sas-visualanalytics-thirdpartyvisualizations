@@ -67,3 +67,7 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 ### JSON Message Viewer | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/jsonDataViewer.html)
 
 <img width="600" height="600" src="./images/jsonDataViewer.png">
+
+### Multi Selector | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/multiSelector.html)
+
+<img src="./images/multiSelector.jpg">
