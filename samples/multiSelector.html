@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!--
+MIT License
+
+Copyright (c) 2014 - 2019 SamBrishes, pytesNET info@pytes.net
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
+the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, 
+and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions 
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED 
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+DEALINGS IN THE SOFTWARE.
+-->
+<html>
+    <head>
+        <meta charset="utf-8" />
+		
+		<!-- tail.select components -->
+		<!-- reference: https://github.pytes.net/tail.select/ -->
+        <link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light.min.css" />
+        <link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light-adjustments-renato.css" />
+        <script type="text/javascript" src="./MultiSelector/tail.select-adjustments-renato.js"></script>
+		
+		<!-- SAS Github components -->
+		<script type="text/javascript" src="../util/messagingUtil.js"></script>
+		<script type="text/javascript" src="../util/contentUtil.js"></script>
+    </head>
+    <body>
+        <select class="my-select-search"></select>
+
+        <script type="text/javascript">
+			"use strict";
+
+			var _resultName = null;
+			var _selections = null;
+			var _selector = null;
+			var _selectorModified = null;
+
+			va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+			// Retrieve data and begin processing
+			function onDataReceived(resultData) {
+				if (resultData) {
+					_resultName = resultData.resultName;
+			
+					if (resultData.columns.length == 0) {
+						// it needs at least one column and one row
+						va.messagingUtil.postInstructionalMessage(_resultName, "Please, assign role");
+						return;
+					}
+					
+					_selector.reload(); // clears the dropdown
+					_selector.options.add(resultData.data,true);
+				}
+			}
+			
+			var mySort = function(arrayOfKeys) {
+				return arrayOfKeys.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+			}
+
+            document.addEventListener("DOMContentLoaded", function(){
+				_selector= tail.select("select.my-select-search", {
+					/* Your Options */ 
+					search: true,
+					multiple: true,
+					csvOutput: true,
+					deselect: true,
+					width: '100%',
+					height: 400, // cannot use px or %
+					multiContainer: false,
+					//multiPinSelected: true, // move selected elements to the top of the list. Unselected items are sent to the bottom of the list
+					multiSelectAll: true,
+					placeholder: "Select an option...",
+					searchFocus: true,
+					searchMarked: true,
+					searchMinLength: 1,
+					sortItems: mySort
+				});
+				
+				_selector.on('open', function (){
+					_selectorModified = false;
+				});
+				
+				_selector.on('change', function (item, state){
+					if (state == "select" || state == "unselect") _selectorModified = true;
+				});
+				
+				_selector.on('close', callbackInformVA, [_selector]);
+				
+            });
+			
+			function getSelectedIndex(selector) {
+				for(var selected = [], len = selector.options.selected.length, i = 0; i < len; i++){
+					selected.push(selector.options.selected[i].index);
+				}
+				return selected;
+			}
+			
+			function callbackInformVA(args) {
+				if (_selectorModified) {
+					var selector = args[0];
+					var selections = getSelectedIndex(selector);
+					console.log("getSelected(selector): ",selections);
+					va.messagingUtil.postSelectionMessage(_resultName, selections);
+					_selectorModified = false;
+				}
+			}
+        </script>
+    </body>
+</html>
