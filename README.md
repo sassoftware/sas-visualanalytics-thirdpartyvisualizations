@@ -4,6 +4,11 @@ This project contains code samples that can be used as data-driven content withi
 
 The JavaScript content for your third-party visualizations must be stored on a web server. One approach to hosting is to use Node.js. For more information about using Node.js for data-driven content, see [Deploy a custom web application in the cloud for Data-Driven Content object in SAS Viya 4](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-a-custom-web-application-in-the-cloud-for-Data-Driven/ta-p/687141).
 
+## RECENTLY ADDED - the Data-driven Content (DDC) Server!
+
+In addition to accessing [samples](./samples/) from the given folder, users may also like to refer to this new section - a [DDC Server](./ddc-server/), which pre-packages these sample files in an easily accessible web application that can be deployed alongside SAS Viya! **In addition**, users will also be able to upload their own custom DDCs to their deployed instance of the DDC Server.  Check this [folder](./ddc-server/) and [README](./ddc-server/README.md) out in order to learn more.
+
+
 ---
 ## util/messagingUtil.js
 
