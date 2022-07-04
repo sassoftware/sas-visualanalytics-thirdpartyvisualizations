@@ -4,7 +4,7 @@
 
 Visual Analytics report creators find some tasks around current DDC usage intimidating or cumbersome.  We want to **make it easier for users to quickly access and use third-party & customized reporting templates**.
 
-This repository helps both report creators and administrators. It provides administrators configuration to install a DDC server on a Kubernetes cluster, and instructs report creators how to use the same within Visual Analytics.
+This folder within the repository helps both report creators and administrators. It provides administrators configuration to install a DDC server on a Kubernetes cluster, and instructs report creators how to use the same within Visual Analytics.
 
 ## Contents
 1. [Installation](#installation-for-administrators)
