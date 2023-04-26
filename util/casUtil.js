@@ -20,6 +20,7 @@ limitations under the License.
 	
 	window.jq = window.parent.$;
 
+	var tkhttpid_cookie = "";  // for handling tkhttp-id cookie, required in Viya 4
 
 	// Changes XML to JSON
 	// Source: https://davidwalsh.name/convert-xml-json
@@ -61,7 +62,12 @@ limitations under the License.
 		return obj;
 	};
 	
-	
+    // Extracts a cookie's value based on the key (added for Viya 4 requirement to pass tkhttp-id cookie in request header)
+    var getCookies = function(name) { 
+		let c = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+		return c;
+	}
+	  
 	casUtil.getAppVersion = function(app) {
 		
 		if (app.substr(0,1) == '/') app = app.substr(1);
@@ -103,7 +109,7 @@ limitations under the License.
 				} else if (vaVersion == "8.5" || vaVersion == "8.5.1") {
 					vaVersion=85;
 				} else {
-					vaVersion=null;
+					vaVersion=2023; // setting to 2023 for Viya 4 releases
 				}
 				casUtil._vaVersion = vaVersion;	// caches value internally for future retrieval
 				return vaVersion;
@@ -240,6 +246,17 @@ limitations under the License.
 			var requestHeaders = {
 				'X-CSRF-TOKEN': proxyToken
 			};
+
+			// check cookies, for Viya 4 compatibility (casUtil._vaVersion >= 2023)
+			if (casUtil._vaVersion >= 2023) {
+				// check for tkhttp-id cookie
+				tkhttpid_cookie = getCookies("tkhttp-id");
+				// if cookie IS present, add cookie's value to the request header
+				if ( tkhttpid_cookie ) {
+					requestHeaders["tkhttp-id"] = tkhttpid_cookie;
+				}
+			}
+			  
 			return jq.ajax({
 					url: ("/casProxy/servers/" + serverName + "/cas/sessions/" + sessId + "/actions/" + action),
 					method: "POST",
