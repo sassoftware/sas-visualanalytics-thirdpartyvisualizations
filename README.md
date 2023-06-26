@@ -4,6 +4,11 @@ This project contains code samples that can be used as data-driven content withi
 
 The JavaScript content for your third-party visualizations must be stored on a web server. One approach to hosting is to use Node.js. For more information about using Node.js for data-driven content, see [Deploy a custom web application in the cloud for Data-Driven Content object in SAS Viya 4](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-a-custom-web-application-in-the-cloud-for-Data-Driven/ta-p/687141).
 
+## RECENTLY ADDED - the Data-driven Content (DDC) Server!
+
+In addition to accessing [samples](./samples/) from the given folder, users may also like to refer to this new section - a [DDC Server](./ddc-server/), which pre-packages these sample files in an easily accessible web application that can be deployed alongside SAS Viya! **In addition**, users will also be able to upload their own custom DDCs to their deployed instance of the DDC Server.  Check this [folder](./ddc-server/) and [README](./ddc-server/README.md) out in order to learn more.
+
+
 ---
 ## util/messagingUtil.js
 
@@ -246,7 +251,7 @@ chartData = va.c3Helper.configureChartData(resultData, chartType, previousConfig
 ---
 ## util/casUtil.js
 
-It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions were designed and tested with VA 8.3  (SAS Viya 3.4) and above, up to VA 8.5 (SAS Viya 3.5). Internal implementation and REST APIs used may differ depending the the SAS Viya version. Decisions are made based on the VA version detected. You must include the following line in the _\<head\>_ of the web page:
+It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions have been modified to work in SAS Viya 4 (testing was performed on 2023.02 and 2023.03 release cadences), and should remain backwards compatible back to VA 8.3 (SAS Viya 3.4). Internal implementation and REST APIs used may differ depending the the SAS Viya version. Decisions are made based on the VA version detected. You must include the following line in the _\<head\>_ of the web page:
 ```html
 <script type="text/javascript" src="../util/casUtil.js"></script>
 ```
@@ -255,7 +260,7 @@ It contains the functions you need to create CAS sessions and execute CAS action
 Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It uses the following endpoints internally:
 VA 8.3 and above on SAS Viya 3.4:
 `/casManagement/servers` and `/casProxy/servers/<serverName>/cas/sessions`   
-VA 8.5 on SAS Viya 3.5:
+VA 8.5 on SAS Viya 3.5, and Viya 4 (2023.02 and later):
 `/casManagement/servers` and `/casManagement/servers/<serverName>/sessions`
 
 _Usage:_
