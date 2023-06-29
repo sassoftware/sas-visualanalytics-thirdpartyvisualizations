@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<!--
+Copyright 2018 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+
+<head>
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
+	<script type="text/javascript" src="../util/casUtil.v4.js"></script>
+</head>
+
+<body>
+	<div>
+		<h3 id="form-label" style="font-family: verdana;">[placeholder: title will change based on parameters]</h3>
+		<!--input type="text" id="form-input1" name="fdata"-->
+		<textarea id="text-input" rows="4" cols="50"></textarea>
+		<button id="submit-button" type="button">Submit</button>
+	</div>
+	<script>
+		"use strict";
+		//
+		// This implementation requires a source object to brush the data-driven content (linked action).
+		// The data-driven content object must have one role assingment: the id that can be used to uniquely identify the row to be updated.
+		// Only the in-memory table will be updated, but sample code for allowing write-back to *disk* (PATH library) has been provided (just uncomment the block).
+		// If write-back to other source than disk is needed, you must adapt the commented code.
+		//
+		// Paramters to this data-driven content URL:
+		//   caslib - the CAS library containing the table to be updated (e.g. public)
+		//   castab - the name of the table to be updated
+		//   target_column_name - the column to be updated with the input text
+		//   id_column_name - the column that contains unique id of row to be updated (column name, not label)
+		//
+		var _idVal, _idType, _idFormat, _resultName, _selections;
+
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+
+		console.log(">>>>>>>>>>>> Parameters from URL (BEGIN) >>>>>>>>>>>");
+		var urlParams = va.messagingUtil.getUrlParams();
+		Object.keys(urlParams).forEach(function (key) {
+			console.log(key + "=" + urlParams[key]);
+		});
+
+		var _caslib = va.messagingUtil.getUrlParams("caslib");							// source caslib
+		var _castab = va.messagingUtil.getUrlParams("castab");							// source cas table name
+		var _target_column_name = va.messagingUtil.getUrlParams("target_column_name");	// column to be updated (column name, not label)
+		var _target_column_type = va.messagingUtil.getUrlParams("target_column_type");	// column to be updated (column type: string/number)
+		var _id_column_name = va.messagingUtil.getUrlParams("id_column_name");			// column containing unique id of row to be updated (column name, not label)
+
+		// Changes the form title
+		document.getElementById('form-label').innerHTML = "Update " + _target_column_name;
+
+		// Retrieve row's unique id from selection and fill in the text box input with current value
+		function onDataReceived(resultData) {
+			console.log(resultData);
+			_resultName = resultData.resultName;
+			_selections = va.contentUtil.initializeSelections(resultData);
+
+			if (!_caslib || !_castab || !_target_column_name || !_target_column_type || !_id_column_name) {
+				var msg = "Check URL input parameters for:\n" +
+					"caslib = source table CAS library\n" +
+					"castab = source table\n" +
+					"target_column_name = column to be updated (column name, not label)\n" +
+					"target_column_type = column to be updated (accepts: string/number/date/datetime/time)\n" +
+					"id_column_name = column containing unique id of row to be updated (column name, not label)";
+				va.messagingUtil.postInstructionalMessage(_resultName, msg);
+				disableDataEntry();
+				return;
+			}
+
+			if (resultData.columns.length !== 1) {
+				var msg = "This object accepts only one role assignment:\n" +
+					"1. unique id of row to be updated";
+				va.messagingUtil.postInstructionalMessage(_resultName, msg);
+				disableDataEntry();
+				return;
+			}
+
+			if (_selections.length !== 1) {
+				console.log("There is no row selected (or more than one was selected)");
+				var textarea = document.getElementById('text-input');
+				textarea.value = "Please, select one row";
+				disableDataEntry();
+				return;
+			}
+
+			enableDataEntry();
+
+			var rowId = _selections[0].row;
+			_idVal = resultData.data[rowId][0];
+
+			console.log("_id_column_name:", _id_column_name);
+			console.log("_idVal:", _idVal);
+
+			_idType = resultData.columns[0].type;
+			if (_idType != "string") {
+				// only non-string data have formats
+				_idFormat = resultData.columns[0].format.formatString;
+			}
+			fetchData();
+		}
+
+		function disableDataEntry() {
+			var textarea = document.getElementById('text-input');
+			var button = document.getElementById('submit-button');
+			if (!textarea.hasAttribute('disabled')) {
+				var att = document.createAttribute("disabled");
+				textarea.setAttributeNode(att);
+				att = document.createAttribute("disabled");
+				button.setAttributeNode(att);
+			}
+		}
+
+		function enableDataEntry() {
+			var textarea = document.getElementById('text-input');
+			var button = document.getElementById('submit-button');
+			if (textarea.hasAttribute('disabled')) {
+				textarea.removeAttribute('disabled');
+				button.removeAttribute('disabled');
+			}
+		}
+
+
+		var _serverName;
+		var _currentSessionId;
+
+		va.casUtil.startCasSession().then(function (sessionInfo) {
+			console.log("casServerName: " + sessionInfo.casServerName);
+			console.log("sessionId: " + sessionInfo.sessionId);
+			_serverName = sessionInfo.casServerName
+			_currentSessionId = sessionInfo.sessionId;
+			if (!_currentSessionId) {
+				alert("Unable to obtain the session ID.\nPlease refresh/re-open the report.");
+				var textarea = document.getElementById('text-input');
+				textarea.value = "Unable to obtain the session ID.\nPlease refresh/re-open the report.";
+			}
+		});
+
+		function fetchData() {
+			if (_idVal && _currentSessionId) {
+				var whereExpression = _id_column_name + ' = ' + getSASStandardConstantValue(_idType, _idFormat, _idVal);
+
+				var actionPostData = {
+					"table": {
+						"name": _castab,
+						"caslib": _caslib,
+						"where": whereExpression
+					},
+					"fetchVars": [
+						{ "name": _target_column_name }
+					]
+				};
+				console.log("actionPostData:", actionPostData);
+				va.casUtil.casAction(_serverName, _currentSessionId, "fetch", JSON.stringify(actionPostData))
+					.then(function (response) {
+						if (response.status != 0) {
+							console.log("Fetch failed:", response);
+							return;
+						}
+						if (response.results.Fetch.rows.length == 0) {
+							console.log("Fetch failed (no data returned):", response);
+							return;
+						}
+						console.log("Fetched data:", response);
+						document.getElementById('text-input').value = response.results.Fetch.rows[0][1];
+					});
+			}
+		}
+
+		// Formats the value according to its type and informat
+		// String  : 'value'
+		// Number* : value
+		// Date    : 'DDMMMYYYY'd
+		// Datetime: 'DDMMMYYYY:HH:MM:SS'dt
+		// (*) includes Time elements
+		function getSASStandardConstantValue(type, informat, value) {
+			var constValue;
+			if (type == "string") {
+				constValue = "'" + value + "'";
+			}
+			// One of the Date() constructors accept input dates as strings in ISO format, short, and long date formats, such as:
+			// "02/22/2012", "02-22-2012" (not Firefox),
+			// "Feb/22/2012", "February/22/2012", "February 22, 2012", "Feb 22, 2012", "February 22 2012", "Feb 22 2012",
+			// "22February2012", "22Feb2012", "22 February 2012", "22 Feb 2012",
+			// "Wednesday, February 22, 2012", "2012/02/22", "2012-02-22" (ISO),
+			// "Feb2012" (not Firefox), "Feb 2012" (not Firefox), "February2012"(not Firefox), "February 2012" (not Firefox)
+			// Support for formats other than ISO may be browser and version dependent.
+			// It does NOT accept Julian, DD/MM/YYYY, MM/YYYY, MMMMMMM formats. In those cases, a transformation is necessary
+			// to put the date string in a supported format.
+			// https://www.w3schools.com/js/js_date_formats.asp
+			else if (type == "date") {
+				// There is room for a lot of improvement here.
+				if (informat == "DDMMYY8") { // DD/MM/YYYY
+					value = value.substr(6) + '/' + value.substr(3, 2) + '/' + value.substr(0, 2); // = YYYY/MM/DD
+				}
+				else if (informat == "DATE9") { // DDMMMYYYY
+					value = value.substr(0, 2) + value.substr(2, 3) + value.substr(5); // = DDMMMYYYY
+				}
+				else if (informat == "MMYY8") { // MM/YYYY
+					value = value.substr(3) + '/' + value.substr(0, 2) + '/01'; // = YYYY/MM/01
+				}
+				else if (informat == "MONTH7" || // MMMYYYY
+					informat == "MMYY8") {  // MM/YYYY
+					value = '01 ' + value; // = 01 MMMYYYY or 01 MM/YYYY
+				}
+				else if (informat == "MONYY7" || informat == "WORDDATE9" || // MMMMMMMMM -> this format should not be used because it's too much guessing (year and day) to form the date
+					informat == "MONTH3" || informat == "WORDDATE3") { // MMM       -> this format should not be used because it's too much guessing (year and day) to form the date
+					value = value + ' 01 1960'; // = MMM<MMMMMM> 01 1960
+				}
+				else if (informat == "DAY9") { // DD
+					value = '1960/01/' + value; // = 1960/01/DD
+				}
+				else if (informat == "MONTH2") { // MM
+					value = '1960/' + value + '/01'; // = YYYY/MM/01
+				}
+				else if (informat == "YEAR4") { // YYYY
+					value = value + '/01/01'; // = YYYY/01/01
+				}
+				else if (informat == "YYMM8") { // YYYY/MM
+					value = value + '/01'; // = YYYY/MM/01
+				}
+				// Other transformations should be added here as needed.
+				// For example: DOWNAME11, DOWNAME1, JULDAY1, WEEKDATE9, WEEKDATE3, JULIAN7,
+				// QTR4, QTR6, YYQC5, WEEKV2, WEEKV3, WEEKV5, WEEKV7, WEEKV9, WEEKV0
+
+				var dateTime = new Date(value);
+				var dateStr = dateTime.toDateString(); // "Mon Jul 15 2019"
+				constValue = "'" + dateStr.substr(8, 2) + dateStr.substr(4, 3) + dateStr.substr(11, 4) + "'d"; // = 'DDMMMYYYY'd = '15Jul2019'd
+			}
+			else if (type == "datetime") {
+				// This generic transformation willl not work for every datetime format.
+				// Format specific transformations should be added here as needed.
+				var dateTime = new Date(value);
+				var dateStr = dateTime.toString(); // "Mon Jul 15 2019 15:46:00 GMT-0500 (Eastern Standard Time)"
+				constValue = "'" + dateStr.substr(8, 2) + dateStr.substr(4, 3) + dateStr.substr(11, 4) + ":" + dateStr.substr(16, 8) + "'dt"; // = 'DDMMMYYYY:HH:MM:SS'dt = '15Jul2019:20:45:00'dt
+			}
+			else constValue = value; // columns formatted as Time have type equals to number and don't need any transformation
+
+			return constValue;
+		};
+
+		// Set the event handler for the submit button
+		document.onreadystatechange = () => {
+			if (document.readyState === 'complete') {
+				var submitButton1 = document.getElementById('submit-button');
+
+				submitButton1.addEventListener('click', function () {
+					console.log('clicked');
+					var serverName = window.serverName;
+
+					var textVal = document.getElementById('text-input').value;
+					console.log("New value:", textVal);
+
+					if (_idVal) {
+						var whereExpression = _id_column_name + ' = ' + getSASStandardConstantValue(_idType, _idFormat, _idVal);
+
+						var actionPostData = {
+							"table": {
+								"name": _castab,
+								"caslib": _caslib,
+								"where": whereExpression
+							},
+							"set": [
+								{
+									"var": _target_column_name,
+									"value": ((_target_column_type == 'string') ? ('"' + textVal + '"') :
+										((_target_column_type == 'date') ? ("'" + textVal + "'d") :
+											((_target_column_type == 'datetime') ? ("'" + textVal + "'dt") :
+												(textVal))))
+								}
+							]
+						};
+						console.log("actionPostData (update):", actionPostData);
+						va.casUtil.casAction(_serverName, _currentSessionId, "update", JSON.stringify(actionPostData))
+							.then(function (response) { // resolved callback
+								if (response.status != 0) {
+									console.log("Update failed:", response);
+									return;
+								}
+								// forces VA objects that have selection actions defined with the DDC object to refresh and display updated field: remove current selection, then add it back
+								va.messagingUtil.postSelectionMessage(_resultName, []);
+
+								// re-selects the data in the source object after 1 second (timer needed to allow VA to refresh - empyric)
+								setTimeout(function () {
+									va.messagingUtil.postSelectionMessage(_resultName, _selections);
+								}, 1000);
+
+								//****************************************
+								// this block saves the table to disk (uncomment it if needed)
+								/*
+								var actionPostData = {
+									"name":_castab.toUpperCase(),  // file names in Linux are case sensitive: make sure to utilize the proper casing
+									"caslib":_caslib,
+									"replace":true,
+									"exportOptions": {fileType:'AUTO'}, 	// change this to BASESAS, EXCEL, etc. as needed
+									// you may want to change "permission":"GROUPREAD" | "GROUPWRITE" | "GROUPWRITEPUBLICREAD" | "PRIVATE" | "PUBLICREAD" | "PUBLICWRITE (see documentation for details)
+									"table": {
+										"name":_castab,
+										"caslib":_caslib
+									}
+								};
+								console.log("actionPostData (save):", actionPostData);
+								va.casUtil.casAction(_serverName, _currentSessionId, "save", JSON.stringify(actionPostData))
+								.then(function(response) {
+									//console.log("response:", response);
+								});
+								*/
+								//****************************************
+							}, function (reason) { // rejected callback
+								console.log("Update failed, reason:", reason);
+							});
+					}
+
+				});
+			}
+		};
+
+	</script>
+</body>
+
+</html>

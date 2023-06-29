@@ -260,7 +260,7 @@
             <EditorProperties>
                 <Property key="isAutoLabel">false</Property>
             </EditorProperties>
-            <P><Span>Uses POST method to send table data by uploading it to the server. Recommended for most of the cases.</Span></P>
+            <P><Span>Uses POST method to send table data by uploading it to the server. Recommended for most of the cases.</Span></P>
         </Text>
         <Text name="ve939" label="Text 1 (1) (1)" selectionDisabled="true" applyDynamicBrushes="no">
             <EditorProperties>

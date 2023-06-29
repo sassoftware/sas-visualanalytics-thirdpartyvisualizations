@@ -249,12 +249,20 @@ chartData = va.c3Helper.configureChartData(resultData, chartType, previousConfig
 `}`
 
 ---
-## util/casUtil.js
+## util/casUtil.js and util/casUtil.v4.js
 
-It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions have been modified to work in SAS Viya 4 (testing was performed on 2023.02 and 2023.03 release cadences), and should remain backwards compatible back to VA 8.3 (SAS Viya 3.4). Internal implementation and REST APIs used may differ depending the the SAS Viya version. Decisions are made based on the VA version detected. You must include the following line in the _\<head\>_ of the web page:
+It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions have been modified to work in SAS Viya 4 (testing was performed on 2023.02 and 2023.03 release cadences), and should remain backwards compatible down to VA 8.3 (SAS Viya 3.4). 
+Internal implementation and REST APIs used may differ depending the the SAS Viya version. Decisions are made based on the VA version detected. 
+**casUtil.v4.js** is an implementation without dependency on jQuery. It has been tested on stable release 2023.06 but should work with previous releases as well.
+You must include the following line in the _\<head\>_ of the web page:
 ```html
 <script type="text/javascript" src="../util/casUtil.js"></script>
 ```
+OR
+```html
+<script type="text/javascript" src="../util/casUtil.v4.js"></script>
+```
+
 ### startCasSession
 
 Leverages SAS Viya REST API to create a CAS session that you can use to execute CAS actions. It uses the following endpoints internally:
@@ -350,12 +358,19 @@ va.casUtil.getAppVersion(app).then(function(version){...})
 * Returns a promise for `version`, a string containing the application version, e.g. `'8.5'`.
 
 ---
-## util/jobUtil.js
+## util/jobUtil.js and util/jobUtil.v4.js
 
-It contains utility functions to support easier integration between SAS Visual Analytics and SAS Jobs. You must include the following line in the _\<head\>_ of the web page:
+It contains utility functions to support easier integration between SAS Visual Analytics and SAS Jobs. 
+**jobUtil.v4.js** is an implementation without dependency on jQuery. It has been tested on stable release 2023.06 but should work with previous releases as well.
+You must include the following line in the _\<head\>_ of the web page:
 ```html
 <script type="text/javascript" src="../util/jobUtil.js"></script>
 ```
+OR
+```html
+<script type="text/javascript" src="../util/jobUtil.v4.js"></script>
+```
+
 ### PrepareVADataForSASJobs
 
 Transforms the data received from VA and adds extra format information for SAS Jobs to use.
@@ -427,18 +442,17 @@ _Notes:_
 
 ### pingApp
 
-Pings the app to keep it alive.
+Asynchrnous function that pings the app to keep it alive.
 
 _Usage:_
 ```javascript
 va.jobUtil.pingApp(app)
 ```
 * `app` is the name of the application, e.g. `'SASJobExecution'`.
-* Returns a promise.
 
 ### keepAppAlive
 
-Calls pingApp on 1 minute intervals to keep the application alive.
+Asynchrnous function that calls pingApp on 1 minute intervals to keep the application alive.
 
 _Usage:_
 ```javascript
