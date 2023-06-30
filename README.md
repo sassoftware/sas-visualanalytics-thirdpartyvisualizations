@@ -140,7 +140,7 @@ Extracts parameter information from message received from VA.
 
 _Usage:_
 ```javascript
-parameters = va.messagingUtil.getVAParameters(resultData)
+parameters = va.contentUtil.getVAParameters(resultData)
 ```
 * `resultData` is the message received from VA (event.data).
 * Returns `parameters`, an object containing each parameter name and value (e.g. `{<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}`). If a certain `<param_label>` contains multiple values, its `<param_value>` is an array.
@@ -251,9 +251,10 @@ chartData = va.c3Helper.configureChartData(resultData, chartType, previousConfig
 ---
 ## util/casUtil.js and util/casUtil.v4.js
 
-It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions have been modified to work in SAS Viya 4 (testing was performed on 2023.02 and 2023.03 release cadences), and should remain backwards compatible down to VA 8.3 (SAS Viya 3.4). 
-Internal implementation and REST APIs used may differ depending the the SAS Viya version. Decisions are made based on the VA version detected. 
-**casUtil.v4.js** is an implementation without dependency on jQuery. It has been tested on stable release 2023.06 but should work with previous releases as well.
+It contains the functions you need to create CAS sessions and execute CAS actions from SAS Visual Analytics. Those functions have been modified to also work in SAS Viya after 3.5.x (testing was performed on 2023.02 and 2023.03 release cadences), and should remain backwards compatible down to SAS Viya 3.4.
+Internal implementation and REST APIs used may differ depending on the SAS Viya version. Decisions are made based on the VA version detected.
+**casUtil.v4.js** is an implementation without inherited dependency on jQuery. It has been tested on stable release 2023.06 and Viya 3.5 and it should remain backwards compatible with all other SAS Viya releases. You should use this utility file going forward.
+Note: error handling for functions calls in .v4 implementation should use .catch() instead of .fail().
 You must include the following line in the _\<head\>_ of the web page:
 ```html
 <script type="text/javascript" src="../util/casUtil.js"></script>
@@ -356,12 +357,13 @@ va.casUtil.getAppVersion(app).then(function(version){...})
 ```
 * `app` is the name of the application you want to obtain the version for, e.g. `'SASVisualAnalytics'`.
 * Returns a promise for `version`, a string containing the application version, e.g. `'8.5'`.
+* It only works for SAS Viya up to version 3.5.x.
 
 ---
 ## util/jobUtil.js and util/jobUtil.v4.js
 
-It contains utility functions to support easier integration between SAS Visual Analytics and SAS Jobs. 
-**jobUtil.v4.js** is an implementation without dependency on jQuery. It has been tested on stable release 2023.06 but should work with previous releases as well.
+It contains utility functions to support easier integration between SAS Visual Analytics and SAS Jobs.
+**jobUtil.v4.js** is an implementation without inherited dependency on jQuery. It has been tested on stable release 2023.06 and Viya 3.5 and it should remain backwards compatible with all other SAS Viya releases. You should use this utility file going forward.
 You must include the following line in the _\<head\>_ of the web page:
 ```html
 <script type="text/javascript" src="../util/jobUtil.js"></script>
