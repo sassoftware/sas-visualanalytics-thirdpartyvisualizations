@@ -254,6 +254,10 @@ limitations under the License.
 			link.style = "visibility:hidden";
 			link.download = fileName + ".csv";
 
+			//this was not necessary before, but for some reason download does not work without it now
+			var txt = document.createTextNode("Download");
+			link.appendChild(txt);
+
 			//this part will append the anchor tag and remove it after automatic click
 			document.body.appendChild(link);
 			link.click();
