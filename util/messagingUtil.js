@@ -17,7 +17,7 @@ limitations under the License.
     'use strict';
 
     var messagingUtil = {};
-	
+
 	messagingUtil.setOnDataReceivedCallback = function(callback)
 	{
 		var onMessage = function (evt) {
@@ -26,7 +26,7 @@ limitations under the License.
 				callback(evt.data);
 			}
 		}
-		
+
 		if (window.addEventListener) {
 			// For standards-compliant web browsers
 			window.addEventListener("message", onMessage, false);
@@ -35,12 +35,12 @@ limitations under the License.
 			window.attachEvent("onmessage", onMessage);
 		}
 	};
-	
-	
-	// Examples of valid selectedRows: 
+
+
+	// Examples of valid selectedRows:
 	// [0, 3, 4]
 	// [{row: 0}, {row: 3}, {row: 4}]
-	messagingUtil.postSelectionMessage = function(resultName, selectedRows) 
+	messagingUtil.postSelectionMessage = function(resultName, selectedRows)
 	{
 		var selections;
 		if (selectedRows && selectedRows.length > 0 && selectedRows[0].hasOwnProperty("row")) {
@@ -54,14 +54,14 @@ limitations under the License.
 		}
 
 		var message = {
-			resultName: resultName, 
+			resultName: resultName,
 			selections: selections
 		};
 		messagingUtil.postMessage(message);
 	};
-	
-	
-	messagingUtil.postInstructionalMessage = function(resultName, strMessage) 
+
+
+	messagingUtil.postInstructionalMessage = function(resultName, strMessage)
 	{
 		var message = {
 			resultName: resultName,
@@ -69,19 +69,19 @@ limitations under the License.
 		};
 		messagingUtil.postMessage(message);
 	};
-	
-	
-	messagingUtil.postMessage = function(objMessage) 
+
+
+	messagingUtil.postMessage = function(objMessage)
 	{
 		var url = (window.location != window.parent.location)
 			? document.referrer
 			: document.location.href;
-			
+
 		window.parent.postMessage(objMessage, url);
 	};
-	
-	
-	messagingUtil.getUrlParams = function(name) 
+
+
+	messagingUtil.getUrlParams = function(name)
 	{
 		// If name is a parameter --> return name's value
 		// If name is not a parameter --> return null
@@ -101,8 +101,26 @@ limitations under the License.
 
 		return name ? (name in params ? params[name] : null) : params;
 	};
-	
-	
+
+
+  messagingUtil.forceVAObjectsRefresh = function(resultName, millisecondsBeforeRefresh = 2000) {
+    // Forces VA objects that have filter actions driven from the DDC object to refresh: filters 1st row then none of them
+    // For this function to work you need additional settings in the VA report
+    va.messagingUtil.postSelectionMessage(resultName, [{row:0}]);
+
+    return new Promise((resolve, reject) => {
+      // You may need to tune the parameter millisecondsBeforeRefresh for your environment
+      setTimeout(
+        () => {
+          va.messagingUtil.postSelectionMessage(resultName, []);
+          resolve();
+        },
+        millisecondsBeforeRefresh
+      );
+    });
+  };
+
+
 	if (!window.va)
 		window.va = {};
     window.va.messagingUtil = messagingUtil;

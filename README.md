@@ -1,10 +1,10 @@
 # SAS Visual Analytics third party visualizations
 
-This project contains code samples that can be used as data-driven content within a SAS Visual Analytics (VA) report. For additional information, see [Programming Considerations for Data-Driven Visualizations](http://go.documentation.sas.com/?cdcId=vacdc&cdcVersion=8.2&docsetId=varef&docsetTarget=n109mqtyl6quiun1mwfgtcn2s68b.htm&locale=en).
+This project contains code samples that can be used as Data-Driven Content (DDC) within a SAS Visual Analytics (VA) report. For additional information, see [Programming Considerations for Data-Driven Visualizations](http://go.documentation.sas.com/?cdcId=vacdc&cdcVersion=8.2&docsetId=varef&docsetTarget=n109mqtyl6quiun1mwfgtcn2s68b.htm&locale=en).
 
-The JavaScript content for your third-party visualizations must be stored on a web server. One approach to hosting is to use Node.js. For more information about using Node.js for data-driven content, see [Deploy a custom web application in the cloud for Data-Driven Content object in SAS Viya 4](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-a-custom-web-application-in-the-cloud-for-Data-Driven/ta-p/687141).
+The JavaScript content for your third-party visualizations must be stored on a web server. One approach to hosting is to use Node.js. For more information about using Node.js for data-driven content, see [Deploy a custom web application in the cloud for Data-Driven Content object in SAS Viya 4](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-a-custom-web-application-in-the-cloud-for-Data-Driven/ta-p/687141). Another possibility is to leverage SAS Content Server, as explained in [Deploy DDC Implementation Files in SAS Content Server via SAS Viya GUIs](https://communities.sas.com/t5/SAS-Communities-Library/Deploy-DDC-Implementation-Files-in-SAS-Content-Server-via-SAS/ta-p/825559).
 
-## RECENTLY ADDED - the Data-driven Content (DDC) Server!
+## Data-Driven Content (DDC) Server
 
 In addition to accessing [samples](./samples/) from the given folder, users may also like to refer to this new section - a [DDC Server](./ddc-server/), which pre-packages these sample files in an easily accessible web application that can be deployed alongside SAS Viya! **In addition**, users will also be able to upload their own custom DDCs to their deployed instance of the DDC Server.  Check this [folder](./ddc-server/) and [README](./ddc-server/README.md) out in order to learn more.
 
@@ -34,7 +34,7 @@ _Usage:_
 ```javascript
 va.messagingUtil.postSelectionMessage(resultName, selectedRows)
 ```
-* `resultName`is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
+* `resultName` is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
 * `selectedRows` is an array of numbers (e.g. `[0, 3, 4]`) or objects (e.g. `[{row: 0}, {row: 3}, {row: 4}]`) that contains the indexes of the selected rows, as they appear in event.data.data.
 
 ### postInstructionalMessage
@@ -45,7 +45,7 @@ _Usage:_
 ```javascript
 va.messagingUtil.postInstructionalMessage(resultName, strMessage)
 ```
-* `resultName`is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
+* `resultName` is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
 * `strMessage` is the text message to be sent.
 
 ### postMessage
@@ -82,6 +82,18 @@ value = va.messagingUtil.getUrlParams(name)
 If `name` is an existing parameter, returns it's value
 If `name`is not an existing parameter, returns `null`
 If `name`is not informed, returns and object with all parameters name-value pairs: `{name1:value1, name2:value2, name3:value3, ...}`
+
+### forceVAObjectsRefresh
+
+Forces VA objects that have filter actions driven from the DDC object to refresh: filters 1st row then none of them. For this function to work you need additional settings in the VA report, such as filter actions, table mappings, etc. This will be discussed in a blog soon and a link to it will be added here.
+
+_Usage:_
+```javascript
+va.messagingUtil.forceVAObjectsRefresh(resultName, millisecondsBeforeRefresh)
+```
+* `resultName` is the name of the associated query result, which is obtained from the message received from VA (event.data.resultName).
+* `millisecondsBeforeRefresh` is optional and indicates the time in milliseconds that it should wait between the two selection messages that this function sends to VA. You may need to tune this value according to your environment. You want to give enough time for the first selection message to be processed by VA, before the second message is sent, otherwise the filter action that the DDC has with other objects may not be triggered and the objects are not refreshed. This time is set to 2000 (2 seconds) by default and it should work for most of the cases.
+
 
 ---
 ## util/contentUtil.js
