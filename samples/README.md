@@ -1,6 +1,6 @@
 # Using samples within SAS Visual Analytics
 
-These samples can be directly used by data-driven content within a SAS Visual Analytics (VA) report. For example, to reference the circle packing sample, set the url of the data-driven content to be:
+For quick testing purposes, these samples can be used by Data-Driven Content (DDC) objects within a SAS Visual Analytics (VA) report directly from GitHub, without the need of deploying them in a Web server, or SAS Content Server, or the DDC Server. For example, to reference the circle packing sample, set the URL of the DDC object to be:
 
 ```html
 https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/d3_circlePacking.html
