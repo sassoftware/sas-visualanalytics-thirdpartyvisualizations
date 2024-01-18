@@ -559,7 +559,7 @@ limitations under the License.
 				throw new Error(error);
 			}
 			// do nothing
-			console.log("pingApp "+app);
+			console.log("pingApp " + app);
 
 		}
 		catch (error) {

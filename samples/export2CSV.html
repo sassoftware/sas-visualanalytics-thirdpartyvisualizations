@@ -15,44 +15,47 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <html>
-  <head>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script type="text/javascript" src="../util/messagingUtil.js"></script>
-    <script type="text/javascript" src="../util/contentUtil.js"></script>
 
-    <style>
+<head>
+	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
 
+	<style>
 		html {
 			overflow: hidden;
 		}
-        html, body, div {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        div {
-            position: relative;
-        }
 
-		.gen_btn{
-			padding:8px;
-            background-color:#0378cd;
-			color:white;
-			font-family:arial;
-			font-size:13px;
-            border:0px;
-            border-radius:4px;
+		html,
+		body,
+		div {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
 		}
 
-		.gen_btn:hover{
-            background-color:#0494fb;
-			cursor:pointer;
+		div {
+			position: relative;
 		}
 
-    </style>
+		.gen_btn {
+			padding: 8px;
+			background-color: #0378cd;
+			color: white;
+			font-family: arial;
+			font-size: 13px;
+			border: 0px;
+			border-radius: 4px;
+		}
 
-    <script type="text/javascript">
+		.gen_btn:hover {
+			background-color: #0494fb;
+			cursor: pointer;
+		}
+	</style>
+
+	<script type="text/javascript">
 		"use strict";
 
 		var _resultData = null;
@@ -60,15 +63,14 @@ limitations under the License.
 		var _selections = null;
 		var _data = null;
 
-        // This is used to take advantage of Google's NumberFormat function
-        google.charts.load('current', {'packages':['corechart']});
+		// This is used to take advantage of Google's NumberFormat function
+		google.charts.load('current', { 'packages': ['corechart'] });
 
-        va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 
 
 		// Retrieve data and store message received from VA
-        function onDataReceived(resultData)
-        {
+		function onDataReceived(resultData) {
 			_data = null;
 			_resultData = resultData;
 			_resultName = resultData.resultName;
@@ -76,9 +78,9 @@ limitations under the License.
 			if (!_resultData.data.length) {
 				va.messagingUtil.postInstructionalMessage(
 					_resultName,
-					"Optional VA parameters:\n"+
-					"(1) _downloaded_file_name (no extension, default: DownloadedFromVA)\n"+
-					"(2) _show_column_labels (YES/NO, default: YES)\n"+
+					"Optional VA parameters:\n" +
+					"(1) _downloaded_file_name (no extension, default: DownloadedFromVA)\n" +
+					"(2) _show_column_labels (YES/NO, default: YES)\n" +
 					"(3) _transpose_data (YES/NO, default: NO)"
 				);
 				return;
@@ -101,11 +103,11 @@ limitations under the License.
 
 		// Returns JSON:
 		// [{<col0-label>:<col0-row0>, ..., <colC-label>:<colC-row0>}, ..., {<col0-label>:<col0-rowR>, ..., <colC-label>:<colC-rowR>}]
-		function createFormattedJSON (data, columns) {
+		function createFormattedJSON(data, columns) {
 			var dataArray = [];
-			for (var r=0; r < data.length; r++) {
+			for (var r = 0; r < data.length; r++) {
 				dataArray.push({});
-				for (var c=0; c < data[r].length; c++) {
+				for (var c = 0; c < data[r].length; c++) {
 					var formatter = getNumberFormatter(columns[c]);
 					dataArray[r][columns[c].label] = (formatter ? formatter.formatValue(data[r][c]) : data[r][c]);
 				}
@@ -114,36 +116,29 @@ limitations under the License.
 		}
 
 
-		function getNumberFormatter (colInfo)
-		{
+		function getNumberFormatter(colInfo) {
 			var formatter = null;
-			if (colInfo.format)
-			{
-				if (colInfo.format.name == "DOLLAR")
-				{
+			if (colInfo.format) {
+				if (colInfo.format.name == "DOLLAR") {
 					formatter = new google.visualization.NumberFormat({
 						prefix: '$',
 						fractionDigits: colInfo.format.precision
 					});
 				}
-				else if (colInfo.format.name == "COMMA")
-				{
+				else if (colInfo.format.name == "COMMA") {
 					formatter = new google.visualization.NumberFormat({
 						fractionDigits: colInfo.format.precision
 					});
 				}
-				else if (colInfo.format.name == "F")
-				{
+				else if (colInfo.format.name == "F") {
 					formatter = new google.visualization.NumberFormat({
 						groupingSymbol: '',
 						fractionDigits: colInfo.format.precision
 					});
 				}
-				else if (colInfo.format.name == "PERCENT")
-				{
+				else if (colInfo.format.name == "PERCENT") {
 					var pattern = '#,###';
-					if (colInfo.format.precision > 0)
-					{
+					if (colInfo.format.precision > 0) {
 						pattern += ".";
 						for (var j = 0; j < colInfo.format.precision; j++)
 							pattern += "#";
@@ -178,7 +173,7 @@ limitations under the License.
 					}
 
 					// 2nd loop will extract each row value and convert it to comma-seprated strings
-					for (var r=0; r < arrData.length; r++) {
+					for (var r = 0; r < arrData.length; r++) {
 						row += '"' + arrData[r][colName] + '",';
 					}
 					// remove the extra comma at the end
@@ -226,7 +221,7 @@ limitations under the License.
 		}
 
 
-		function DownloadCSV (CSV, FileName) {
+		function DownloadCSV(CSV, FileName) {
 			// Set Report title in first row or line
 
 			// Generate a file name
@@ -234,7 +229,7 @@ limitations under the License.
 
 			if (FileName != "") {
 				// This will remove the blank-spaces from the title and replace it with an underscore
-				fileName = FileName.replace(/ /g,"_");
+				fileName = FileName.replace(/ /g, "_");
 			}
 
 			// Initialize file format you want csv or xls
@@ -265,36 +260,36 @@ limitations under the License.
 		}
 
 
-		function download () {
+		function download() {
 			_selections = va.contentUtil.initializeSelections(_resultData); // needed to remove eventual brush columns
 
-            // Process result data: leave data in the right format for downloading
+			// Process result data: leave data in the right format for downloading
 			treatMissingValues(_resultData.data, _resultData.columns);
 
 			// Two options: transposed or not - this could be a parameter to the DDC
 			// Uncomment the desired option
 			//
 			// Transposed option:
-            // data = createTransposedFormattedJSON(_resultData.data, _resultData.columns);
+			// data = createTransposedFormattedJSON(_resultData.data, _resultData.columns);
 			// console.log("formatted and transposed:", data);
 			//
 			// Not transposed option (default tabular view):
-            var data = createFormattedJSON(_resultData.data, _resultData.columns);
+			var data = createFormattedJSON(_resultData.data, _resultData.columns);
 			console.log("formatted (not transposed):", data);
 
-			if(!data.length)
+			if (!data.length)
 				return;
 
 			var vaParameters = va.contentUtil.getVAParameters(_resultData);
-			var fileName     = vaParameters._downloaded_file_name;
-			var showHeader   = vaParameters._show_column_labels;
-			var transpose    = vaParameters._transpose_data;
+			var fileName = vaParameters._downloaded_file_name;
+			var showHeader = vaParameters._show_column_labels;
+			var transpose = vaParameters._transpose_data;
 
-			if (!fileName)   fileName = "DownloadedFromVA";
+			if (!fileName) fileName = "DownloadedFromVA";
 			if (!showHeader) showHeader = "YES";
-			showHeader       = (showHeader == 'YES');
-			if (!transpose)  transpose = "NO";
-			transpose        = (transpose == 'YES');
+			showHeader = (showHeader == 'YES');
+			if (!transpose) transpose = "NO";
+			transpose = (transpose == 'YES');
 
 			var csv = JSONToCSV(data, showHeader, transpose);
 
@@ -302,11 +297,13 @@ limitations under the License.
 			DownloadCSV(csv, fileName);
 			console.log("DONE!");
 		}
-    </script>
-  </head>
-  <body>
-     <div>
+	</script>
+</head>
+
+<body>
+	<div>
 		<button class='gen_btn' onclick="download()">Download file</button>
-	 </div>
-  </body>
+	</div>
+</body>
+
 </html>

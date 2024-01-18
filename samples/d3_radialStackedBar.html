@@ -136,12 +136,14 @@ limitations under the License.
                     .outerRadius(function (d) { return y(d[1]); })
                     /*.startAngle(function (d) { return x(d.data.State); })
                     .endAngle(function (d) { return x(d.data.State) + x.bandwidth(); })*/
-                    .startAngle(function (d) { 
+                    .startAngle(function (d) {
                         var keys = Object.keys(d.data);
-                        return x(d.data[keys[1]]); })
-                    .endAngle(function (d) { 
+                        return x(d.data[keys[1]]);
+                    })
+                    .endAngle(function (d) {
                         var keys = Object.keys(d.data);
-                        return x(d.data[keys[1]]) + x.bandwidth(); })
+                        return x(d.data[keys[1]]) + x.bandwidth();
+                    })
                     .padAngle(0.01)
                     .padRadius(innerRadius));
 
@@ -150,21 +152,24 @@ limitations under the License.
                 .data(data)
                 .enter().append("g")
                 .attr("text-anchor", "middle")
-                .attr("transform", function (d) { 
+                .attr("transform", function (d) {
                     var keys = Object.keys(d);
-                    return "rotate(" + ((x(d[keys[1]]) + x.bandwidth() / 2) * 180 / Math.PI - 90) + ")translate(" + innerRadius + ",0)"; });
+                    return "rotate(" + ((x(d[keys[1]]) + x.bandwidth() / 2) * 180 / Math.PI - 90) + ")translate(" + innerRadius + ",0)";
+                });
 
             label.append("line")
                 .attr("x2", -5)
                 .attr("stroke", "#000");
 
             label.append("text")
-                .attr("transform", function (d) { 
+                .attr("transform", function (d) {
                     var keys = Object.keys(d);
-                    return (x(d[keys[1]]) + x.bandwidth() / 2 + Math.PI / 2) % (2 * Math.PI) < Math.PI ? "rotate(90)translate(0,16)" : "rotate(-90)translate(0,-9)"; })
-                .text(function (d) { 
+                    return (x(d[keys[1]]) + x.bandwidth() / 2 + Math.PI / 2) % (2 * Math.PI) < Math.PI ? "rotate(90)translate(0,16)" : "rotate(-90)translate(0,-9)";
+                })
+                .text(function (d) {
                     var keys = Object.keys(d);
-                    return d[keys[1]]; });
+                    return d[keys[1]];
+                });
 
             var yAxis = g.append("g")
                 .attr("text-anchor", "middle");

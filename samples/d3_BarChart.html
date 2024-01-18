@@ -27,63 +27,66 @@ limitations under the License.
 	5. Window resizing
 -->
 <html>
+
 <head>
 	<meta charset="utf-8">
 	<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script type="text/javascript" src="../util/messagingUtil.js"></script>
-    <script type="text/javascript" src="../util/contentUtil.js"></script>
-    <script type="text/javascript" src="../thirdPartyHelpers/d3.js"></script>
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
+	<script type="text/javascript" src="../thirdPartyHelpers/d3.js"></script>
 </head>
+
 <body>
-<style>
+	<style>
+		html {
+			overflow: hidden;
+		}
 
-	html {
-		overflow: hidden;
-	}
+		html,
+		body,
+		#chart {
+			margin: 0px;
+			padding: 0px;
+			height: 100%;
+			width: 100%;
+		}
 
-	html, body, #chart {
-		margin: 0px;
-		padding: 0px;
-		height: 100%;
-		width: 100%;
-	}
-		
-	.bar {
-	  fill: steelblue;
-	}
+		.bar {
+			fill: steelblue;
+		}
 
-	.bar:hover {
-	  fill: #3d63a0; 
-	}
+		.bar:hover {
+			fill: #3d63a0;
+		}
 
-	.bar-selected {
-	  stroke: #000;
-	  stroke-width: 3.0px;
-	}
-	
-	.axis-label {
-	  font: 15px sans-serif;
-	}
-	.axis text {
-	  font: 12px sans-serif;
-	}
+		.bar-selected {
+			stroke: #000;
+			stroke-width: 3.0px;
+		}
 
-	.axis path,
-	.axis line {
-	  fill: none;
-	  stroke: #000;
-	  shape-rendering: crispEdges;
-	}
+		.axis-label {
+			font: 15px sans-serif;
+		}
 
-	.x.axis path {
-	  display: none;
-	}
+		.axis text {
+			font: 12px sans-serif;
+		}
 
-</style>
+		.axis path,
+		.axis line {
+			fill: none;
+			stroke: #000;
+			shape-rendering: crispEdges;
+		}
 
-<div id="chart"></div>
+		.x.axis path {
+			display: none;
+		}
+	</style>
 
-<script>
+	<div id="chart"></div>
+
+	<script>
 
 		var _resultData = null;
 		var _resultName = null;
@@ -95,38 +98,38 @@ limitations under the License.
 		// This sample data is used to render the chart even if roles haven't been assigned to the Data-Driven Content object yet
 		var _sampleColLabels = ["Country", "GDP"];
 		var _sampleFormatter = {};
-		_sampleFormatter[_sampleColLabels[1]] = function(d) { return "$" + d3.format(",.")(d); };
+		_sampleFormatter[_sampleColLabels[1]] = function (d) { return "$" + d3.format(",.")(d); };
 		var _sampleData = [
-				['China', 9181204],
-				['US', 16768100],
-				['Japan', 4898532],
-				['Germany', 3730261]
-			];
-			
-		var _margin = {top: 40, right: 20, bottom: 60, left: 80},
+			['China', 9181204],
+			['US', 16768100],
+			['Japan', 4898532],
+			['Germany', 3730261]
+		];
+
+		var _margin = { top: 40, right: 20, bottom: 60, left: 80 },
 			_width = window.innerWidth - _margin.left - _margin.right,
 			_height = window.innerHeight - _margin.top - _margin.bottom;
-	
+
 		var _xScale, _yScale, _xAxisComponent, _yAxisComponent;
 
 		var _svg = d3.select("#chart").append("svg")
 			.style("width", "100%")
 			.style("height", "100%")
-			.on("click", function(d,i){deselectAllBars(d, i);});
-			
+			.on("click", function (d, i) { deselectAllBars(d, i); });
+
 		var _chart = _svg.append("g")
-		    .attr("class", "chart")
+			.attr("class", "chart")
 			.attr("transform", "translate(" + _margin.left + "," + _margin.top + ")");
 
 		var _barGroup = _chart.append("g")
-			  .attr("class", "bars");
-			  
+			.attr("class", "bars");
+
 		var _xAxis = _chart.append("g")
-			  .attr("class", "x axis")
-			  .attr('transform', 'translate(0,' + _height + ')');
-			  
+			.attr("class", "x axis")
+			.attr('transform', 'translate(0,' + _height + ')');
+
 		var _yAxis = _chart.append("g")
-			  .attr("class", "y axis");
+			.attr("class", "y axis");
 
 		// text label for the x axis
 		_chart.append("text")
@@ -139,17 +142,17 @@ limitations under the License.
 			.style("text-anchor", "begin");
 
 
-		function initChart() {			  
+		function initChart() {
 			// Set up event listener for resizes
 			va.contentUtil.setupResizeListener(updateChart);
-			
-			// Initialize scales
-			_xScale = d3.scale.ordinal(); 
 
-			_yScale = d3.scale.linear(); 
+			// Initialize scales
+			_xScale = d3.scale.ordinal();
+
+			_yScale = d3.scale.linear();
 
 			// Build the x-axis
-			_xAxisComponent = d3.svg.axis() 
+			_xAxisComponent = d3.svg.axis()
 				.scale(_xScale)
 				.orient("bottom");
 
@@ -159,36 +162,36 @@ limitations under the License.
 				.orient("left");
 		}
 
-		
+
 		function updateChart() {
 			updateScales();
 			updateAxes();
 			updateBars();
 			applySelections();
 		}
-		
-		
+
+
 		function updateScales() {
 			var data = (_data ? _data : _sampleData);
-			
+
 			_width = window.innerWidth - _margin.left - _margin.right;
 			_height = window.innerHeight - _margin.top - _margin.bottom;
 
 			_xScale
-				.domain(data.map(function(d) { return d[0]; }))
+				.domain(data.map(function (d) { return d[0]; }))
 				.rangeRoundBands([0, _width], .1);
 			_xAxis.attr('transform', 'translate(0,' + _height + ')');
 
 			_yScale
-				.domain([0, d3.max(data, function(d) { return d[1]; })])
+				.domain([0, d3.max(data, function (d) { return d[1]; })])
 				.range([_height, 0]);
 		}
 
-		
+
 		function updateAxes() {
 			var formatter;
 			var xLabel, yLabel;
-			
+
 			if (_resultData) {
 				formatter = _axisFormatter;
 				xLabel = _resultData.columns[0].label;
@@ -199,25 +202,25 @@ limitations under the License.
 				xLabel = _sampleColLabels[0];
 				yLabel = _sampleColLabels[1];
 			}
-			
+
 			_xAxis.call(_xAxisComponent);
 			_yAxis.call(_yAxisComponent.tickFormat(formatter[yLabel]));
-		  
+
 			// text label for the x axis
 			_chart.select("text.axis-label-x")
-				.attr("transform", "translate(" + (_width/2) + " ," + (_height + _margin.bottom * 0.7) + ")")
-				.text(xLabel);  
+				.attr("transform", "translate(" + (_width / 2) + " ," + (_height + _margin.bottom * 0.7) + ")")
+				.text(xLabel);
 
 			// text label for the y axis
 			_chart.select("text.axis-label-y")
-				.attr("transform", "translate(" + (-_margin.left/2) + " ," + (-_margin.top/2) + ")")
+				.attr("transform", "translate(" + (-_margin.left / 2) + " ," + (-_margin.top / 2) + ")")
 				.text(yLabel);;
 		}
 
-		
+
 		function updateBars() {
 			var data = (_data ? _data : _sampleData);
-			
+
 			var bars = _barGroup
 				.selectAll('rect.bar')
 				.data(data);
@@ -230,35 +233,34 @@ limitations under the License.
 				.remove();
 
 			bars
-				.attr('x', function(d) { return _xScale(d[0]); })
-				.attr('y', function(d) { return _yScale(d[1]); })
+				.attr('x', function (d) { return _xScale(d[0]); })
+				.attr('y', function (d) { return _yScale(d[1]); })
 				.attr('width', _xScale.rangeBand())
-				.attr('height', function(d) { return _height - _yScale(d[1]); });
-				
-			bars.on("click", function(d,i){selectBar(d, i, this);});
+				.attr('height', function (d) { return _height - _yScale(d[1]); });
+
+			bars.on("click", function (d, i) { selectBar(d, i, this); });
 		}
 
-		
+
 		function applySelections() {
 			// Deselect all bars
 			d3.selectAll("rect.bar-selected").classed("bar-selected", false);
 			// Select bars
 			if (_selections) {
-				_selections.forEach(function(selection) {
+				_selections.forEach(function (selection) {
 					var i = selection.row + 1;
 					d3.select("rect.bar:nth-of-type(" + i + ")").classed("bar-selected", true);
-				});	
+				});
 			}
 		}
-		
-		
-        function onDataReceived(messageFromVA)
-        {
+
+
+		function onDataReceived(messageFromVA) {
 			_resultData = messageFromVA;
 			_resultName = messageFromVA.resultName;
 			_selections = va.contentUtil.initializeSelections(messageFromVA);
-			if (!va.contentUtil.validateRoles(messageFromVA, ["string","number"], null)) {
-				va.messagingUtil.postInstructionalMessage(_resultName, 
+			if (!va.contentUtil.validateRoles(messageFromVA, ["string", "number"], null)) {
+				va.messagingUtil.postInstructionalMessage(_resultName,
 					"D3 Bar Chart expects columns to be assigned in this order:\n" +
 					" 1. X axis (string)\n" +
 					" 2. Y axis (number)");
@@ -268,25 +270,25 @@ limitations under the License.
 			// Numeric values can be assigned to the tooltip, so we should format the data
 			_axisFormatter = va.d3Helper.configureAxisFormatter(messageFromVA);
 			updateChart();
-        }
+		}
 
 		//
 		// Event handlers for interactions with the Bar Chart
 		//
-		
+
 		// Called when clicked on the chart background
 		//
 		function deselectAllBars(d, i) {
 			d3.selectAll("rect.bar-selected").classed("bar-selected", false);
 			va.messagingUtil.postSelectionMessage(_resultName, []);
 		}
-			
-			
+
+
 		// Called when clicked on a bar
 		//
-		function selectBar(d,i,clickedBar){
+		function selectBar(d, i, clickedBar) {
 			d3.event.stopPropagation();
-			
+
 			var bars = d3.selectAll("rect.bar");
 			var selectedFlag = d3.select(clickedBar).classed("bar-selected");
 
@@ -299,22 +301,23 @@ limitations under the License.
 				bars.classed("bar-selected", false);
 				d3.select(clickedBar).classed("bar-selected", !selectedFlag);
 			}
-			
+
 			// Send selections back to VA
 			var selections = [];
-			d3.selectAll("rect.bar").each(function(d,i){
+			d3.selectAll("rect.bar").each(function (d, i) {
 				if (d3.select(this).classed("bar-selected")) {
-					selections.push({row: i});
+					selections.push({ row: i });
 				}
 			});
 			va.messagingUtil.postSelectionMessage(_resultName, selections);
 		}
 
-		
+
 		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
 		initChart();
 		updateChart();
-	
-</script>
+
+	</script>
 </body>
+
 </html>
