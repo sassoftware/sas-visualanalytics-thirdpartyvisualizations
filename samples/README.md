@@ -71,3 +71,7 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 ### Multi Selector | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/multiSelector.html)
 
 <img src="./images/multiSelector.jpg">
+
+### Tree Selector | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/treeSelector.html)
+
+<img width="1185" height="600" src="./images/treeSelector.gif">

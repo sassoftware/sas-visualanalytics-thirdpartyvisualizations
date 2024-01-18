@@ -34,99 +34,102 @@ CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFT
 DEALINGS IN THE SOFTWARE.
 -->
 <html>
-    <head>
-        <meta charset="utf-8" />
-		
-		<!-- tail.select components -->
-		<!-- reference: https://github.pytes.net/tail.select/ -->
-        <link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light.min.css" />
-        <link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light-adjustments-renato.css" />
-        <script type="text/javascript" src="./MultiSelector/tail.select-adjustments-renato.js"></script>
-		
-		<!-- SAS Github components -->
-		<script type="text/javascript" src="../util/messagingUtil.js"></script>
-		<script type="text/javascript" src="../util/contentUtil.js"></script>
-    </head>
-    <body>
-        <select class="my-select-search"></select>
 
-        <script type="text/javascript">
-			"use strict";
+<head>
+	<meta charset="utf-8" />
 
-			var _resultName = null;
-			var _selections = null;
-			var _selector = null;
-			var _selectorModified = null;
+	<!-- tail.select components -->
+	<!-- reference: https://github.pytes.net/tail.select/ -->
+	<link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light.min.css" />
+	<link type="text/css" rel="stylesheet" href="./MultiSelector/tail.select-light-adjustments-renato.css" />
+	<script type="text/javascript" src="./MultiSelector/tail.select-adjustments-renato.js"></script>
 
-			va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+	<!-- SAS Github components -->
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
+</head>
 
-			// Retrieve data and begin processing
-			function onDataReceived(resultData) {
-				if (resultData) {
-					_resultName = resultData.resultName;
-			
-					if (resultData.columns.length == 0) {
-						// it needs at least one column and one row
-						va.messagingUtil.postInstructionalMessage(_resultName, "Please, assign role");
-						return;
-					}
-					
-					_selector.reload(); // clears the dropdown
-					_selector.options.add(resultData.data,true);
+<body>
+	<select class="my-select-search"></select>
+
+	<script type="text/javascript">
+		"use strict";
+
+		var _resultName = null;
+		var _selections = null;
+		var _selector = null;
+		var _selectorModified = null;
+
+		va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+
+		// Retrieve data and begin processing
+		function onDataReceived(resultData) {
+			if (resultData) {
+				_resultName = resultData.resultName;
+
+				if (resultData.columns.length == 0) {
+					// it needs at least one column and one row
+					va.messagingUtil.postInstructionalMessage(_resultName, "Please, assign role");
+					return;
 				}
-			}
-			
-			var mySort = function(arrayOfKeys) {
-				return arrayOfKeys.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-			}
 
-            document.addEventListener("DOMContentLoaded", function(){
-				_selector= tail.select("select.my-select-search", {
-					/* Your Options */ 
-					search: true,
-					multiple: true,
-					csvOutput: true,
-					deselect: true,
-					width: '100%',
-					height: 400, // cannot use px or %
-					multiContainer: false,
-					//multiPinSelected: true, // move selected elements to the top of the list. Unselected items are sent to the bottom of the list
-					multiSelectAll: true,
-					placeholder: "Select an option...",
-					searchFocus: true,
-					searchMarked: true,
-					searchMinLength: 1,
-					sortItems: mySort
-				});
-				
-				_selector.on('open', function (){
-					_selectorModified = false;
-				});
-				
-				_selector.on('change', function (item, state){
-					if (state == "select" || state == "unselect") _selectorModified = true;
-				});
-				
-				_selector.on('close', callbackInformVA, [_selector]);
-				
-            });
-			
-			function getSelectedIndex(selector) {
-				for(var selected = [], len = selector.options.selected.length, i = 0; i < len; i++){
-					selected.push(selector.options.selected[i].index);
-				}
-				return selected;
+				_selector.reload(); // clears the dropdown
+				_selector.options.add(resultData.data, true);
 			}
-			
-			function callbackInformVA(args) {
-				if (_selectorModified) {
-					var selector = args[0];
-					var selections = getSelectedIndex(selector);
-					console.log("getSelected(selector): ",selections);
-					va.messagingUtil.postSelectionMessage(_resultName, selections);
-					_selectorModified = false;
-				}
+		}
+
+		var mySort = function (arrayOfKeys) {
+			return arrayOfKeys.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+		}
+
+		document.addEventListener("DOMContentLoaded", function () {
+			_selector = tail.select("select.my-select-search", {
+				/* Your Options */
+				search: true,
+				multiple: true,
+				csvOutput: true,
+				deselect: true,
+				width: '100%',
+				height: 400, // cannot use px or %
+				multiContainer: false,
+				//multiPinSelected: true, // move selected elements to the top of the list. Unselected items are sent to the bottom of the list
+				multiSelectAll: true,
+				placeholder: "Select an option...",
+				searchFocus: true,
+				searchMarked: true,
+				searchMinLength: 1,
+				sortItems: mySort
+			});
+
+			_selector.on('open', function () {
+				_selectorModified = false;
+			});
+
+			_selector.on('change', function (item, state) {
+				if (state == "select" || state == "unselect") _selectorModified = true;
+			});
+
+			_selector.on('close', callbackInformVA, [_selector]);
+
+		});
+
+		function getSelectedIndex(selector) {
+			for (var selected = [], len = selector.options.selected.length, i = 0; i < len; i++) {
+				selected.push(selector.options.selected[i].index);
 			}
-        </script>
-    </body>
+			return selected;
+		}
+
+		function callbackInformVA(args) {
+			if (_selectorModified) {
+				var selector = args[0];
+				var selections = getSelectedIndex(selector);
+				console.log("getSelected(selector): ", selections);
+				va.messagingUtil.postSelectionMessage(_resultName, selections);
+				_selectorModified = false;
+			}
+		}
+	</script>
+</body>
+
 </html>
