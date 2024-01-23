@@ -44,334 +44,342 @@ SOFTWARE.
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <script type="text/javascript" src="../util/messagingUtil.js"></script>
-  <script type="text/javascript" src="../util/contentUtil.js"></script>
-  <script src="./TreeSelector/tree.min.js"></script>
-  <style>
-    html {
-      overflow: hidden;
-    }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+	<script type="text/javascript" src="../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../util/contentUtil.js"></script>
+	<script src="./TreeSelector/tree.min.js"></script>
+	<style>
+		html {
+			overflow: hidden;
+		}
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: arial;
-      font-size: 13px;
-      overflow-y: auto;
-      /* Enable vertical scrolling */
-    }
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			font-family: arial;
+			font-size: 13px;
+			overflow-y: auto;
+			/* Enable vertical scrolling */
+		}
 
-    div {
-      position: relative;
-    }
+		div {
+			position: relative;
+		}
 
-    #container {
-      position: relative;
-      font-family: "Albany AMT";
-    }
+		#container {
+			position: relative;
+			font-family: "Albany AMT";
+		}
 
-    .treejs {
-      font-size: 10pt;
-    }
+		.treejs {
+			font-size: 10pt;
+		}
 
-    /* Hide scrollbar by default */
-    ::-webkit-scrollbar {
-      width: 8px;
-      background-color: #f5f5f5;
-    }
+		/* Hide scrollbar by default */
+		::-webkit-scrollbar {
+			width: 8px;
+			background-color: #f5f5f5;
+		}
 
-    /* Make scrollbar visible when needed */
-    ::-webkit-scrollbar-thumb {
-      border-radius: 3px;
-      background-color: #888888;
-    }
+		/* Make scrollbar visible when needed */
+		::-webkit-scrollbar-thumb {
+			border-radius: 3px;
+			background-color: #888888;
+		}
 
-    /* Make scrollbar track visible when needed */
-    ::-webkit-scrollbar-track {
-      border-radius: 3px;
-      background-color: #f5f5f5;
-    }
-  </style>
+		/* Make scrollbar track visible when needed */
+		::-webkit-scrollbar-track {
+			border-radius: 3px;
+			background-color: #f5f5f5;
+		}
+	</style>
 </head>
 
 <body>
-  <div id="container"></div>
+	<div id="container"></div>
 
-  <script>
-    "use strict";
+	<script>
+		"use strict";
 
-    function onDataReceived(resultData) {
-      if (!resultData) return;
+		function onDataReceived(resultData) {
+			if (!resultData) return;
 
-      let resultName = resultData.resultName;
+			let resultName = resultData.resultName;
 
-      let selections = va.contentUtil.initializeSelections(resultData); // good practice to remove eventual brush columns
+			let selections = va.contentUtil.initializeSelections(resultData); // good practice to remove eventual brush columns
 
-      const treeData = createTreeData(resultData);
+			const treeData = createTreeData(resultData);
 
-      const myTree = new Tree('#container', {
-        data: treeData,
+			const myTree = new Tree('#container', {
+				data: treeData,
 
-        // only expand level 1 node
-        closeDepth: 1,
+				// only expand level 1 node
+				closeDepth: 1,
 
-        // Just a placeholder: not currently used
-        beforeLoad: function (rawData) {
-          function formatData() {
-            // do some format
-          }
-          return formatData(rawData);
-        },
+				// Just a placeholder: not currently used
+				beforeLoad: function (rawData) {
+					function formatData() {
+						// do some format
+					}
+					return formatData(rawData);
+				},
 
-        loaded: function () {
-          // do something or set values after Tree loaded callback
-          // do not use arrow function `()=>` , if you use `this`, use function instead.
-          // this context bind current tree instance
-          this.collapseAll();
-        },
+				loaded: function () {
+					// do something or set values after Tree loaded callback
+					// do not use arrow function `()=>` , if you use `this`, use function instead.
+					// this context bind current tree instance
+					this.collapseAll();
+				},
 
-        onChange: function () {
-          //console.log("values", this.values);
-          //console.log("selectedNodes", this.selectedNodes);
-          //console.log("disables", this.disables);
-          //console.log("disabledNodes", this.disabledNodes);
-          let selectedRows = this.selectedNodes.filter((e) => e.hasOwnProperty("row")).map((e) => e.row);  // returns an array of selected rows, e.g.: [3,4,5]
-          va.messagingUtil.postSelectionMessage(resultName, selectedRows);
-        },
-      });
+				onChange: function () {
+					//console.log("values", this.values);
+					//console.log("selectedNodes", this.selectedNodes);
+					//console.log("disables", this.disables);
+					//console.log("disabledNodes", this.disabledNodes);
+					let selectedRows = this.selectedNodes.filter((e) => e.hasOwnProperty("row")).map((e) => e.row);  // returns an array of selected rows, e.g.: [3,4,5]
+					va.messagingUtil.postSelectionMessage(resultName, selectedRows);
+				},
+			});
 
-    }
+		}
 
-    // Example of message "resultData" received from VA
-    /*
-    {
-        "version": "1",
-        "resultName": "dd30",
-        "rowCount": 14,
-        "availableRowCount": 14,
-        "data": [
-            [
-                "Asia",
-                "Acura",
-                " MDX"
-            ],
-            [
-                "Asia",
-                "Acura",
-                " TL 4dr"
-            ],
-            [
-                "Asia",
-                "Honda",
-                " Accord EX 2dr"
-            ],
-            [
-                "Asia",
-                "Honda",
-                " Civic DX 2dr"
-            ],
-            [
-                "Asia",
-                "Nissan",
-                " Murano SL"
-            ],
-            [
-                "Europe",
-                "Audi",
-                " A4 3.0 4dr"
-            ],
-            [
-                "Europe",
-                "Audi",
-                " A6 2.7 Turbo Quattro 4dr"
-            ],
-            [
-                "Europe",
-                "BMW",
-                " X3 3.0i"
-            ],
-            [
-                "Europe",
-                "Jaguar",
-                " S-Type 3.0 4dr"
-            ],
-            [
-                "USA",
-                "Chevrolet",
-                " Silverado SS"
-            ],
-            [
-                "USA",
-                "Chevrolet",
-                " Tahoe LT"
-            ],
-            [
-                "USA",
-                "Chevrolet",
-                " TrailBlazer LT"
-            ],
-            [
-                "USA",
-                "Ford",
-                " Explorer XLT V6"
-            ],
-            [
-                "USA",
-                "Ford",
-                " F-150 Regular Cab XL"
-            ]
-        ],
-        "columns": [
-            {
-                "name": "bi39",
-                "label": "Origin",
-                "type": "string"
-            },
-            {
-                "name": "bi40",
-                "label": "Make",
-                "type": "string"
-            },
-            {
-                "name": "bi41",
-                "label": "Model",
-                "type": "string"
-            }
-        ]
-    };
-    */
+		// Example of message "resultData" received from VA
+		/*
+		{
+			"version": "1",
+			"resultName": "dd30",
+			"rowCount": 14,
+			"availableRowCount": 14,
+			"data": [
+				[
+					"Asia",
+					"Acura",
+					" MDX"
+				],
+				[
+					"Asia",
+					"Acura",
+					" TL 4dr"
+				],
+				[
+					"Asia",
+					"Honda",
+					" Accord EX 2dr"
+				],
+				[
+					"Asia",
+					"Honda",
+					" Civic DX 2dr"
+				],
+				[
+					"Asia",
+					"Nissan",
+					" Murano SL"
+				],
+				[
+					"Europe",
+					"Audi",
+					" A4 3.0 4dr"
+				],
+				[
+					"Europe",
+					"Audi",
+					" A6 2.7 Turbo Quattro 4dr"
+				],
+				[
+					"Europe",
+					"BMW",
+					" X3 3.0i"
+				],
+				[
+					"Europe",
+					"Jaguar",
+					" S-Type 3.0 4dr"
+				],
+				[
+					"USA",
+					"Chevrolet",
+					" Silverado SS"
+				],
+				[
+					"USA",
+					"Chevrolet",
+					" Tahoe LT"
+				],
+				[
+					"USA",
+					"Chevrolet",
+					" TrailBlazer LT"
+				],
+				[
+					"USA",
+					"Ford",
+					" Explorer XLT V6"
+				],
+				[
+					"USA",
+					"Ford",
+					" F-150 Regular Cab XL"
+				]
+			],
+			"columns": [
+				{
+					"name": "bi39",
+					"label": "Origin",
+					"type": "string"
+				},
+				{
+					"name": "bi40",
+					"label": "Make",
+					"type": "string"
+				},
+				{
+					"name": "bi41",
+					"label": "Model",
+					"type": "string"
+				}
+			]
+		};
+		*/
 
-    // Example of "treeData" structure equivalent to "resultData" above
-    // Note: the attrribute "row" did not exist before and was added to support sending selections back to VA
-    /*
-    [
-      {
-        id: 1,
-        text: 'Asia',
-        children: [
-          {
-            id: 2,
-            text: 'Acura',
-            children: [
-              {id: 3, text: ' MDX', row: 0},
-              {id: 4, text: ' TL 4dr', row: 1},
-            ],
-          },
-          {
-            id: 5,
-            text: 'Honda',
-            children: [
-              {id: 6, text: ' Accord EX 2dr', row: 2},
-              {id: 7, text: ' Civic DX 2dr', row: 3},
-            ],
-          },
-          {
-            id: 8,
-            text: 'Nissan',
-            children: [
-              {id: 9, text: ' Murano SL', row: 4},
-            ],
-          },
-        ],
-      },
-      {
-        id: 10,
-        text: 'Europe',
-        children: [
-          {
-            id: 11,
-            text: 'Audi',
-            children: [
-              {id: 12, text: ' A4 3.0 4dr', row: 5},
-              {id: 13, text: ' A6 2.7 Turbo Quattro 4dr', row: 6},
-            ],
-          },
-          {
-            id: 14,
-            text: 'BMW',
-            children: [
-              {id: 15, text: ' X3 3.0i', row: 7},
-            ],
-          },
-          {
-            id: 16,
-            text: 'Jaguar',
-            children: [
-              {id: 17, text: ' S-Type 3.0 4dr', row: 8},
-            ],
-          },
-        ],
-      },
-      {
-        id: 18,
-        text: 'USA',
-        children: [
-          {
-            id: 19,
-            text: 'Chevrolet',
-            children: [
-              {id: 20, text: ' Silverado SS', row: 9},
-              {id: 21, text: ' Tahoe LT', row: 10},
-              {id: 22, text: ' TrailBlazer LT', row: 11},
-            ],
-          },
-          {
-            id: 23,
-            text: 'Ford',
-            children: [
-              {id: 24, text: ' Explorer XLT V6', row: 12},
-              {id: 25, text: ' F-150 Regular Cab XL', row: 13},
-            ],
-          },
-        ],
-      },
-    ];
-    */
+		// Example of "treeData" structure equivalent to "resultData" above
+		// Note: the attrribute "row" did not exist before and was added to support sending selections back to VA
+		/*
+		[
+		  {
+			id: 1,
+			text: 'Asia',
+			children: [
+			  {
+				id: 2,
+				text: 'Acura',
+				children: [
+				  {id: 3, text: ' MDX', row: 0},
+				  {id: 4, text: ' TL 4dr', row: 1},
+				],
+			  },
+			  {
+				id: 5,
+				text: 'Honda',
+				children: [
+				  {id: 6, text: ' Accord EX 2dr', row: 2},
+				  {id: 7, text: ' Civic DX 2dr', row: 3},
+				],
+			  },
+			  {
+				id: 8,
+				text: 'Nissan',
+				children: [
+				  {id: 9, text: ' Murano SL', row: 4},
+				],
+			  },
+			],
+		  },
+		  {
+			id: 10,
+			text: 'Europe',
+			children: [
+			  {
+				id: 11,
+				text: 'Audi',
+				children: [
+				  {id: 12, text: ' A4 3.0 4dr', row: 5},
+				  {id: 13, text: ' A6 2.7 Turbo Quattro 4dr', row: 6},
+				],
+			  },
+			  {
+				id: 14,
+				text: 'BMW',
+				children: [
+				  {id: 15, text: ' X3 3.0i', row: 7},
+				],
+			  },
+			  {
+				id: 16,
+				text: 'Jaguar',
+				children: [
+				  {id: 17, text: ' S-Type 3.0 4dr', row: 8},
+				],
+			  },
+			],
+		  },
+		  {
+			id: 18,
+			text: 'USA',
+			children: [
+			  {
+				id: 19,
+				text: 'Chevrolet',
+				children: [
+				  {id: 20, text: ' Silverado SS', row: 9},
+				  {id: 21, text: ' Tahoe LT', row: 10},
+				  {id: 22, text: ' TrailBlazer LT', row: 11},
+				],
+			  },
+			  {
+				id: 23,
+				text: 'Ford',
+				children: [
+				  {id: 24, text: ' Explorer XLT V6', row: 12},
+				  {id: 25, text: ' F-150 Regular Cab XL', row: 13},
+				],
+			  },
+			],
+		  },
+		];
+		*/
 
-    // Takes the "resultData" message received from VA and creates the equivalent "treeData" structure that the tree selector object needs
-    function createTreeData(resultData) {
-      // Only use columns that are categories in the tree selector
-      // determine the index of the columns to be used
-      const columns = resultData.columns.map((e, i) => { return { type: e.type, index: i } }).filter(e => e.type != "number").map((e) => e.index);
-      // create copy of the original data with only the columns to be used in the tree selector
-      const data = [];
-      resultData.data.forEach((elem, i) => {
-        const row = elem.filter((e, col) => columns.includes(col));
-        data.push(row);
-      });
+		// Takes the "resultData" message received from VA and creates the equivalent "treeData" structure that the tree selector object needs
+		function createTreeData(resultData) {
+			// Only use columns that are categories in the tree selector
+			// determine the index of the columns to be used
+			const columns = resultData.columns.map((e, i) => { return { type: e.type, index: i } }).filter(e => e.type != "number").map((e) => e.index);
+			// create copy of the original data with only the columns to be used in the tree selector
+			const data = [];
+			resultData.data.forEach((elem, i) => {
+				const row = elem.filter((e, col) => columns.includes(col));
+				data.push(row);
+			});
 
-      // Create the equivalent treeData structure
-      // solution based on: https://stackoverflow.com/questions/48467764/how-to-convert-array-of-arrays-into-deep-nested-tree-view
-      let treeData = [];
-      let id = 0;
-      data.forEach(function (row, rowNumber) {
-        row.reduce(function (tree, key, currIndex, rowArray) {
-          let temp = tree.find(({ text }) => key === text);
-          if (!temp) {
-            temp = { id: ++id, text: key, children: [] };
-            // add row information only for last level of hierarchy to make it easier to retrieve the row number to send to VA
-            if (currIndex == rowArray.length - 1) temp.row = rowNumber;
-            tree.push(temp);
-          }
-          return temp.children;
-        }, treeData);
-      });
+			// Eliminate leaf hiearchy levels with missing value to support unbalanced hiearchies
+			data.forEach((row) => {
+				// identify the last non-missing hiearchy level
+				let index = row.findLastIndex((element) => element != "(missing)");
+				// eliminate the missing value levels (after the last non-missing)
+				if (index >= 0) row.splice(index + 1);
+			});
 
-      return treeData;
-    }
+			// Create the equivalent treeData structure
+			// solution based on: https://stackoverflow.com/questions/48467764/how-to-convert-array-of-arrays-into-deep-nested-tree-view
+			let treeData = [];
+			let id = 0;
+			data.forEach(function (row, rowNumber) {
+				row.reduce(function (tree, key, currIndex, rowArray) {
+					let temp = tree.find(({ text }) => key === text);
+					if (!temp) {
+						temp = { id: ++id, text: key, children: [] };
+						// add row information only for last level of hierarchy to make it easier to retrieve the row number to send to VA
+						if (currIndex == rowArray.length - 1) temp.row = rowNumber;
+						tree.push(temp);
+					}
+					return temp.children;
+				}, treeData);
+			});
+
+			return treeData;
+		}
 
 
-    document.addEventListener("DOMContentLoaded", function (event) {
-      va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
-    });
+		document.addEventListener("DOMContentLoaded", function (event) {
+			va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+		});
 
-  </script>
+	</script>
 </body>
 
 </html>
