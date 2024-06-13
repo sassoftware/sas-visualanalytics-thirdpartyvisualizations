@@ -12,16 +12,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <html>
+
 <head>
-	<script type="text/javascript" src="http://<your.web.server.host>/github/util/messagingUtil.js"></script>
-	<script type="text/javascript" src="http://<your.web.server.host>/github/util/contentUtil.js"></script>
-    <style>
-        html, body {
-            margin: 0px;
-            padding: 0px;
-            height: 100%;
-            width: 100%;
-        }
+	<script type="text/javascript" src="../../util/messagingUtil.js"></script>
+	<script type="text/javascript" src="../../util/contentUtil.js"></script>
+	<style>
+		html,
+		body {
+			margin: 0px;
+			padding: 0px;
+			height: 100%;
+			width: 100%;
+		}
+
 		img {
 			position: absolute;
 			top: 0;
@@ -29,36 +32,37 @@ limitations under the License.
 			right: 0;
 			bottom: 0;
 			margin: auto;
-            max-height: 100%;
-            max-width: 100%;
+			max-height: 100%;
+			max-width: 100%;
 		}
-    </style>
+	</style>
 </head>
+
 <body>
-<div>
-	<img id="dynamic_img" src="">
-</div>
+	<div>
+		<img id="dynamic_img" src="">
+	</div>
 
-<script>
-    "use strict";
+	<script>
+		"use strict";
 
-    va.messagingUtil.setOnDataReceivedCallback(updateImage);
+		va.messagingUtil.setOnDataReceivedCallback(updateImage);
 
-	function updateImage(vaMsgObj)
-	{
-		// Function getVAParameters returns the object: {<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}
-		// If <parameter_label> has multiple values, <param_value> is an array
-		var vaParameters = va.contentUtil.getVAParameters(vaMsgObj);
-		var imageName = vaParameters._image_name; // it will return undefined if the specific parameter doesn't exist
+		function updateImage(vaMsgObj) {
+			// Function getVAParameters returns the object: {<param_label_1>:<param_value_1>, ... , <param_label_n>:<param_value_n>}
+			// If <parameter_label> has multiple values, <param_value> is an array
+			var vaParameters = va.contentUtil.getVAParameters(vaMsgObj);
+			var imageName = vaParameters._image_name; // it will return undefined if the specific parameter doesn't exist
 
-		if (imageName && !Array.isArray(imageName)) {
-			document.getElementById("dynamic_img").src = "./AnimalImages/"+imageName;
+			if (imageName && !Array.isArray(imageName)) {
+				document.getElementById("dynamic_img").src = "./AnimalImages/" + imageName;
+			}
+			else {
+				document.getElementById("dynamic_img").src = "";
+			}
 		}
-		else {
-			document.getElementById("dynamic_img").src = "";
-		}
-	}
-</script>
+	</script>
 
 </body>
+
 </html>

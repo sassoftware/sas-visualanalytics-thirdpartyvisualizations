@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<!--
+Copyright 2024 SAS Institute Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<html>
+
+<head>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-3d.js"></script>
+    <script type="text/javascript" src="../util/messagingUtil.js"></script>
+    <script type="text/javascript" src="../util/contentUtil.js"></script>
+
+    <style>
+        html {
+            overflow: hidden;
+        }
+
+        html,
+        body,
+        #chart_div {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            position: relative;
+            border-style: none;
+            border-width: 0px;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="container" style="height: 100%; width: 100%"></div>
+
+    <script>
+        "use strict";
+
+		// Data items (columns) expected and their meanings:
+		// 1. category (x axis)
+		// 2. measure
+		// 3. group by (optional)
+		
+		// This example supports 3 types of charts (2D or 3D). Default is bar chart 2D:
+		// 1. line
+		// 2. bar (column)
+		// 3. pie
+		//
+		// Those are set in drawHighcharts() function
+
+		const urlParams = va.messagingUtil.getUrlParams();
+
+		const CHART_TYPE = urlParams.chart_type || 'column'; // values: 'column', 'line', 'pie'
+		const ENABLE_3D = urlParams.enable_3d || false; // true or false
+		const ALPHA_ANGLE = urlParams.alpha_angle || 45; // rotation on virtual X axis
+		const BETA_ANGLE = urlParams.beta_angle || 0; // rotation on virtual Y axis
+
+        let _resultName = null;
+
+        function onDataReceived(resultData) {
+            if (!resultData) return;
+
+            _resultName = resultData.resultName;
+            const selections = va.contentUtil.initializeSelections(resultData);
+
+            if (!va.contentUtil.validateRoles(resultData, ["string", "number"], ["string"])) {
+                va.messagingUtil.postInstructionalMessage(_resultName,
+                    "This implementation expects columns to be assigned in this order:\n" +
+                    " 1. Main category for X axis or pie slices (string)\n" +
+                    " 2. Numeric value\n" +
+                    " 3. Group by (string, optional)");
+                return;
+            }
+
+            const CATEGORY_COL = 0;
+            const NUMERIC_COL = 1;
+            const GROUPBY_COL = (resultData.columns.length > 2 ? 2 : null);
+
+            const { xAxis, yAxis, series, tooltip, legend } = va2HighchartsData(resultData, CATEGORY_COL, NUMERIC_COL, GROUPBY_COL);
+
+            const chart = drawHighcharts(xAxis, yAxis, series, tooltip, legend);
+
+            // initialize the selctions in the chart
+            initializeHighchartsSelections(chart, selections);
+        }
+
+
+        function va2HighchartsData(resultData, indexColCategories, indexColValue, indexColSeries) {
+            const sasData = resultData.data;
+            const sasColumns = resultData.columns;
+
+            // --------------------------------
+            // the following elements are used to support axis labels and tooltip formating
+            // --------------------------------
+            // SAS percentage values are between 0 and 1, so we need to multiply by 100
+            let isPercentage = (sasColumns[indexColValue].type == "number" && sasColumns[indexColValue].format && sasColumns[indexColValue].format.name == "PERCENT");
+
+            let numberPrefix = "";
+            if (sasColumns[indexColValue].type == "number" && sasColumns[indexColValue].format) {
+                switch (sasColumns[indexColValue].format.name) {
+                    case "DOLLAR": numberPrefix = "$"; break;
+                    case "EURO": numberPrefix = "€"; break;
+                    case "POUND": numberPrefix = "₤"; break;
+                    case "WON": numberPrefix = "₩"; break;
+                    case "YEN": numberPrefix = "¥"; break;
+                    default: numberPrefix = "CUR"; // this is aplaceholder. We should add here all international currencies available in VA
+                }
+            }
+
+            let numberSufix = "";
+            if (sasColumns[indexColValue].type == "number" && sasColumns[indexColValue].format && sasColumns[indexColValue].format.name == "PERCENT") {
+                numberSufix = "%";
+            }
+
+            let numberPrecision = 0;
+            if (sasColumns[indexColValue].type == "number" && sasColumns[indexColValue].format) {
+                numberPrecision = sasColumns[indexColValue].format.precision;
+            }
+
+            const highchartsData = {}; // auxiliary object that contains the VA data structured in a different way, to make it easier to extract the necessary info for Highcharts
+            const distCategoryValues = {};  // auxiliary object to help derive distinct category values (useful for xAxis)
+            const distSeriesValues = {};  // auxiliary object to help derive distinct series values
+
+            // The loop below produces these elements: 
+            //
+            //  highchartsData = 
+            //  {
+            //	  "category 1": {
+            //  					"serie 1": { y: <value1>, sasRow: <N1>, name: "category 1" },
+            //  					"serie 2": { y: <value2>, sasRow: <N2>, name: "category 1" },
+            //  				},
+            //	  "category 2": {
+            //  					"serie 1": { y: <value3>, sasRow: <N3>, name: "category 2" },
+            //  					"serie 2": { y: <value4>, sasRow: <N4>, name: "category 2" },
+            //  				},
+            //	  "category 3": {
+            //  					"serie 1": { y: <value5>, sasRow: <N5>, name: "category 3" },
+            //  					"serie 2": { y: <value6>, sasRow: <N6>, name: "category 3" },
+            //  				},
+            //  }
+            //
+            //  distCategoryValues = ["category 1":"", "category 2":"", "category 3":""]
+            //
+            //  distSeriesValues   = ["serie 1":"", "serie 2":""]
+            //
+            //  categories = ["category 1", "category 2", "category 3"]
+            //
+            //  seriesNames   = ["serie 1", "serie 2"]
+            //
+            sasData.forEach((row, i) => {
+                if (!highchartsData[row[indexColCategories]]) {
+                    highchartsData[row[indexColCategories]] = {};
+                }
+                const seriesName = (indexColSeries != null ? row[indexColSeries] : "_");
+                highchartsData[row[indexColCategories]][seriesName] = {
+                    y: (isPercentage ? row[indexColValue] * 100 : row[indexColValue]),
+                    sasRow: i,
+                    name: row[indexColCategories] // added for pie chart
+                };
+
+                distCategoryValues[row[indexColCategories]] = "";
+                distSeriesValues[seriesName] = "";
+            });
+
+            const categories = Object.keys(distCategoryValues); // it wasn't sorted to possibly keep the order of formatted SAS dates and datetimes - supposing the data is correclty ordered in the VA message
+            const seriesNames = Object.keys(distSeriesValues).sort();
+
+            // --------------------------------
+            // create the xAxis info
+            // --------------------------------
+            //
+            //  xAxis = 
+            //	{
+            //	categories: categoriesNames
+            //	}
+
+            const xAxis =
+            {
+                categories: categories
+            }
+
+            // --------------------------------
+            // create the yAxis info
+            // --------------------------------
+            //
+            //	yAxis = 
+            // 	{
+            //    title: {
+            //      text: <SAS column label>
+            //    },
+            //    labels: {
+            //        format: `${numberPrefix}{text}${numberSufix}`
+            //    }    
+            //	}
+
+            let yAxis =
+            {
+                title: {
+                    text: sasColumns[indexColValue].label
+                },
+                labels: {
+                    format: `${numberPrefix}{text}${numberSufix}` // this generates abbreviated numeric values like 2K, 4M, etc.
+                }
+            };
+
+            // --------------------------------
+            // create the series info
+            // --------------------------------
+            //
+            //  series = 
+            //  [
+            //    { name: "serie 1",
+            //      data: [
+            //        { y: <value1>, sasRow: <N1>, name: "category 1" },
+            //        { y: <value3>, sasRow: <N3>, name: "category 2" },
+            //        { y: <value5>, sasRow: <N5>, name: "category 3" }
+            //      ],
+            //	  center: [<x1>, <y>]
+            //    },
+            //    { name: "serie 2",
+            //      data: [
+            //        { y: <value2>, sasRow: <N2>, name: "category 1" },
+            //        { y: <value4>, sasRow: <N4>, name: "category 2" },
+            //        { y: <value6>, sasRow: <N6>, name: "category 3" }
+            //      ],
+            //	  center: [<x2>, <y>]
+            //    }
+            //  ]
+
+            const series = [];
+
+            seriesNames.forEach((serieName, i) => {
+                const pieSpacing = Math.round(100 / ((seriesNames.length * 2) + seriesNames.length - 1)); // for pie charts only (unfinished)
+                const serie = {};
+                if (serieName != "_") serie.name = serieName;
+                serie.data = [];
+                categories.forEach((cat) => {
+                    let dataPoint = {};
+                    if (highchartsData[cat][serieName]) {
+                        dataPoint = {
+                            y: highchartsData[cat][serieName].y,
+                            sasRow: highchartsData[cat][serieName].sasRow,
+                            name: highchartsData[cat][serieName].name // added for pie chart
+                        };
+                    }
+                    serie.center = [`${(i * 3 + 1) * pieSpacing}%`, '50%']; // for pie charts only (unfinished)
+                    serie.data.push(dataPoint);
+                });
+                series.push(serie);
+            });
+
+            // --------------------------------
+            // create the tooltip info
+            // --------------------------------
+            //
+            //  tooltip = 
+            //  {
+            //		formatter = function () {...}
+            //  }
+
+            const tooltip = {};
+
+            // need to format numeric values for axis and tooltip
+            if (indexColSeries != null) {
+                tooltip.formatter = function () {
+                    //console.log(this.point.color);
+                    return `<b style="color: ${this.series.color}">${this.series.name}</b><br/>${this.point.category || this.point.name}: <b>${numberPrefix}${Highcharts.numberFormat(this.point.y, numberPrecision)}${numberSufix}</b>`;
+                }
+            }
+            else {
+                tooltip.formatter = function () {
+                    return `${this.point.category || this.point.name}: <b>${numberPrefix}${Highcharts.numberFormat(this.point.y, numberPrecision)}${numberSufix}</b>`;
+                }
+            }
+
+            // --------------------------------
+            // create the legend info
+            // --------------------------------
+            //
+            //  legend = 
+            //  {
+            //		enabled: <true/false>
+            //  }
+
+            let legend =
+            {
+                enabled: (indexColSeries != null) // true if series column was provided, false otherwise
+            }
+
+            return { xAxis: xAxis, yAxis: yAxis, series: series, tooltip: tooltip, legend: legend };
+        }
+
+
+        function initializeHighchartsSelections(chart, vaSelections) {
+            if (vaSelections.length) {
+                chart.series.forEach((serie) => {
+                    serie.data.forEach((point) => {
+                        vaSelections.forEach((selection) => {
+                            if (point.sasRow == selection.row) {
+                                point.select(true, true);
+                            }
+                        });
+                    });
+                });
+            }
+        }
+
+
+        function chartBackgoundClickHandler() {
+            // deselect all previously selected points
+            const points = this.getSelectedPoints();
+            points.forEach(point => point.select(false, true));
+        }
+
+
+        function selectUnselectEventHandler(event) {
+            const chart = this.series.chart;
+            const points = chart.getSelectedPoints();
+            let selection = [];
+            selection = points.map(point => { return { "row": point.sasRow } });
+            //console.log("selected=",selection);
+            va.messagingUtil.postSelectionMessage(_resultName, selection);
+
+        }
+
+
+        Highcharts.setOptions({
+            lang: {
+                decimalPoint: '.',
+                thousandsSep: ','
+            },
+            //colors: ['#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572', '#FF9655', '#FFF263', '#6AF9C4'] // example
+            colors: ['#33A3FF', '#FFCC32', '#9471FF', '#FF8224', '#2AD1D1', '#DD5757', '#15B57B', '#FF6FBD'] // SAS Opal
+            //colors: ['#21B9B7', '#4141E0', '#D7B71A', '#8E2F8A', '#D38506', '#0ABF85', '#2F90EC', '#DB3851'] //SAS Aqua
+            //colors: ['#00929F', '#F08000', '#90B328', '#3D5AAE', '#FFCA39', '#A6427C', '#9C2910', '#736519'] //SAS Marine
+        });
+
+
+        function drawHighcharts(xAxis, yAxis, series, tooltip, legend) {
+            const chart = Highcharts.chart('container', {
+                chart: {
+                    type: CHART_TYPE,
+                    options3d: {
+                        enabled: ENABLE_3D,
+                        alpha: ALPHA_ANGLE,
+                        beta: BETA_ANGLE,
+                        fitToPlot: true
+                    },
+                    events: {
+                        click: chartBackgoundClickHandler,
+                    }
+                },
+                title: {
+                    text: null
+                },
+                xAxis: xAxis,
+
+                yAxis: yAxis,
+
+                series: series,
+
+                legend: legend,
+
+                tooltip: tooltip,
+
+                plotOptions: {
+                    pie: {
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        depth: 35,
+                        dataLabels: {
+                            formatter: function () {
+                                return '<b>' + this.point.name + '</b><br/>' + Highcharts.numberFormat(this.percentage, 0) + '%';
+                            }
+                        },
+                    },
+                    series: {
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        animation: false,
+                        point: {
+                            events: {
+                                select: selectUnselectEventHandler,
+                                unselect: selectUnselectEventHandler,
+                            }
+                        }
+                    }
+                },
+                credits: {
+                    enabled: false // removes "Highcharts.com" from the bottom right
+                },
+            });
+
+            return chart;
+        }
+
+        // By providing dummy data, the report designer is able to see the object 
+        // as a placeholder/template even before data is assigned to the Roles pane in Visual Analytics
+        const resultData =
+        {
+            version: "1",
+            resultName: "dd30",
+            rowCount: 9,
+            availableRowCount: 9,
+            data: [
+                [
+                    "Asia",
+                    896493,
+                    "All",
+                    "01/20/2024",
+                    "June 6, 2024, 03:32:59 PM",
+                    0.0794392523364486
+                ],
+                [
+                    "Asia",
+                    1885135,
+                    "Front",
+                    "02/20/2024",
+                    "June 7, 2024, 03:32:59 PM",
+                    0.23130841121495327
+                ],
+                [
+                    "Asia",
+                    789516,
+                    "Rear",
+                    "03/20/2024",
+                    "June 8, 2024, 03:32:59 PM",
+                    0.05841121495327103
+                ],
+                [
+                    "Europe",
+                    1486328,
+                    "All",
+                    "01/20/2024",
+                    "June 6, 2024, 03:32:59 PM",
+                    0.08411214953271028
+                ],
+                [
+                    "Europe",
+                    1198801,
+                    "Front",
+                    "02/20/2024",
+                    "June 7, 2024, 03:32:59 PM",
+                    0.08644859813084112
+                ],
+                [
+                    "Europe",
+                    2775466,
+                    "Rear",
+                    "03/20/2024",
+                    "June 8, 2024, 03:32:59 PM",
+                    0.11682242990654206
+                ],
+                [
+                    "USA",
+                    671821,
+                    "All",
+                    "01/20/2024",
+                    "June 6, 2024, 03:32:59 PM",
+                    0.0514018691588785
+                ],
+                /* this point was removed to test missing values
+                [
+                    "USA",
+                    2076564,
+                    "Front",
+                    0.2102803738317757
+                ],
+                */
+                [
+                    "USA",
+                    1066168,
+                    "Rear",
+                    "03/20/2024",
+                    "June 8, 2024, 03:32:59 PM",
+                    0.08177570093457943
+                ]
+            ],
+            columns: [
+                {
+                    name: "bi39",
+                    label: "Origin",
+                    type: "string"
+                },
+                {
+                    name: "bi40",
+                    label: "Invoice",
+                    type: "number",
+                    usage: "quantitative",
+                    aggregation: "sum",
+                    format: {
+                        name: "DOLLAR",
+                        width: 8,
+                        precision: 0,
+                        formatString: "DOLLAR8."
+                    }
+                },
+                {
+                    name: "bi41",
+                    label: "DriveTrain",
+                    type: "string"
+                },
+                {
+                    name: "bi42",
+                    label: "Date",
+                    type: "date",
+                    usage: "categorical",
+                    format: {
+                        name: "MMDDYY",
+                        width: 8,
+                        precision: 0,
+                        formatString: "MMDDYY8"
+                    }
+                },
+                {
+                    name: "bi43",
+                    label: "Datetime",
+                    type: "datetime",
+                    usage: "categorical",
+                    format: {
+                        name: "DATETIME",
+                        width: 0,
+                        precision: 0,
+                        formatString: "DATETIME0"
+                    }
+                },
+                {
+                    name: "bi43",
+                    label: "Frequency Percent",
+                    type: "number",
+                    usage: "quantitative",
+                    aggregation: "totalCountPercent",
+                    format: {
+                        name: "PERCENT",
+                        width: 20,
+                        precision: 2,
+                        formatString: "PERCENT20.2"
+                    }
+                }
+            ]
+        };
+
+        const ORIGIN = 0;
+        const INVOICE = 1;
+        const DRIVE_TRAIN = 2;
+        const DATE = 3;
+        const DATETIME = 4;
+        const PERCENTAGE = 5;
+
+        const { xAxis, yAxis, series, tooltip, legend } = va2HighchartsData(resultData, ORIGIN, INVOICE, DRIVE_TRAIN);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            drawHighcharts(xAxis, yAxis, series, tooltip, legend);
+            va.messagingUtil.setOnDataReceivedCallback(onDataReceived);
+        });
+    </script>
+</body>
+
+</html>
