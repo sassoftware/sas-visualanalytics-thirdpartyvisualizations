@@ -64,6 +64,10 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="600" height="600" src="./images/google_OrgChart.png">
 
+### Highcharts | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/highcharts.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/highcharts.html)
+
+<img width="600" height="600" src="./images/highcharts.gif">
+
 ### JSON Message Viewer | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/jsonDataViewer.html)
 
 <img width="600" height="600" src="./images/jsonDataViewer.png">
