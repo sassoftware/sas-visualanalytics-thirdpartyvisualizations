@@ -65,7 +65,7 @@ limitations under the License.
         const urlParams = va.messagingUtil.getUrlParams();
 
         const CHART_TYPE = urlParams.chart_type || 'column'; // values: 'column', 'line', 'pie'
-        const ENABLE_3D = urlParams.enable_3d || false; // true or false
+        const ENABLE_3D = (urlParams.enable_3d == "true" || urlParams.enable_3d == "") || false; // true or false
         const ALPHA_ANGLE = urlParams.alpha_angle || 45; // rotation on virtual X axis
         const BETA_ANGLE = urlParams.beta_angle || 0; // rotation on virtual Y axis
 
