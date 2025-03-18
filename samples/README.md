@@ -79,3 +79,15 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 ### Tree Selector | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/treeSelector.html)
 
 <img width="1185" height="600" src="./images/treeSelector.gif">
+
+### Image Viewer | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/image-viewer.html)
+
+Interactive component to display images inside SAS Visual Analytics.
+
+<img width="634" height="357" src="./images/imageviewer.gif">
+
+### Bounding Box Viewer | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/bbox-viewer.html)
+
+Interactive component to display dynamic bounding box annotations for computer vision applications.
+
+<img width="634" height="357" src="./images/bboxviewer.gif">

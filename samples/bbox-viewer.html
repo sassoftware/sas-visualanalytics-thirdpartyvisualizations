@@ -1,0 +1,2273 @@
+<!DOCTYPE html>
+<!--
+============================================================================
+BBOX VIEWER COMPONENT
+============================================================================
+This file contains a complete standalone web component for visualizing 
+bounding box annotations on images, for SAS Visual Analytics.
+
+For configuration options, see the CONFIGURATION SECTION below.
+============================================================================
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBox Viewer</title>
+    <style>
+        /* Reset and base styles */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        
+        bbox-viewer-app {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Layout containers */
+        #app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #f8f8f8;
+        }
+
+        #image-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Image and overlay styles */
+        #image, #overlay {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform-origin: center;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        #overlay {
+            pointer-events: auto;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -o-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
+        }
+
+        .smooth {
+            transition: transform 0.3s ease;
+        }
+
+        /* Error message styles */
+        #error-message {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 3;
+            font-family: Arial, sans-serif;
+            min-width: 500px;
+            width: 80%;
+            max-width: 800px;
+            height: auto;
+            min-height: 200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 600px) {
+            #error-message {
+                min-width: 90%;
+                width: 90%;
+                padding: 15px;
+                max-height: 85vh;
+            }
+        }
+
+        #error-message.error,
+        #error-message.neutral {
+            background: none;
+        }
+
+        #error-message h1,
+        #error-message h2 {
+            color: #d32f2f;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        #error-message h1 {
+            font-size: 28px;
+        }
+
+        #error-message h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        #error-message.neutral h2 {
+            color: #333;
+            display: block !important;
+            margin-bottom: 30px;
+        }
+
+        .error-path {
+            color: #666;
+            font-size: 14px;
+            word-break: break-all;
+            padding: 8px;
+            border-radius: 4px;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Common text styles */
+        #error-text,
+        #error-details {
+            color: #666;
+            margin: 10px 0;
+        }
+
+        #error-text {
+            font-size: 14px;
+        }
+
+        #error-details {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            text-align: left;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar styling for error details */
+        #error-details::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        #error-details::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        #error-details::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+        
+        #error-details::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+
+        /* For Firefox */
+        #error-details {
+            scrollbar-width: thin;
+            scrollbar-color: #ccc #f1f1f1;
+        }
+
+        /* Mapping styles */
+        .mapping-info {
+            margin-top: 20px;
+            color: #666;
+            text-align: left;
+            padding: 0;
+            font-size: 13px;
+            background: none;
+        }
+
+        .mapping-info h4 {
+            color: #333;
+            font-size: 16px;
+            margin: 0 0 15px 0;
+            font-weight: 500;
+        }
+
+        .mapping-details {
+            display: table !important;
+            margin-top: 0;
+            border-spacing: 0;
+            width: 100%;
+            background: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .mapping-row {
+            display: table-row;
+        }
+
+        .mapping-row.mapping-header {
+            border-bottom: 1px solid #ddd;
+        }
+
+        .mapping-row.mapping-header > div {
+            color: #333;
+            font-weight: 500;
+            padding: 0;
+            text-align: left;
+        }
+
+        .mapping-row.mapping-header > .mapping-description {
+            padding: 0 12px;
+        }
+
+        .mapping-label,
+        .mapping-type,
+        .mapping-required,
+        .mapping-description {
+            display: table-cell;
+            padding: 8px 0;
+            color: #666;
+            font-size: 13px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .mapping-label {
+            width: 80px;
+            white-space: nowrap;
+        }
+
+        .mapping-type {
+            width: 80px;
+            white-space: nowrap;
+        }
+
+        .mapping-required {
+            width: 70px;
+            white-space: nowrap;
+        }
+
+        .mapping-description {
+            width: auto;
+            padding-left: 12px;
+            min-width: 200px;
+        }
+
+        .base-path-info {
+            color: #666;
+            font-size: 13px;
+            text-align: left;
+            padding: 8px 0px;
+        }
+
+        .mapping-toggle {
+            display: none;
+        }
+
+        /* Control styles */
+        .view-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        .view-control:hover {
+            opacity: 0.5;
+        }
+
+        .view-control:active {
+            transform: scale(0.9);
+        }
+
+        .view-control svg {
+            width: 30px;
+            height: 30px;
+            margin: 0 5px;
+        }
+
+        .view-control .ionicon {
+            width: 25px;
+            height: 25px;
+            color: currentColor;
+        }
+
+        /* Toolbar styles */
+        #toolbar {
+            height: 40px;
+            background-color: white;
+            border-top: 2px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1;
+        }
+
+        #toolbar.hidden {
+            display: none;
+        }
+
+        #zoom-slider {
+            width: 100px;
+            opacity: 0.7;
+        }
+
+        #zoom-slider:hover {
+            opacity: 1;
+        }
+
+        .data-display {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+            text-align: left;
+        }
+        .data-toggle {
+            background: rgba(240, 240, 240, 0.95);
+            border: 1px solid rgba(221, 221, 221, 0.5);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #555;
+            cursor: pointer;
+            margin-bottom: 10px;
+            width: 100%;
+            text-align: left;
+            transition: background-color 0.2s;
+        }
+        .data-toggle:hover {
+            background: rgba(232, 232, 232, 0.95);
+        }
+        .data-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(248, 248, 248, 0.95);
+            border: 1px solid rgba(221, 221, 221, 0.5);
+            border-radius: 4px;
+            padding: 10px;
+            transition: max-height 0.3s ease-out;
+            margin-bottom: 15px;
+        }
+        .data-container.collapsed {
+            max-height: 0;
+            padding: 0;
+            overflow: hidden;
+            border: none;
+        }
+        .data-container pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            color: #333;
+        }
+        
+        /* Scrollbar styling for data container */
+        .data-container::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .data-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .data-container::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+        
+        .data-container::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+        
+        /* For Firefox */
+        .data-container {
+            scrollbar-width: thin;
+            scrollbar-color: #ccc #f1f1f1;
+        }
+        
+        /* Type error specific styles */
+        #error-message.type-error {
+            background-color: rgba(255, 220, 220, 0.95);
+            border: 1px solid rgba(211, 47, 47, 0.5);
+            border-radius: 4px;
+            max-width: 800px;
+            width: 80%;
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+        
+        #error-message.type-error h2 {
+            color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <bbox-viewer-app></bbox-viewer-app>
+    <!-- <div id="debug-panel"></div> -->
+
+    <script>
+        /* ====================================================================
+         * CONFIGURATION SECTION - MODIFY THESE VALUES AS NEEDED
+         * ==================================================================== */
+         
+        // Base path for loading images (e.g. './images/', 'https://<your_webserver.com>/path/to/this/index.html/images/')
+        const DEFAULT_BASE_PATH = './images/'; //
+        
+        // Whether user interactions (zoom, pan) are disabled
+        const DEFAULT_DISABLE_INTERACTION = false;
+        
+        // Field name mapping (maps component's expected field names to your data's field names)
+        const DEFAULT_COLUMN_MAPPING = {
+            image: 'image',     // Image filename or path
+            id: 'id',            // Unique identifier
+            left: 'left',       // Left coordinate (normalized 0-1)
+            top: 'top',         // Top coordinate (normalized 0-1)
+            width: 'width',     // Width (normalized 0-1)
+            height: 'height',   // Height (normalized 0-1)
+            class: 'class',     // Object class/category name
+            probability: 'confidence' // Detection confidence (0-1)
+        };
+        
+        // Predefined colors for common object classes
+        const DEFAULT_CLASS_COLORS = {
+            'person': 'rgb(0, 114, 178)',    // Vivid blue
+            'car': 'rgb(230, 97, 0)',        // Vivid orange
+            'dog': 'rgb(0, 158, 115)',       // Vivid green
+            'cat': 'rgb(213, 38, 0)',        // Vivid red
+            'bicycle': 'rgb(116, 0, 184)',   // Vivid purple
+            'motorcycle': 'rgb(162, 20, 47)', // Vivid burgundy
+            // Add custom colors for your classes here
+        };
+        
+        // Additional fallback colors used for classes not in the predefined list
+        // If the number of classes in one image is larger than the number of defined colors, two classes will get the same color
+        // To avoid this, add class specific colors above or add more FALLBACK_COLORS below
+        const FALLBACK_COLORS = [
+            'rgb(240, 50, 230)',    // Magenta
+            'rgb(70, 70, 70)',      // Dark gray
+            'rgb(153, 153, 0)',     // Olive
+            'rgb(0, 153, 204)',     // Azure
+            'rgb(0, 204, 102)',     // Emerald
+            'rgb(204, 0, 102)',     // Crimson
+            'rgb(102, 0, 204)',     // Indigo
+            'rgb(204, 102, 0)',     // Amber
+            'rgb(0, 102, 102)',     // Teal
+            'rgb(204, 0, 0)',       // Bright red
+            'rgb(0, 0, 204)',       // Bright blue
+            'rgb(153, 0, 76)',      // Deep pink
+            'rgb(0, 102, 0)',       // Forest green
+            'rgb(76, 0, 153)',      // Deep purple
+            'rgb(153, 76, 0)',      // Burnt orange
+            'rgb(0, 76, 153)',      // Navy blue
+            'rgb(153, 0, 0)',       // Maroon
+            'rgb(0, 153, 76)',      // Jade
+            'rgb(102, 51, 0)',      // Brown
+            'rgb(76, 153, 0)',      // Lime green
+            'rgb(204, 51, 153)',    // Raspberry
+            'rgb(51, 102, 153)',    // Steel blue
+            'rgb(153, 102, 51)',    // Bronze
+        ];
+        
+        /* ====================================================================
+         * END CONFIGURATION SECTION 
+         * ==================================================================== */
+                
+        class BboxViewerApp extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                
+                // === Configuration ===
+                // Initialize with default settings
+                this.basePath = DEFAULT_BASE_PATH;
+                this.disableInteraction = DEFAULT_DISABLE_INTERACTION;
+                this.columnMapping = { ...DEFAULT_COLUMN_MAPPING };
+                this.predefinedColors = { ...DEFAULT_CLASS_COLORS };
+                this.fallbackColors = [...FALLBACK_COLORS];
+                
+                // Debug mode flag - set to true to enable debug panel
+                this.debugMode = false;
+                
+                // Verbose logging flag - set to true for detailed console logs
+                this.verboseLogging = false;
+                
+                // Type checking flag - set to false to disable type validation
+                this.enableTypeChecking = true;
+                
+                // === DOM Structure ===
+                // Define the shadow DOM content
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        /* Component root styles */
+                        :host {
+                            display: block;
+                            width: 100%;
+                            height: 100%;
+                            overflow: hidden;
+                        }
+
+                        /* Layout containers */
+                        #app-container {
+                            width: 100%;
+                            height: 100%;
+                            display: flex;
+                            flex-direction: column;
+                            overflow: hidden;
+                            background-color: f8f8f8;
+                        }
+
+                        #image-container {
+                            flex: 1;
+                            position: relative;
+                            overflow: hidden;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        /* Image and overlay styles */
+                        #image, #overlay {
+                            position: absolute;
+                            left: 50%;
+                            top: 50%;
+                            transform-origin: center;
+                            max-width: 100%;
+                            max-height: 100%;
+                        }
+
+                        #overlay {
+                            pointer-events: auto;
+                            width: 100%;
+                            height: 100%;
+                            z-index: 2;
+                            image-rendering: pixelated;
+                            image-rendering: -moz-crisp-edges;
+                            image-rendering: -o-crisp-edges;
+                            image-rendering: -webkit-optimize-contrast;
+                            image-rendering: crisp-edges;
+                            -ms-interpolation-mode: nearest-neighbor;
+                        }
+
+                        .smooth {
+                            transition: transform 0.3s ease;
+                        }
+
+                        /* Error message styles */
+                        #error-message {
+                            display: none;
+                            position: absolute;
+                            left: 50%;
+                            top: 50%;
+                            transform: translate(-50%, -50%);
+                            text-align: center;
+                            z-index: 3;
+                            font-family: Arial, sans-serif;
+                            min-width: 500px;
+                            width: 80%;
+                            max-width: 800px;
+                            height: auto;
+                            min-height: 200px;
+                            max-height: 90vh;
+                            overflow-y: auto;
+                            padding: 20px;
+                            box-sizing: border-box;
+                        }
+
+                        @media (max-width: 600px) {
+                            #error-message {
+                                min-width: 90%;
+                                width: 90%;
+                                padding: 15px;
+                                max-height: 85vh;
+                            }
+                        }
+
+                        #error-message.error,
+                        #error-message.neutral {
+                            background: none;
+                        }
+
+                        #error-message h1,
+                        #error-message h2 {
+                            color: #d32f2f;
+                            margin-top: 0;
+                            margin-bottom: 15px;
+                        }
+
+                        #error-message h1 {
+                            font-size: 28px;
+                        }
+
+                        #error-message h2 {
+                            font-size: 24px;
+                            color: #333;
+                            margin-bottom: 30px;
+                        }
+
+                        #error-message.neutral h2 {
+                            color: #333;
+                            display: block !important;
+                            margin-bottom: 30px;
+                        }
+
+                        .error-path {
+                            color: #666;
+                            font-size: 14px;
+                            word-break: break-all;
+                            padding: 8px;
+                            border-radius: 4px;
+                            display: inline-block;
+                            max-width: 100%;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        /* Common text styles */
+                        #error-text,
+                        #error-details {
+                            color: #666;
+                            margin: 10px 0;
+                        }
+
+                        #error-text {
+                            font-size: 14px;
+                        }
+
+                        #error-details {
+                            background: #fff;
+                            padding: 10px;
+                            border-radius: 4px;
+                            font-family: monospace;
+                            white-space: pre-wrap;
+                            text-align: left;
+                            font-size: 12px;
+                            max-height: 200px;
+                            overflow-y: auto;
+                        }
+                        
+                        /* Scrollbar styling for error details */
+                        #error-details::-webkit-scrollbar {
+                            width: 8px;
+                            height: 8px;
+                        }
+                        
+                        #error-details::-webkit-scrollbar-track {
+                            background: #f1f1f1;
+                            border-radius: 4px;
+                        }
+                        
+                        #error-details::-webkit-scrollbar-thumb {
+                            background: #ccc;
+                            border-radius: 4px;
+                        }
+                        
+                        #error-details::-webkit-scrollbar-thumb:hover {
+                            background: #aaa;
+                        }
+
+                        /* For Firefox */
+                        #error-details {
+                            scrollbar-width: thin;
+                            scrollbar-color: #ccc #f1f1f1;
+                        }
+
+                        /* Mapping styles */
+                        .mapping-info {
+                            margin-top: 20px;
+                            color: #666;
+                            text-align: left;
+                            padding: 0;
+                            font-size: 13px;
+                            background: none;
+                        }
+
+                        .mapping-info h4 {
+                            color: #333;
+                            font-size: 16px;
+                            margin: 0 0 15px 0;
+                            font-weight: 500;
+                        }
+
+                        .mapping-details {
+                            display: table !important;
+                            margin-top: 0;
+                            border-spacing: 0;
+                            width: 100%;
+                            background: none;
+                            border-radius: 0;
+                            box-shadow: none;
+                        }
+
+                        .mapping-row {
+                            display: table-row;
+                        }
+
+                        .mapping-row.mapping-header {
+                            border-bottom: 1px solid #ddd;
+                        }
+
+                        .mapping-row.mapping-header > div {
+                            color: #333;
+                            font-weight: 500;
+                            padding: 0;
+                            text-align: left;
+                        }
+
+                        .mapping-row.mapping-header > .mapping-description {
+                            padding: 0 12px;
+                        }
+
+                        .mapping-label,
+                        .mapping-type,
+                        .mapping-required,
+                        .mapping-description {
+                            display: table-cell;
+                            padding: 8px 0;
+                            color: #666;
+                            font-size: 13px;
+                            border-bottom: 1px solid #eee;
+                            text-align: left;
+                            vertical-align: top;
+                        }
+
+                        .mapping-label {
+                            width: 80px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-type {
+                            width: 80px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-required {
+                            width: 70px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-description {
+                            width: auto;
+                            padding-left: 12px;
+                            min-width: 200px;
+                        }
+
+                        .base-path-info {
+                            color: #666;
+                            font-size: 13px;
+                            text-align: left;
+                            padding: 8px 0px;
+                        }
+
+                        .mapping-toggle {
+                            display: none;
+                        }
+
+                        /* Control styles */
+                        .view-control {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 50px;
+                            height: 50px;
+                            cursor: pointer;
+                        }
+
+                        .view-control:hover {
+                            opacity: 0.5;
+                        }
+
+                        .view-control:active {
+                            transform: scale(0.9);
+                        }
+
+                        .view-control svg {
+                            width: 30px;
+                            height: 30px;
+                            margin: 0 5px;
+                        }
+
+                        .view-control .ionicon {
+                            width: 30px;
+                            height: 30px;
+                            color: currentColor;
+                        }
+
+                        /* Toolbar styles */
+                        #toolbar {
+                            height: 50px;
+                            background-color: white;
+                            border-top: 2px solid #ddd;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            z-index: 1;
+                        }
+
+                        #toolbar.hidden {
+                            display: none;
+                        }
+
+                        #zoom-slider {
+                            width: 100px;
+                            opacity: 0.7;
+                        }
+
+                        #zoom-slider:hover {
+                            opacity: 1;
+                        }
+
+                        .data-display {
+                            margin-top: 20px;
+                            border-top: 1px solid #ddd;
+                            padding-top: 15px;
+                            text-align: left;
+                        }
+                        .data-toggle {
+                            background: rgba(240, 240, 240, 0.95);
+                            border: 1px solid rgba(221, 221, 221, 0.5);
+                            border-radius: 4px;
+                            padding: 8px 12px;
+                            font-size: 13px;
+                            color: #555;
+                            cursor: pointer;
+                            margin-bottom: 10px;
+                            width: 100%;
+                            text-align: left;
+                            transition: background-color 0.2s;
+                        }
+                        .data-toggle:hover {
+                            background: rgba(232, 232, 232, 0.95);
+                        }
+                        .data-container {
+                            max-height: 300px;
+                            overflow-y: auto;
+                            background: rgba(248, 248, 248, 0.95);
+                            border: 1px solid rgba(221, 221, 221, 0.5);
+                            border-radius: 4px;
+                            padding: 10px;
+                            transition: max-height 0.3s ease-out;
+                            margin-bottom: 15px;
+                        }
+                        .data-container.collapsed {
+                            max-height: 0;
+                            padding: 0;
+                            overflow: hidden;
+                            border: none;
+                        }
+                        .data-container pre {
+                            margin: 0;
+                            white-space: pre-wrap;
+                            font-family: monospace;
+                            font-size: 12px;
+                            color: #333;
+                        }
+                        
+                        /* Scrollbar styling for data container */
+                        .data-container::-webkit-scrollbar {
+                            width: 8px;
+                            height: 8px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-track {
+                            background: #f1f1f1;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb {
+                            background: #ccc;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb:hover {
+                            background: #aaa;
+                        }
+                        
+                        /* For Firefox */
+                        .data-container {
+                            scrollbar-width: thin;
+                            scrollbar-color: #ccc #f1f1f1;
+                        }
+                        
+                        /* Type error specific styles */
+                        #error-message.type-error {
+                            background-color: rgba(255, 220, 220, 0.95);
+                            border: 1px solid rgba(211, 47, 47, 0.5);
+                            border-radius: 4px;
+                            max-width: 800px;
+                            width: 80%;
+                            position: absolute;
+                            top: 10px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            z-index: 1000;
+                        }
+                        
+                        #error-message.type-error h2 {
+                            color: #d32f2f;
+                        }
+                    </style>
+                    <div id="app-container">
+                        <div id="image-container">
+                            <img id="image" src="" alt="Placeholder Image" style="display: none;">
+                            <canvas id="overlay"></canvas>
+                            <div id="error-message">
+                                <h2>Select a single image to view</h2>
+                                <div class="error-path"></div>
+                                <div class="mapping-info">
+                                    <h4>Expected Inputs</h4>
+                                    <div class="mapping-details"></div>
+                                    <div class="base-path-info"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="toolbar">
+                            <div class="view-control">
+                                <svg id="zoom-out" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 52.75 4">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="minus">
+                                        <line class="cls-1" x1="2" y1="2" x2="50.75" y2="2"/>
+                                    </g>
+                                </svg>
+                            </div>
+                            <input type="range" id="zoom-slider" min="20" max="300" value="100">
+                            <div class="view-control">
+                                <svg id="zoom-in" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 52.75 50.1">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="plus">
+                                        <line class="cls-1" x1="25.91" y1="2" x2="25.91" y2="48.1"/>
+                                        <line class="cls-1" x1="2" y1="25.05" x2="50.75" y2="25.05"/>
+                                    </g>
+                                </svg>
+                            </div>
+                            <div class="view-control">
+                                <svg id="maximize" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="-2 -2 62 62">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="zoomToFill">
+                                        <path class="cls-1" d="M2,21.96V2.97c0-.54.44-.97.97-.97h18.88"/>
+                                        <path class="cls-1" d="M21.85,56H2.97c-.54,0-.97-.44-.97-.97v-18.76"/>
+                                        <path class="cls-1" d="M56,36.27v18.76c0,.54-.44.97-.97.97h-18.87"/>
+                                        <path class="cls-1" d="M36.16,2h18.87c.54,0,.97.44.97.97v18.99"/>
+                                        <g>
+                                            <line class="cls-1" x1="54.62" y1="3.39" x2="36.75" y2="21.26"/>
+                                            <line class="cls-1" x1="21.14" y1="36.87" x2="3.39" y2="54.62"/>
+                                            <line class="cls-1" x1="54.62" y1="54.62" x2="36.87" y2="36.87"/>
+                                            <line class="cls-1" x1="21.26" y1="21.26" x2="3.39" y2="3.39"/>
+                                        </g>
+                                    </g>
+                                </svg>
+                            </div>
+                            <div class="view-control">
+                                <svg id="minimize" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="-2 -2 62 62">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="zoomToFit">
+                                        <path class="cls-1" d="M2,21.96V2.97c0-.54.44-.97.97-.97h18.88"/>
+                                        <path class="cls-1" d="M21.85,56H2.97c-.54,0-.97-.44-.97-.97v-18.76"/>
+                                        <path class="cls-1" d="M56,36.27v18.76c0,.54-.44.97-.97.97h-18.87"/>
+                                        <path class="cls-1" d="M36.16,2h18.87c.54,0,.97.44.97.97v18.99"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // === State Initialization ===
+                // Initialize state variables for tracking position and interactions
+                this.imageX = 0;
+                this.imageY = 0;
+                this.isDragging = false;
+                this.startX = 0;
+                this.startY = 0;
+
+                // Apply initial toolbar visibility based on disableInteraction
+                if (this.disableInteraction) {
+                    this.shadowRoot.querySelector('#toolbar').classList.add('hidden');
+                }
+
+                // === Color Management ===
+                // Setup color system for visualizing different object classes
+                this.colorCache = new Map();
+                this.nextFallbackColorIndex = 0;
+
+                // Initialize empty rectangles array
+                this.rectangles = [];
+
+                // === Event Setup ===
+                this._initializeEventListeners();
+
+                // === Initialization ===
+                // Complete setup and initial rendering
+                this.updateDebugPanel();
+                this._setupResizeObserver();
+                this._initializeUIEvents();
+                this.updateMappingExplanations();
+                this.updateBasepathDisplay();
+            }
+
+            /**
+             * Initialize all event listeners for the component
+             * @private
+             */
+            _initializeEventListeners() {
+                // Image loading events
+                this.image = this.shadowRoot.querySelector('#image');
+                this.canvas = this.shadowRoot.querySelector('#overlay');
+                this.imageContainer = this.shadowRoot.querySelector('#image-container');
+                this.zoomInButton = this.shadowRoot.querySelector('#zoom-in').parentElement;
+                this.zoomOutButton = this.shadowRoot.querySelector('#zoom-out').parentElement;
+                this.zoomSlider = this.shadowRoot.querySelector('#zoom-slider');
+                this.maximizeButton = this.shadowRoot.querySelector('#maximize').parentElement;
+                this.minimizeButton = this.shadowRoot.querySelector('#minimize').parentElement;
+                this.debugPanel = document.querySelector('#debug-panel');
+                this.errorMessage = this.shadowRoot.querySelector('#error-message');
+                this.errorText = this.shadowRoot.querySelector('#error-text');
+                this.errorDetails = this.shadowRoot.querySelector('#error-details');
+
+                // Image loading events
+                this.image.addEventListener('load', () => {
+                    this.originalImageWidth = this.image.naturalWidth;
+                    this.originalImageHeight = this.image.naturalHeight;
+                    this.updateCanvasSize();
+                });
+                
+                // Toolbar control events
+                this.zoomInButton.addEventListener('click', () => this.zoomIn());
+                this.zoomOutButton.addEventListener('click', () => this.zoomOut());
+                this.zoomSlider.addEventListener('input', () => this.sliderZoom());
+                this.maximizeButton.addEventListener('click', () => this.maximize());
+                this.minimizeButton.addEventListener('click', () => this.minimize());
+                
+                // Image and canvas events
+                this.image.addEventListener('load', () => this.updateCanvasSize());
+                this.imageContainer.addEventListener('mousedown', (e) => this.startDrag(e));
+                this.imageContainer.addEventListener('mousemove', (e) => this.drag(e));
+                this.imageContainer.addEventListener('mouseup', () => this.endDrag());
+                this.imageContainer.addEventListener('mouseleave', () => this.endDrag());
+                this.imageContainer.addEventListener('wheel', (e) => this.handleWheel(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleCanvasHover(e));
+
+                // External Communication - Setup event listener for receiving data from VA
+                if (window.addEventListener) {
+                    window.addEventListener("message", (event) => this.onMessage(event), false);
+                } else {
+                    window.attachEvent("onmessage", (event) => this.onMessage(event));
+                }
+            }
+
+            /**
+             * Set up resize observer to handle window resizing
+             * @private
+             */
+            _setupResizeObserver() {
+                this.resizeObserver = new ResizeObserver(() => {
+                    this.updateCanvasSize();
+                });
+                this.resizeObserver.observe(this.imageContainer);
+            }
+
+            /**
+             * Initialize UI event handlers
+             * @private
+             */
+            _initializeUIEvents() {
+                // Add click handler for mapping toggle
+                this.shadowRoot.querySelector('.mapping-toggle').addEventListener('click', (e) => {
+                    const details = this.shadowRoot.querySelector('.mapping-details');
+                    const toggle = e.target;
+                    if (details.classList.contains('show')) {
+                        details.classList.remove('show');
+                        toggle.textContent = 'Show expected data format ▼';
+                    } else {
+                        details.classList.add('show');
+                        toggle.textContent = 'Hide expected data format ▲';
+                    }
+                });
+            }
+
+            // === Core Methods ===
+
+            /**
+             * Displays an error message and hides the image
+             * @param {string} message - The main error message to display
+             * @param {string} details - Additional error details (like a file path)
+             * @param {string} type - Error type: 'error', 'neutral', or 'type-error' for validation errors
+             * @param {boolean} isDataFormatError - Whether this is a data format error (should show expected variables)
+             * @param {Object} data - Optional data object to display in structured format
+             */
+            showError(message, details = '', type = 'error', isDataFormatError = false, data = null) {
+                // First, hide any existing image and toolbar
+                this.image.style.display = 'none';
+                this.shadowRoot.querySelector('#toolbar').classList.add('hidden');
+
+                this.errorMessage.style.display = 'block';
+                
+                // Reset classes and apply the appropriate one
+                this.errorMessage.classList.remove('error', 'neutral', 'type-error');
+                this.errorMessage.classList.add(type);
+                
+                // Base HTML structure
+                let htmlContent = `
+                    <div>
+                        ${type === 'error' ? `<h1>${message}</h1>` : 
+                          message === "Select a single image to view" ? 
+                          `<h1 style="color: #333;">${message}</h1>` : 
+                          `<h2>${message}</h2>`}
+                        ${details ? `<div class="error-path" style="margin-bottom: 20px;">${details}</div>` : ''}
+                    </div>
+                    ${type !== 'neutral' && isDataFormatError ? `
+                    <div id="mapping-info" class="mapping-info">
+                        <h4>Expected Inputs</h4>
+                        <div class="mapping-details"></div>
+                        <div class="base-path-info"></div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                // Add mapping info for data format errors
+                if (type === 'neutral' || isDataFormatError) {
+                    htmlContent += `
+                        <div id="mapping-info" class="mapping-info">
+                            <div class="mapping-details"></div>
+                            <div class="base-path-info"></div>
+                        </div>
+                    `;
+                }
+                
+                // Add data display if provided
+                if (data) {
+                    htmlContent += `
+                        <div class="data-display">
+                            <button class="data-toggle" aria-expanded="false">Show Received Data ▼</button>
+                            <div class="data-container collapsed">
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                this.errorMessage.innerHTML = htmlContent;
+                
+                // Update the mapping explanations and basepath display if needed
+                if (type === 'neutral' || isDataFormatError) {
+                    this.updateMappingExplanations();
+                    this.updateBasepathDisplay();
+                }
+                
+                // Add event listener for the toggle button if data is provided
+                if (data) {
+                    const toggleButton = this.errorMessage.querySelector('.data-toggle');
+                    const dataContainer = this.errorMessage.querySelector('.data-container');
+                    
+                    toggleButton.addEventListener('click', () => {
+                        const isExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
+                        toggleButton.setAttribute('aria-expanded', !isExpanded);
+                        
+                        if (isExpanded) {
+                            toggleButton.textContent = 'Show Received Data ▼';
+                            dataContainer.classList.add('collapsed');
+                        } else {
+                            toggleButton.textContent = 'Hide Received Data ▲';
+                            dataContainer.classList.remove('collapsed');
+                        }
+                    });
+                }
+                
+                // Add styles for data display if not already present
+                if (!this.dataStylesAdded) {
+                    const styleElement = document.createElement('style');
+                    styleElement.textContent = `
+                        .data-display {
+                            margin-top: 20px;
+                            border-top: 1px solid #ddd;
+                            padding-top: 15px;
+                            text-align: left;
+                        }
+                        .data-toggle {
+                            background: #f0f0f0;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 8px 12px;
+                            font-size: 13px;
+                            color: #555;
+                            cursor: pointer;
+                            margin-bottom: 10px;
+                            width: 100%;
+                            text-align: left;
+                            transition: background-color 0.2s;
+                        }
+                        .data-toggle:hover {
+                            background: #e8e8e8;
+                        }
+                        .data-container {
+                            max-height: 300px;
+                            overflow-y: auto;
+                            background: #f8f8f8;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 10px;
+                            transition: max-height 0.3s ease-out;
+                            margin-bottom: 15px;
+                        }
+                        .data-container.collapsed {
+                            max-height: 0;
+                            padding: 0;
+                            overflow: hidden;
+                            border: none;
+                        }
+                        .data-container pre {
+                            margin: 0;
+                            white-space: pre-wrap;
+                            font-family: monospace;
+                            font-size: 12px;
+                            color: #333;
+                        }
+                        
+                        /* Scrollbar styling for data container */
+                        .data-container::-webkit-scrollbar {
+                            width: 8px;
+                            height: 8px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-track {
+                            background: #f1f1f1;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb {
+                            background: #ccc;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb:hover {
+                            background: #aaa;
+                        }
+                        
+                        /* For Firefox */
+                        .data-container {
+                            scrollbar-width: thin;
+                            scrollbar-color: #ccc #f1f1f1;
+                        }
+                        
+                        /* Type error specific styles */
+                        #error-message.type-error {
+                            background-color: rgba(255, 220, 220, 0.95);
+                            border: 1px solid #d32f2f;
+                            border-radius: 4px;
+                            max-width: 800px;
+                            width: 80%;
+                            position: absolute;
+                            top: 10px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            z-index: 1000;
+                        }
+                        
+                        #error-message.type-error h2 {
+                            color: #d32f2f;
+                        }
+                    `;
+                    this.shadowRoot.appendChild(styleElement);
+                    this.dataStylesAdded = true;
+                }
+                
+                // Clear any existing rectangles and redraw the canvas
+                if (type !== 'type-error') {
+                    this.rectangles = [];
+                    this.drawRectangles();
+                }
+            }
+
+            /**
+             * Handles incoming data from SAS Visual Analytics and processes it for display
+             * @param {MessageEvent} event - The message event containing VA data
+             * 
+             * @description
+             * The component expects data in the following format:
+             * ```
+             * {
+             *   columns: [{ label: 'image', type: 'string', usage: 'categorical' }, ...],
+             *   data: [
+             *     ['image1.jpg', 0.1, 0.2, 0.3, 0.4, 'person', 0.95],
+             *     ['image1.jpg', 0.5, 0.6, 0.2, 0.3, 'car', 0.87]
+             *   ],
+             *   parameters: [{ label: 'basepath', value: './images/' }]
+             * }
+             * ```
+             * 
+             * The method performs validation on the received data, extracts bounding box
+             * information, and updates the display accordingly.
+             */
+            onMessage(event) {
+                if (!event || !event.data) {
+                    console.error("BboxViewer: Received empty or invalid message event");
+                    return;
+                }
+                
+                const vaData = event.data;
+                
+                try {
+                    // Validate data structure
+                    if (!vaData.data || !Array.isArray(vaData.data)) {
+                        this.showError("Invalid data format received", 
+                            "Data array is missing or not an array", 'error', true, vaData);
+                        return;
+                    }
+                    
+                    if (vaData.data.length === 0) {
+                        this.showError("No data received", 
+                            "The data array is empty", 'error', true, vaData);
+                        return;
+                    }
+                    
+                    if (!vaData.columns) {
+                        this.showError("Invalid data format received", 
+                            "Columns definition is missing", 'error', true, vaData);
+                        return;
+                    }
+
+                    // Check for basepath parameter and update if found
+                    let basepathChanged = false;
+                    if (vaData.parameters) {
+                        const basepathParam = vaData.parameters.find(p => p.label === "basepath");
+                        if (basepathParam && basepathParam.value) {
+                            const newBasePath = basepathParam.value.endsWith('/') ? 
+                                basepathParam.value : basepathParam.value + '/';
+                            
+                            if (this.basePath !== newBasePath) {
+                                this.setBasePath(newBasePath);
+                                console.log("BboxViewer: Updated base path to", this.basePath);
+                                basepathChanged = true;
+                            }
+                        }
+                    }
+
+                    // Create a map of column labels to indices for easier data access
+                    const columnIndices = {};
+                    vaData.columns.forEach((col, index) => {
+                        columnIndices[col.label] = index;
+                    });
+
+                    // Check for required columns
+                    const requiredColumnMappings = [
+                        'image',  // Image filename
+                        'left',   // X coordinate (normalized 0-1)
+                        'top',    // Y coordinate (normalized 0-1)
+                        'width',  // Width (normalized 0-1)
+                        'height',  // Height (normalized 0-1)
+                        'id' // Unique identifier for each bounding box
+                    ];
+                    
+                    // Validate that all required columns exist in the data
+                    const missingColumns = requiredColumnMappings
+                        .map(reqCol => this.columnMapping[reqCol])
+                        .filter(mappedCol => columnIndices[mappedCol] === undefined);
+                    
+                    if (missingColumns.length > 0) {
+                        this.showError(
+                            "Missing required columns",
+                            `The following columns are missing: ${missingColumns.join(', ')}. Available columns: ${vaData.columns.map(c => c.label).join(', ')}`,
+                            'error',
+                            true,
+                            vaData
+                        );
+                        return;
+                    }
+
+                    // Perform type checking on columns if enabled
+                    if (this.enableTypeChecking) {
+                        const typeErrors = this.validateColumnTypes(vaData.columns, columnIndices);
+                        if (typeErrors.length > 0) {
+                            this.showError(
+                                "Invalid column types detected",
+                                typeErrors.join('\n'),
+                                'error',
+                                true,
+                                vaData
+                            );
+                            return;
+                        }
+                    }
+
+                    // IMAGE VALIDATION
+                    // -------------------------------------------------------------------
+                    // Check that we have a valid image column
+                    const imageIndex = columnIndices[this.columnMapping.image];
+                    if (imageIndex === undefined) {
+                        this.showError(
+                            "Image column not found", 
+                            `Column '${this.columnMapping.image}' is missing from data. Available columns: ${vaData.columns.map(c => c.label).join(', ')}`,
+                            'error',
+                            true,
+                            vaData
+                        );
+                        return;
+                    }
+
+                    // Validate image data
+                    const uniqueImages = new Set(vaData.data.map(row => row[imageIndex]));
+                    if (uniqueImages.size === 0) {
+                        this.showError("No image name provided", 
+                            "The image column contains no values", 'error', true, vaData);
+                        return;
+                    }
+                    
+                    if (uniqueImages.size > 1) {
+                        // Don't show details about number of images found
+                        this.showError("Select a single image to view", 
+                            "", 
+                            'neutral',
+                            false,
+                            vaData);
+                        return;
+                    }
+
+                    // Extract the image name from the first row
+                    const imageName = vaData.data[0][imageIndex];
+                    if (typeof imageName !== 'string' || !imageName) {
+                        this.showError("Invalid image name format", 
+                            "Image name must be a non-empty string", 'error', true, vaData);
+                        return;
+                    }
+
+                    // CONVERT DATA TO RECTANGLES
+                    // -------------------------------------------------------------------
+                    // Convert VA data to rectangles format using column mapping
+                    this.rectangles = vaData.data.map(row => {
+                        // Extract data using column mapping
+                        const left = parseFloat(row[columnIndices[this.columnMapping.left]]) || 0;
+                        const top = parseFloat(row[columnIndices[this.columnMapping.top]]) || 0;
+                        const width = parseFloat(row[columnIndices[this.columnMapping.width]]) || 0;
+                        const height = parseFloat(row[columnIndices[this.columnMapping.height]]) || 0;
+                        
+                        // Optional fields with fallbacks
+                        const className = row[columnIndices[this.columnMapping.class]] || 'unknown';
+                        // Parse probability but don't provide a fallback to preserve NaN
+                        const probability = columnIndices[this.columnMapping.probability] !== undefined ? 
+                            parseFloat(row[columnIndices[this.columnMapping.probability]]) : 
+                            NaN;
+                        
+                        // Create rectangle object
+                        return {
+                            left,
+                            top,
+                            width,
+                            height,
+                            class: className,
+                            probability,
+                            id: row[columnIndices[this.columnMapping.id]] || 
+                                `rect-${Math.random().toString(36).substr(2, 9)}`,
+                            hovered: false
+                        };
+                    });
+
+                    console.log(`BboxViewer: Processing ${this.rectangles.length} detections for image: ${imageName}`);
+                    
+                    // SPECIAL CASE: Check if this is the same image as currently displayed
+                    const currentImageName = this.getCurrentImageName();
+                    const isSameImage = currentImageName === imageName && !basepathChanged;
+                    
+                    if (isSameImage && this.image.complete && this.image.naturalWidth > 0) {
+                        console.log("BboxViewer: Same image detected, updating bounding boxes without reload");
+                        // Just update the bounding boxes without reloading the image or resetting view
+                        this.drawRectangles();
+                        this.updateDebugPanel();
+                    } else {
+                        // Load the image - this will trigger onload which updates canvas and draws rectangles
+                        this.loadImage(imageName);
+                        this.updateDebugPanel();
+                    }
+                } catch (error) {
+                    console.error("BboxViewer: Error processing data:", error);
+                    this.showError(
+                        "Error processing data", 
+                        error.message, 
+                        'error', 
+                        true,
+                        vaData
+                    );
+                }
+            }
+
+            /**
+             * Validates column types against expected types
+             * @param {Array} columns - Array of column definitions
+             * @param {Object} columnIndices - Map of column labels to indices
+             * @return {Array} Array of error messages
+             * @private
+             */
+            validateColumnTypes(columns, columnIndices) {
+                const errors = [];
+                
+                // Define expected types for each field
+                const expectedTypes = {
+                    image: { type: 'string', usage: 'categorical' },
+                    id: { type: 'string', usage: 'categorical' },
+                    left: { type: 'number', usage: 'quantitative' },
+                    top: { type: 'number', usage: 'quantitative' },
+                    width: { type: 'number', usage: 'quantitative' },
+                    height: { type: 'number', usage: 'quantitative' },
+                    class: { type: 'string', usage: 'categorical' },
+                    probability: { type: 'number', usage: 'quantitative' }
+                };
+                
+                // Check each mapped column against expected types
+                Object.entries(this.columnMapping).forEach(([key, mappedLabel]) => {
+                    const columnIndex = columnIndices[mappedLabel];
+                    if (columnIndex === undefined) return; // Skip if column not found
+                    
+                    const column = columns[columnIndex];
+                    if (!column) return; // Skip if column definition is missing
+                    
+                    const expected = expectedTypes[key];
+                    if (!expected) return; // Skip if no expected type defined
+                    
+                    // For categorical fields: either type is string or usage is categorical
+                    if (expected.usage === 'categorical') {
+                        // Always validate categorical fields if column metadata exists
+                        if (column) {
+                            const isValidType = column.type === 'string';
+                            const isValidUsage = column.usage === 'categorical';
+                            
+                            // If usage is explicitly set to categorical, type doesn't matter
+                            if (isValidUsage) {
+                                // Valid - usage is categorical, so we don't care about the type
+                                return;
+                            }
+                            
+                            // If usage is not set or not categorical, then type must be string
+                            if (!isValidType && !isValidUsage) {
+                                errors.push(`Column '${mappedLabel}' should be a category, but is a measure.`);
+                            }
+                        }
+                    }
+                    
+                    // For measure fields: usage must be quantitative
+                    if (expected.usage === 'quantitative') {
+                        // Only validate if usage is defined
+                        if (column.usage) {
+                            if (column.usage !== 'quantitative') {
+                                errors.push(`Column '${mappedLabel}' should be a measure, but is a category`);
+                            }
+                        }
+                    }
+                });
+                
+                // Add debug logging to help troubleshoot
+                if (this.verboseLogging) {
+                    console.log("BboxViewer: Column validation results:", {
+                        columns,
+                        columnIndices,
+                        errors
+                    });
+                }
+                
+                return errors;
+            }
+
+            /**
+             * Gets the filename of the currently displayed image
+             * @return {string|null} The current image filename or null if no image is displayed
+             */
+            getCurrentImageName() {
+                if (!this.image.src) return null;
+                
+                // Extract the filename from the full path
+                const urlParts = this.image.src.split('/');
+                return urlParts[urlParts.length - 1];
+            }
+
+            /**
+             * Loads an image from the configured base path
+             * @param {string} imageName - The filename or relative path of the image
+             */
+            loadImage(imageName) {
+                const fullPath = this.basePath + imageName;
+                console.log('Starting to load new image:', fullPath);
+                
+                // Clear canvas while loading
+                this.canvas.getContext('2d').clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.image.style.display = 'none';
+                this.canvas.style.display = 'none';
+                
+                // Reset zoom and position before loading new image
+                this.zoomLevel = 1;
+                this.imageX = 0;
+                this.imageY = 0;
+                
+                // Add load event listener before setting src
+                this.image.onload = () => {
+                    console.log('Image loaded:', fullPath);
+                    
+                    // Hide error message if it was showing
+                    this.errorMessage.style.display = 'none';
+                    
+                    // Show image, canvas, and toolbar on successful load
+                    this.image.style.display = 'block';
+                    this.canvas.style.display = 'block';
+                    this.shadowRoot.querySelector('#toolbar').classList.remove('hidden');
+                    
+                    // Update the view
+                    requestAnimationFrame(() => {
+                        this.updateCanvasSize();
+                        this.drawRectangles();
+                        this.updateImageTransform(true);
+                        this.updateZoomSlider();
+                    });
+                };
+                
+                // Add error handler for this specific load attempt
+                this.image.onerror = (e) => {
+                    // Show error message with failed image info
+                    this.showError("Failed to load image", e.target.src, 'error');
+                    
+                    // Clear canvas and hide toolbar
+                    this.canvas.getContext('2d').clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.shadowRoot.querySelector('#toolbar').classList.add('hidden');
+                };
+                
+                // Always set src to trigger load/error event
+                this.image.src = fullPath;
+                
+                // Force reload by clearing src if it's the same URL
+                if (this.image.src === fullPath) {
+                    this.image.src = '';
+                    this.image.src = fullPath;
+                }
+            }
+
+            /**
+             * Updates the base path for image loading
+             * @param {string} path - The new base path to use for image URLs
+             */
+            setBasePath(path) {
+                this.basePath = path.endsWith('/') ? path : path + '/';
+                this.updateBasepathDisplay();
+                if (this.image.src) {
+                    const currentImage = this.image.src.split('/').pop();
+                    this.loadImage(currentImage);
+                }
+            }
+
+            /**
+             * Updates the base path display in the user interface
+             */
+            updateBasepathDisplay() {
+                const basePathInfo = this.shadowRoot.querySelector('.base-path-info');
+                if (basePathInfo) {
+                    basePathInfo.textContent = "Current base path: " + this.basePath;
+                }
+            }
+
+            /**
+             * Updates the debug panel with current state information
+             * This is mainly used during development
+             */
+            updateDebugPanel() {
+                if (this.debugPanel) {
+                    const debugInfo = `
+                        <div>Zoom Level: ${this.zoomLevel}</div>
+                        <div>Image X: ${this.imageX}</div>
+                        <div>Image Y: ${this.imageY}</div>
+                        <div>Image Width: ${this.image.clientWidth}</div>
+                        <div>Image Height: ${this.image.clientHeight}</div>
+                        <div>Canvas Width: ${this.canvas.width}</div>
+                        <div>Canvas Height: ${this.canvas.height}</div>
+                        ${this.rectangles.map((rect, index) => `
+                            <div>Rectangle ${index + 1} - X: ${rect.left}, Y: ${rect.top}, Width: ${rect.width}, Height: ${rect.height}, Hovered: ${rect.hovered}, Class: ${rect.class}, Probability: ${(rect.probability * 100).toFixed(1)}%</div>
+                        `).join('')}
+                    `;
+                    this.debugPanel.innerHTML = debugInfo;
+                }
+            }
+
+            /**
+             * Handles mouse wheel events for zooming
+             * @param {WheelEvent} event - The wheel event
+             */
+            handleWheel(event) {
+                if (this.disableInteraction) return;
+                event.preventDefault();
+                if (event.deltaY < 0) {
+                    this.zoomIn();
+                } else {
+                    this.zoomOut();
+                }
+                this.updateDebugPanel();
+            }
+
+            /**
+             * Updates canvas dimensions and scaling based on image size and device pixel ratio
+             * This ensures proper rendering on all devices including high-DPI displays
+             */
+            updateCanvasSize() {
+                const dpr = window.devicePixelRatio || 1;
+                
+                // Get container dimensions
+                const container = this.shadowRoot.querySelector('#image-container');
+                const containerRect = container.getBoundingClientRect();
+                
+                // Calculate the scaling factor to fit the image in the container
+                const scaleWidth = containerRect.width / this.image.naturalWidth;
+                const scaleHeight = containerRect.height / this.image.naturalHeight;
+                const scale = Math.min(scaleWidth, scaleHeight);
+                
+                // Calculate base dimensions maintaining aspect ratio
+                const baseWidth = this.image.naturalWidth * scale;
+                const baseHeight = this.image.naturalHeight * scale;
+                
+                console.log('updateCanvasSize - Input values:', {
+                    containerDimensions: {
+                        width: containerRect.width,
+                        height: containerRect.height
+                    },
+                    naturalDimensions: {
+                        width: this.image.naturalWidth,
+                        height: this.image.naturalHeight
+                    },
+                    scale,
+                    dpr,
+                    zoomLevel: this.zoomLevel
+                });
+                
+                // Set canvas size using base dimensions
+                this.canvas.width = baseWidth * dpr;
+                this.canvas.height = baseHeight * dpr;
+                
+                // Set display size
+                this.canvas.style.width = `${baseWidth}px`;
+                this.canvas.style.height = `${baseHeight}px`;
+                
+                // Update image size to match canvas
+                this.image.style.width = `${baseWidth}px`;
+                this.image.style.height = `${baseHeight}px`;
+                
+                console.log('updateCanvasSize - Calculated values:', {
+                    baseWidth,
+                    baseHeight,
+                    canvasWidth: this.canvas.width,
+                    canvasHeight: this.canvas.height,
+                    canvasStyleWidth: this.canvas.style.width,
+                    canvasStyleHeight: this.canvas.style.height
+                });
+                
+                const ctx = this.canvas.getContext('2d');
+                ctx.scale(dpr, dpr);
+                ctx.imageSmoothingEnabled = false;
+                
+                this.drawRectangles();
+                this.updateImageTransform(true);
+                this.updateDebugPanel();
+            }
+
+            /**
+             * Returns a color for a class name, using predefined colors or fallback colors
+             * @param {string} className - The class name to get a color for
+             * @return {string} A CSS rgb color string
+             */
+            getColorForClass(className) {
+                // Check if we already have a color for this class
+                if (this.colorCache.has(className)) {
+                    return this.colorCache.get(className);
+                }
+
+                let color;
+                // Check if we have a predefined color for this class
+                if (className in this.predefinedColors) {
+                    color = this.predefinedColors[className];
+                } else {
+                    // Use the next fallback color
+                    color = this.fallbackColors[this.nextFallbackColorIndex];
+                    this.nextFallbackColorIndex = (this.nextFallbackColorIndex + 1) % this.fallbackColors.length;
+                }
+
+                // Cache the color for this class
+                this.colorCache.set(className, color);
+                return color;
+            }
+
+            /**
+             * Renders all bounding box rectangles on the canvas
+             * This draws colored rectangles and labels for all annotations
+             */
+            drawRectangles() {
+                const ctx = this.canvas.getContext('2d');
+                const dpr = window.devicePixelRatio || 1;
+                
+                // Clear the entire canvas
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Reset transform and scale for DPR
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                
+                // Get the actual displayed dimensions of the canvas
+                const displayedWidth = this.canvas.width / dpr;
+                const displayedHeight = this.canvas.height / dpr;
+
+                this.rectangles.forEach(rect => {
+                    // Convert normalized coordinates (0-1) to actual pixel coordinates
+                    const scaledX = rect.left * displayedWidth;
+                    const scaledY = rect.top * displayedHeight;
+                    const scaledWidth = rect.width * displayedWidth;
+                    const scaledHeight = rect.height * displayedHeight;
+
+                    const borderWidth = 2;
+                    const color = this.getColorForClass(rect.class);
+                    
+                    // Align to pixel grid
+                    const x = Math.round(scaledX);
+                    const y = Math.round(scaledY);
+                    const width = Math.round(scaledWidth);
+                    const height = Math.round(scaledHeight);
+                    
+                    // Draw box
+                    ctx.lineWidth = borderWidth;
+                    ctx.strokeStyle = color;
+                    ctx.fillStyle = rect.hovered ? `${color.replace('rgb', 'rgba').replace(')', ', 0.3)')}` : 'rgba(0, 0, 0, 0)';
+                    
+                    // Use path for crisp edges
+                    ctx.beginPath();
+                    ctx.rect(x, y, width, height);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Draw label if hovered
+                    if (rect.hovered) {
+                        const fontSize = 14;
+                        // Only show probability if it's a valid number
+                        const labelText = isNaN(rect.probability) ? 
+                            `${rect.class}` : 
+                            `${rect.class}: ${(rect.probability * 100).toFixed(1)}%`;
+                        ctx.font = `${fontSize}px Arial`;
+                        ctx.textBaseline = 'middle';
+                        const textMetrics = ctx.measureText(labelText);
+                        const padding = 4;
+                        const labelWidth = Math.round(textMetrics.width + (padding * 2));
+                        const labelHeight = fontSize + (padding * 2);
+
+                        const labelX = x;
+                        const labelY = y - labelHeight - borderWidth;
+
+                        // Draw label background
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.rect(labelX, labelY + 1, labelWidth, labelHeight);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        // Draw text
+                        ctx.fillStyle = 'white';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(
+                            labelText,
+                            Math.round(labelX + padding),
+                            Math.round(labelY + (labelHeight / 2) + 1)
+                        );
+                    }
+                });
+            }
+
+            // === User Interaction Methods ===
+            
+            /**
+             * Handles mouse hover events over the canvas and updates rectangle hover states
+             * @param {MouseEvent} event - The mouse move event
+             */
+            handleCanvasHover(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+                
+                // Convert mouse coordinates to normalized coordinates (0-1)
+                const relativeX = mouseX / rect.width;
+                const relativeY = mouseY / rect.height;
+
+                let hoveredAny = false;
+                this.rectangles.forEach(rect => {
+                    // Compare with normalized coordinates
+                    const centerX = rect.left;
+                    const centerY = rect.top;
+                    
+                    if (relativeX >= centerX && 
+                        relativeX <= centerX + rect.width && 
+                        relativeY >= centerY && 
+                        relativeY <= centerY + rect.height) {
+                        rect.hovered = true;
+                        hoveredAny = true;
+                    } else {
+                        rect.hovered = false;
+                    }
+                });
+
+                this.drawRectangles();
+                this.updateDebugPanel();
+                
+                // Adding hover-specific details to the debug panel
+                if (this.debugPanel) {
+                    const hoverInfo = `
+                        <div>Relative Hover X: ${relativeX.toFixed(3)}</div>
+                        <div>Relative Hover Y: ${relativeY.toFixed(3)}</div>
+                        <div>Pixel Hover X: ${mouseX.toFixed(2)}</div>
+                        <div>Pixel Hover Y: ${mouseY.toFixed(2)}</div>
+                    `;
+                    this.debugPanel.innerHTML += hoverInfo;
+                }
+            }
+
+            // === View Control Methods ===
+            
+            /**
+             * Increases zoom level by a fixed increment
+             */
+            zoomIn() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = Math.min(3, this.zoomLevel + 0.15);
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+                this.updateDebugPanel();
+            }
+
+            // Decreases zoom level by a fixed increment
+            zoomOut() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = Math.max(0.2, this.zoomLevel - 0.15);
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+                this.updateDebugPanel();
+            }
+
+            // Updates zoom level based on slider value
+            sliderZoom() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = this.zoomSlider.value / 100;
+                this.updateImageTransform(false);
+                this.updateDebugPanel();
+            }
+
+            // Fits the image to the container while maintaining aspect ratio
+            maximize() {
+                if (this.disableInteraction) return;
+                const containerWidth = this.shadowRoot.querySelector('#image-container').clientWidth;
+                const containerHeight = this.shadowRoot.querySelector('#image-container').clientHeight;
+                const imageWidth = this.image.clientWidth;
+                const imageHeight = this.image.clientHeight;
+
+                const widthScale = containerWidth / imageWidth;
+                const heightScale = containerHeight / imageHeight;
+
+                this.zoomLevel = Math.max(widthScale, heightScale);
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+                this.updateDebugPanel();
+            }
+
+            // Resets zoom and position to default values
+            minimize() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = 1;
+                this.imageX = 0;
+                this.imageY = 0;
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+                this.updateDebugPanel();
+            }
+
+            // Initiates image dragging operation
+            startDrag(event) {
+                if (this.disableInteraction) return;
+                this.isDragging = true;
+                this.startX = event.clientX - this.imageX;
+                this.startY = event.clientY - this.imageY;
+                this.image.classList.remove('smooth');
+                this.canvas.classList.remove('smooth');
+                event.preventDefault();
+                this.updateDebugPanel();
+            }
+
+            // Updates image position during drag operation
+            drag(event) {
+                if (!this.isDragging) return;
+
+                this.imageX = event.clientX - this.startX;
+                this.imageY = event.clientY - this.startY;
+                this.updateImageTransform(false);
+                this.updateDebugPanel();
+            }
+
+            // Completes drag operation and restores smooth transitions
+            endDrag() {
+                this.isDragging = false;
+                this.image.classList.add('smooth');
+                this.canvas.classList.add('smooth');
+                this.updateDebugPanel();
+            }
+
+            // Synchronizes zoom slider UI with current zoom level
+            updateZoomSlider() {
+                this.zoomSlider.value = this.zoomLevel * 100;
+            }
+
+            // Updates image and canvas transform properties for zoom and pan
+            updateImageTransform(smooth) {
+                const transformValue = `translate(-50%, -50%) scale(${this.zoomLevel}) translate(${this.imageX / this.zoomLevel}px, ${this.imageY / this.zoomLevel}px)`;
+                if (smooth) {
+                    this.image.classList.add('smooth');
+                    this.canvas.classList.add('smooth');
+                } else {
+                    this.image.classList.remove('smooth');
+                    this.canvas.classList.remove('smooth');
+                }
+                this.image.style.transform = transformValue;
+                this.canvas.style.transform = transformValue;
+                
+                this.drawRectangles();
+                this.updateDebugPanel();
+            }
+
+            // Enables or disables user interaction with the viewer
+            setDisableInteraction(disabled) {
+                this.disableInteraction = disabled;
+                const toolbar = this.shadowRoot.querySelector('#toolbar');
+                if (disabled) {
+                    toolbar.classList.add('hidden');
+                    // Reset zoom and position when disabling interaction
+                    this.zoomLevel = 1;
+                    this.imageX = 0;
+                    this.imageY = 0;
+                    this.updateImageTransform(true);
+                } else {
+                    toolbar.classList.remove('hidden');
+                }
+            }
+
+            // === Data Handling Methods ===
+            
+            /**
+             * Updates the mapping explanations based on current column mapping
+             */
+            updateMappingExplanations() {
+                const mappingDetails = this.shadowRoot.querySelector('.mapping-details');
+                const explanations = {
+                    image: 'Name of the image file or local path. (mind the base path)',
+                    id: 'Unique identifier for each detection / bounding box',
+                    left: 'X coordinate of the top left bounding box corner (normalized 0-1)',
+                    top: 'Y coordinate of the top left bounding box corner (normalized 0-1)',
+                    width: 'Width of the bounding box relative to image width (normalized 0-1)',
+                    height: 'Height of the bounding box relative to image height (normalized 0-1)',
+                    class: 'Classification label of the detected object',
+                    probability: 'Confidence score of the detection (0-1)',
+                    basepath: 'Base path for loading images (e.g. "./images/")'
+                };
+                
+                // Define column types (measure or category)
+                const columnTypes = {
+                    image: 'Category',
+                    id: 'Category',
+                    left: 'Measure',
+                    top: 'Measure',
+                    width: 'Measure',
+                    height: 'Measure',
+                    class: 'Category',
+                    probability: 'Measure',
+                    basepath: 'Parameter'
+                };
+                
+                // Define which columns are required
+                const requiredColumns = {
+                    image: 'yes',
+                    id: 'yes',
+                    left: 'yes',
+                    top: 'yes',
+                    width: 'yes',
+                    height: 'yes',
+                    class: 'no',
+                    probability: 'no',
+                    basepath: 'no'
+                };
+                
+                mappingDetails.innerHTML = `
+                    <div class="mapping-row mapping-header">
+                        <div class="mapping-label">Label</div>
+                        <div class="mapping-type">Type</div>
+                        <div class="mapping-required">Required</div>
+                        <div class="mapping-description">Description</div>
+                    </div>
+                ` + Object.entries(explanations)
+                    .map(([key, description]) => `
+                        <div class="mapping-row">
+                            <div class="mapping-label">${key}</div>
+                            <div class="mapping-type">${columnTypes[key]}</div>
+                            <div class="mapping-required">${requiredColumns[key]}</div>
+                            <div class="mapping-description">${description}</div>
+                        </div>
+                    `).join('');
+            }
+
+            // === API Methods ===
+            
+            /**
+             * Configure the component with custom settings
+             * @param {Object} config - Configuration object with the following optional properties:
+             * @param {string} config.basePath - Base path for image loading
+             * @param {boolean} config.disableInteraction - Whether to disable user interaction
+             * @param {Object} config.columnMapping - Custom column mapping
+             * @param {Object} config.classColors - Custom colors for specific classes
+             * @param {boolean} config.enableTypeChecking - Enable or disable type validation
+             * @param {boolean} config.verboseLogging - Enable or disable verbose console logging
+             * @return {BboxViewerApp} The component instance for chaining
+             */
+            configure(config = {}) {
+                // Process configuration options
+                if (config.basePath !== undefined) {
+                    this.setBasePath(config.basePath);
+                }
+                
+                if (config.disableInteraction !== undefined) {
+                    this.setDisableInteraction(config.disableInteraction);
+                }
+                
+                if (config.columnMapping) {
+                    // Merge with existing mapping, preserving defaults for unspecified columns
+                    this.columnMapping = {
+                        ...this.columnMapping,
+                        ...config.columnMapping
+                    };
+                    
+                    // Update explanations to reflect changes
+                    this.updateMappingExplanations();
+                }
+                
+                if (config.classColors && typeof config.classColors === 'object') {
+                    // Add custom colors to predefined colors
+                    this.predefinedColors = {
+                        ...this.predefinedColors,
+                        ...config.classColors
+                    };
+                    
+                    // Clear color cache to ensure new colors are used
+                    this.colorCache.clear();
+                    
+                    // Redraw if we have rectangles
+                    if (this.rectangles.length > 0) {
+                        this.drawRectangles();
+                    }
+                }
+                
+                if (config.enableTypeChecking !== undefined) {
+                    this.enableTypeChecking = config.enableTypeChecking;
+                }
+                
+                if (config.verboseLogging !== undefined) {
+                    this.setVerboseLogging(config.verboseLogging);
+                }
+                
+                return this;
+            }
+            
+            /**
+             * Enables or disables verbose logging
+             * @param {boolean} enabled - Whether to enable verbose logging
+             * @return {BboxViewerApp} The component instance for chaining
+             */
+            setVerboseLogging(enabled) {
+                this.verboseLogging = enabled;
+                console.log(`BboxViewer: Verbose logging ${enabled ? 'enabled' : 'disabled'}`);
+                return this;
+            }
+            
+            /**
+             * Public API method to report an error externally
+             * This can be called from outside the component
+             * @param {string} message - The error message to display
+             * @param {string} details - Any error details
+             * @param {boolean} isDataFormatError - Whether to show expected variables (defaults to false)
+             * @param {Object} data - Optional data object to display in structured format
+             * @return {BboxViewerApp} The component instance for chaining
+             */
+            reportError(message, details = '', isDataFormatError = false, data = null) {
+                this.showError(message, details, 'error', isDataFormatError, data);
+                return this;
+            }
+        }
+
+        customElements.define('bbox-viewer-app', BboxViewerApp);
+    </script>
+    
+</body>
+</html>
