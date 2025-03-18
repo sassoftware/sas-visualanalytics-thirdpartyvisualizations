@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<!--
+============================================================================
+IMAGE VIEWER COMPONENT
+============================================================================
+This file contains a complete standalone web component for displaying and 
+zooming images, for SAS Visual Analytics.
+
+For configuration options, see the CONFIGURATION SECTION below.
+============================================================================
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Viewer</title>
+    <style>
+        /* Reset and base styles */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        
+        image-viewer {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <image-viewer></image-viewer>
+
+    <script>
+        /* ====================================================================
+         * CONFIGURATION SECTION - MODIFY THESE VALUES AS NEEDED
+         * ==================================================================== */
+         
+        // Base path for loading images (e.g. './images/' --> 'https://<your_webserver.com>/path/to/this/index.html/images/')
+        const DEFAULT_BASE_PATH = './images/';
+        
+        // Whether user interactions (zoom, pan) are disabled
+        const DEFAULT_DISABLE_INTERACTION = false;
+        
+        /* ====================================================================
+         * END CONFIGURATION SECTION 
+         * ==================================================================== */
+                
+        class ImageViewer extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                
+                // === Configuration ===
+                // Initialize with default settings
+                this.basePath = DEFAULT_BASE_PATH;
+                this.disableInteraction = DEFAULT_DISABLE_INTERACTION;
+                
+                // === DOM Structure ===
+                // Define the shadow DOM content
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        /* Component root styles */
+                        :host {
+                            display: block;
+                            width: 100%;
+                            height: 100%;
+                            overflow: hidden;
+                        }
+
+                        /* Layout containers */
+                        #app-container {
+                            width: 100%;
+                            height: 100%;
+                            display: flex;
+                            flex-direction: column;
+                            overflow: hidden;
+                            background-color: #f8f8f8;
+                        }
+
+                        #image-container {
+                            flex: 1;
+                            position: relative;
+                            overflow: hidden;
+                            width: 100%;
+                            height: 100%;
+                        }
+
+                        /* Image styles */
+                        #image {
+                            position: absolute;
+                            left: 50%;
+                            top: 50%;
+                            transform-origin: center;
+                            max-width: 100%;
+                            max-height: 100%;
+                        }
+
+                        .smooth {
+                            transition: transform 0.3s ease;
+                        }
+
+                        /* Error message styles */
+                        #error-message {
+                            display: none;
+                            position: absolute;
+                            left: 50%;
+                            top: 50%;
+                            transform: translate(-50%, -50%);
+                            text-align: center;
+                            z-index: 3;
+                            font-family: Arial, sans-serif;
+                            min-width: 500px;
+                            width: 80%;
+                            max-width: 800px;
+                            height: auto;
+                            min-height: 200px;
+                            max-height: 90vh;
+                            overflow-y: auto;
+                            padding: 20px;
+                            box-sizing: border-box;
+                        }
+
+                        @media (max-width: 600px) {
+                            #error-message {
+                                min-width: 90%;
+                                width: 90%;
+                                padding: 15px;
+                                max-height: 85vh;
+                            }
+                        }
+
+                        /* Error message styles */
+                        #error-message.error,
+                        #error-message.neutral {
+                            background: none;
+                        }
+
+                        #error-message h1,
+                        #error-message h2 {
+                            color: #d32f2f;
+                            margin-top: 0;
+                            margin-bottom: 15px;
+                        }
+
+                        #error-message h1 {
+                            font-size: 28px;
+                        }
+
+                        #error-message h2 {
+                            font-size: 24px;
+                            color: #333;
+                            margin-bottom: 30px;
+                        }
+
+                        #error-message.neutral h2 {
+                            color: #333;
+                            display: block !important;
+                            margin-bottom: 30px;
+                        }
+
+                        .error-path {
+                            color: #666;
+                            font-size: 14px;
+                            word-break: break-all;
+                            padding: 8px;
+                            border-radius: 4px;
+                            display: inline-block;
+                            max-width: 100%;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                        }
+
+                        /* Common text styles */
+                        #error-text,
+                        #error-details {
+                            color: #666;
+                            margin: 10px 0;
+                        }
+
+                        #error-text {
+                            font-size: 14px;
+                        }
+
+                        #error-details {
+                            background: #fff;
+                            padding: 10px;
+                            border-radius: 4px;
+                            font-family: monospace;
+                            white-space: pre-wrap;
+                            text-align: left;
+                            font-size: 12px;
+                            max-height: 200px;
+                            overflow-y: auto;
+                        }
+                        
+                        /* Mapping styles */
+                        .mapping-info {
+                            margin-top: 20px;
+                            color: #666;
+                            text-align: left;
+                            padding: 0;
+                            font-size: 13px;
+                            background: none;
+                        }
+
+                        .mapping-info h4 {
+                            color: #333;
+                            font-size: 16px;
+                            margin: 0 0 15px 0;
+                            font-weight: 500;
+                        }
+
+                        .mapping-details {
+                            display: table !important;
+                            margin-top: 0;
+                            border-spacing: 0;
+                            width: 100%;
+                            background: none;
+                            border-radius: 0;
+                            box-shadow: none;
+                        }
+
+                        .mapping-row {
+                            display: table-row;
+                        }
+
+                        .mapping-row.mapping-header {
+                            border-bottom: 1px solid #ddd;
+                        }
+
+                        .mapping-row.mapping-header > div {
+                            color: #333;
+                            font-weight: 500;
+                            padding: 0;
+                            text-align: left;
+                        }
+
+                        .mapping-row.mapping-header > .mapping-description {
+                            padding: 0 12px;
+                        }
+
+                        .mapping-label,
+                        .mapping-type,
+                        .mapping-required,
+                        .mapping-description {
+                            display: table-cell;
+                            padding: 8px 0;
+                            color: #666;
+                            font-size: 13px;
+                            border-bottom: 1px solid #eee;
+                            text-align: left;
+                            vertical-align: top;
+                        }
+
+                        .mapping-label {
+                            width: 80px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-type {
+                            width: 80px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-required {
+                            width: 70px;
+                            white-space: nowrap;
+                        }
+
+                        .mapping-description {
+                            width: auto;
+                            padding-left: 12px;
+                            min-width: 200px;
+                        }
+
+                        .base-path-info {
+                            color: #666;
+                            font-size: 13px;
+                            text-align: left;
+                            padding: 8px 0px;
+                        }
+
+                        /* Data display styles */
+                        .data-display {
+                            margin-top: 20px;
+                            border-top: 1px solid #ddd;
+                            padding-top: 15px;
+                            text-align: left;
+                        }
+                        .data-toggle {
+                            background: #f0f0f0;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 8px 12px;
+                            font-size: 13px;
+                            color: #555;
+                            cursor: pointer;
+                            margin-bottom: 10px;
+                            width: 100%;
+                            text-align: left;
+                            transition: background-color 0.2s;
+                        }
+                        .data-toggle:hover {
+                            background: #e8e8e8;
+                        }
+                        .data-container {
+                            max-height: 300px;
+                            overflow-y: auto;
+                            background: #f8f8f8;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 10px;
+                            transition: max-height 0.3s ease-out;
+                        }
+                        .data-container.collapsed {
+                            max-height: 0;
+                            padding: 0;
+                            overflow: hidden;
+                            border: none;
+                        }
+                        .data-container pre {
+                            margin: 0;
+                            white-space: pre-wrap;
+                            font-family: monospace;
+                            font-size: 12px;
+                            color: #333;
+                        }
+                        
+                        /* Scrollbar styling for data container */
+                        .data-container::-webkit-scrollbar {
+                            width: 8px;
+                            height: 8px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-track {
+                            background: #f1f1f1;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb {
+                            background: #ccc;
+                            border-radius: 4px;
+                        }
+                        
+                        .data-container::-webkit-scrollbar-thumb:hover {
+                            background: #aaa;
+                        }
+                        
+                        /* For Firefox */
+                        .data-container {
+                            scrollbar-width: thin;
+                            scrollbar-color: #ccc #f1f1f1;
+                        }
+
+                        /* Control styles */
+                        .view-control {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 45px;
+                            height: 40px;
+                            cursor: pointer;
+                        }
+
+                        .view-control:hover {
+                            opacity: 0.5;
+                        }
+
+                        .view-control:active {
+                            transform: scale(0.9);
+                        }
+
+                        .view-control svg {
+                            width: 30px;
+                            height: 30px;
+                            margin: 0 5px;
+                        }
+
+                        /* Update style for Ionicons */
+                        .view-control .ionicon {
+                            width: 25px;
+                            height: 25px;
+                            color: currentColor;
+                        }
+
+                        /* Toolbar styles */
+                        #toolbar {
+                            height: 40px;
+                            background-color: white;
+                            border-top: 2px solid #ddd;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            z-index: 1;
+                        }
+
+                        #toolbar.hidden {
+                            display: none;
+                        }
+
+                        #zoom-slider {
+                            width: 100px;
+                            opacity: 0.7;
+                        }
+
+                        #zoom-slider:hover {
+                            opacity: 1;
+                        }
+                    </style>
+                    <div id="app-container">
+                        <div id="image-container">
+                            <img id="image" src="" alt="Placeholder Image" style="display: none;">
+                            <div id="error-message">
+                                <h2>Select a single image to view</h2>
+                                <div class="error-path"></div>
+                                <div class="mapping-info">
+                                    <h4>Expected Inputs</h4>
+                                    <div class="mapping-details"></div>
+                                    <div class="base-path-info"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="toolbar">
+                            <div class="view-control">
+                                <svg id="zoom-out" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 52.75 4">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="minus">
+                                        <line class="cls-1" x1="2" y1="2" x2="50.75" y2="2"/>
+                                    </g>
+                                </svg>
+                            </div>
+                            <input type="range" id="zoom-slider" min="20" max="300" value="100">
+                            <div class="view-control">
+                                <svg id="zoom-in" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="0 0 52.75 50.1">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="plus">
+                                        <line class="cls-1" x1="25.91" y1="2" x2="25.91" y2="48.1"/>
+                                        <line class="cls-1" x1="2" y1="25.05" x2="50.75" y2="25.05"/>
+                                    </g>
+                                </svg>
+                            </div>
+                            <div class="view-control">
+                                <svg id="maximize" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="-2 -2 62 62">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="zoomToFill">
+                                        <path class="cls-1" d="M2,21.96V2.97c0-.54.44-.97.97-.97h18.88"/>
+                                        <path class="cls-1" d="M21.85,56H2.97c-.54,0-.97-.44-.97-.97v-18.76"/>
+                                        <path class="cls-1" d="M56,36.27v18.76c0,.54-.44.97-.97.97h-18.87"/>
+                                        <path class="cls-1" d="M36.16,2h18.87c.54,0,.97.44.97.97v18.99"/>
+                                        <g>
+                                            <line class="cls-1" x1="54.62" y1="3.39" x2="36.75" y2="21.26"/>
+                                            <line class="cls-1" x1="21.14" y1="36.87" x2="3.39" y2="54.62"/>
+                                            <line class="cls-1" x1="54.62" y1="54.62" x2="36.87" y2="36.87"/>
+                                            <line class="cls-1" x1="21.26" y1="21.26" x2="3.39" y2="3.39"/>
+                                        </g>
+                                    </g>
+                                </svg>
+                            </div>
+                            <div class="view-control">
+                                <svg id="minimize" xmlns="http://www.w3.org/2000/svg" class="ionicon" viewBox="-2 -2 62 62">
+                                    <defs>
+                                        <style>
+                                            .cls-1 {
+                                                fill: none;
+                                                stroke: currentColor;
+                                                stroke-linecap: round;
+                                                stroke-miterlimit: 10;
+                                                stroke-width: 4px;
+                                            }
+                                        </style>
+                                    </defs>
+                                    <g id="zoomToFit">
+                                        <path class="cls-1" d="M2,21.96V2.97c0-.54.44-.97.97-.97h18.88"/>
+                                        <path class="cls-1" d="M21.85,56H2.97c-.54,0-.97-.44-.97-.97v-18.76"/>
+                                        <path class="cls-1" d="M56,36.27v18.76c0,.54-.44.97-.97.97h-18.87"/>
+                                        <path class="cls-1" d="M36.16,2h18.87c.54,0,.97.44.97.97v18.99"/>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // === State Initialization ===
+                // Initialize state variables for tracking position and interactions
+                this.zoomLevel = 1;
+                this.imageX = 0;
+                this.imageY = 0;
+                this.isDragging = false;
+                this.startX = 0;
+                this.startY = 0;
+
+                // Apply initial toolbar visibility based on disableInteraction
+                if (this.disableInteraction) {
+                    this.shadowRoot.querySelector('#toolbar').classList.add('hidden');
+                }
+
+                // === Event Setup ===
+                this._initializeEventListeners();
+
+                // === Initialization ===
+                // Complete setup and initial sizing
+                this._setupResizeObserver();
+                this.updateMappingExplanations();
+                this.updateBasepathDisplay();
+            }
+
+            /**
+             * Initialize all event listeners for the component
+             * @private
+             */
+            _initializeEventListeners() {
+                // Image loading events
+                this.image = this.shadowRoot.querySelector('#image');
+                this.imageContainer = this.shadowRoot.querySelector('#image-container');
+                this.zoomInButton = this.shadowRoot.querySelector('#zoom-in').parentElement;
+                this.zoomOutButton = this.shadowRoot.querySelector('#zoom-out').parentElement;
+                this.zoomSlider = this.shadowRoot.querySelector('#zoom-slider');
+                this.maximizeButton = this.shadowRoot.querySelector('#maximize').parentElement;
+                this.minimizeButton = this.shadowRoot.querySelector('#minimize').parentElement;
+                this.errorMessage = this.shadowRoot.querySelector('#error-message');
+                this.errorPath = this.shadowRoot.querySelector('.error-path');
+                this.toolbar = this.shadowRoot.querySelector('#toolbar');
+                
+                // Toolbar control events
+                this.zoomInButton.addEventListener('click', () => this.zoomIn());
+                this.zoomOutButton.addEventListener('click', () => this.zoomOut());
+                this.zoomSlider.addEventListener('input', () => this.sliderZoom());
+                this.maximizeButton.addEventListener('click', () => this.maximize());
+                this.minimizeButton.addEventListener('click', () => this.minimize());
+                
+                // Image events
+                this.image.addEventListener('load', () => {
+                    this.errorMessage.style.display = 'none';
+                    this.image.style.display = 'block';
+                    if (!this.disableInteraction) {
+                        this.toolbar.classList.remove('hidden');
+                    }
+                    // Update image size with improved scaling
+                    this.updateImageSize();
+                });
+                
+                this.image.addEventListener('error', (e) => {
+                    this.showError(
+                        "Failed to load image", 
+                        e.target.src, 
+                        'error'
+                    );
+                    this.image.style.display = 'none';
+                    this.toolbar.classList.add('hidden');
+                });
+
+                // Container events for interaction
+                this.imageContainer.addEventListener('mousedown', (e) => this.startDrag(e));
+                this.imageContainer.addEventListener('mousemove', (e) => this.drag(e));
+                this.imageContainer.addEventListener('mouseup', () => this.endDrag());
+                this.imageContainer.addEventListener('mouseleave', () => this.endDrag());
+                this.imageContainer.addEventListener('wheel', (e) => this.handleWheel(e));
+
+                // Add message event listener for VA data
+                if (window.addEventListener) {
+                    window.addEventListener("message", (event) => this.onMessage(event), false);
+                } else {
+                    window.attachEvent("onmessage", (event) => this.onMessage(event));
+                }
+            }
+
+            /**
+             * Set up resize observer to handle window resizing
+             * @private
+             */
+            _setupResizeObserver() {
+                this.resizeObserver = new ResizeObserver(() => {
+                    // When container is resized, update image size with improved scaling
+                    if (this.image.naturalWidth && this.image.naturalHeight) {
+                        this.updateImageSize();
+                    }
+                });
+                this.resizeObserver.observe(this.imageContainer);
+            }
+
+            /**
+             * Updates the mapping explanations in the error message
+             */
+            updateMappingExplanations() {
+                const mappingDetails = this.shadowRoot.querySelector('.mapping-details');
+                const explanations = {
+                    image: 'File name or local path of the image to display (combined with basepath)',
+                    basepath: 'Base path for loading images (e.g. "./images/")',
+                    interactive: 'Enable or disable user interaction ("true" or "false")'
+                };
+                
+                // Define column types
+                const columnTypes = {
+                    image: 'Measure',
+                    basepath: 'Parameter',
+                    interactive: 'Parameter'
+                };
+                
+                // Define which columns are required
+                const requiredColumns = {
+                    image: 'yes',
+                    basepath: 'no',
+                    interactive: 'no'
+                };
+                
+                mappingDetails.innerHTML = `
+                    <div class="mapping-row mapping-header">
+                        <div class="mapping-label">Label</div>
+                        <div class="mapping-type">Type</div>
+                        <div class="mapping-required">Required</div>
+                        <div class="mapping-description">Description</div>
+                    </div>
+                ` + Object.entries(explanations)
+                    .map(([key, description]) => `
+                        <div class="mapping-row">
+                            <div class="mapping-label">${key}</div>
+                            <div class="mapping-type">${columnTypes[key]}</div>
+                            <div class="mapping-required">${requiredColumns[key]}</div>
+                            <div class="mapping-description">${description}</div>
+                        </div>
+                    `).join('');
+            }
+
+            /**
+             * Updates the base path display in the error message
+             */
+            updateBasepathDisplay() {
+                const basePathInfo = this.shadowRoot.querySelector('.base-path-info');
+                basePathInfo.textContent = `Current base path: ${this.basePath}`;
+            }
+
+            /**
+             * Displays an error message and hides the image
+             * @param {string} message - The main error message to display
+             * @param {string} details - Additional error details (like a file path)
+             * @param {string} type - Error type: 'error' or 'neutral' for informational messages
+             * @param {Object} data - Optional data object to display in structured format
+             */
+            showError(message, details = '', type = 'error', data = null) {
+                this.errorMessage.style.display = 'block';
+                this.image.style.display = 'none';
+                this.toolbar.classList.add('hidden');
+                
+                // Reset classes and apply the appropriate one
+                this.errorMessage.classList.remove('error', 'neutral');
+                this.errorMessage.classList.add(type);
+                
+                // Base HTML structure
+                let htmlContent = `
+                    <h2>${message}</h2>
+                    ${details ? `<div class="error-path">${details}</div>` : ''}
+                    <div class="mapping-info">
+                        <h4>Expected Data Format</h4>
+                        <div class="mapping-details"></div>
+                        <div class="base-path-info"></div>
+                    </div>
+                `;
+                
+                // Add data display if provided
+                if (data) {
+                    htmlContent += `
+                        <div class="data-display">
+                            <button class="data-toggle" aria-expanded="false">Show Received Data ▼</button>
+                            <div class="data-container collapsed">
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                this.errorMessage.innerHTML = htmlContent;
+                
+                // Update the mapping explanations and basepath display
+                this.updateMappingExplanations();
+                this.updateBasepathDisplay();
+                
+                // Add event listener for the toggle button if data is provided
+                if (data) {
+                    const toggleButton = this.errorMessage.querySelector('.data-toggle');
+                    const dataContainer = this.errorMessage.querySelector('.data-container');
+                    
+                    toggleButton.addEventListener('click', () => {
+                        const isExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
+                        toggleButton.setAttribute('aria-expanded', !isExpanded);
+                        
+                        if (isExpanded) {
+                            toggleButton.textContent = 'Show Received Data ▼';
+                            dataContainer.classList.add('collapsed');
+                        } else {
+                            toggleButton.textContent = 'Hide Received Data ▲';
+                            dataContainer.classList.remove('collapsed');
+                        }
+                    });
+                }
+                
+                // Add styles for data display if not already present
+                if (!this.dataStylesAdded) {
+                    const styleElement = document.createElement('style');
+                    styleElement.textContent = `
+                        .data-display {
+                            margin-top: 20px;
+                            border-top: 1px solid #ddd;
+                            padding-top: 15px;
+                            text-align: left;
+                        }
+                        .data-display h4 {
+                            color: #888;
+                            font-size: 14px;
+                            margin: 0 0 15px 0;
+                            font-weight: normal;
+                        }
+                        .data-toggle {
+                            background: #f0f0f0;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 8px 12px;
+                            font-size: 13px;
+                            color: #555;
+                            cursor: pointer;
+                            margin-bottom: 10px;
+                            width: 100%;
+                            text-align: left;
+                            transition: background-color 0.2s;
+                        }
+                        .data-toggle:hover {
+                            background: #e8e8e8;
+                        }
+                        .data-container {
+                            max-height: 300px;
+                            overflow-y: auto;
+                            background: #f8f8f8;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            padding: 10px;
+                            transition: max-height 0.3s ease-out;
+                        }
+                        .data-container.collapsed {
+                            max-height: 0;
+                            padding: 0;
+                            overflow: hidden;
+                            border: none;
+                        }
+                        .data-container pre {
+                            margin: 0;
+                            white-space: pre-wrap;
+                            font-family: monospace;
+                            font-size: 12px;
+                            color: #333;
+                        }
+                    `;
+                    this.shadowRoot.appendChild(styleElement);
+                    this.dataStylesAdded = true;
+                }
+            }
+
+            /**
+             * Handles incoming data from VA and processes it
+             * @param {MessageEvent} event - The message event containing VA data
+             */
+            onMessage(event) {
+                if (!event || !event.data) {
+                    console.error("ImageViewer: Received empty or invalid message event");
+                    this.showError("Received empty or invalid message", "", 'error');
+                    return;
+                }
+                
+                try {
+                    // Check for basepath parameter
+                    let basepathChanged = false;
+                    if (event.data.parameters) {
+                        const basepathParam = event.data.parameters.find(p => p.label === "basepath");
+                        if (basepathParam && basepathParam.value) {
+                            const newBasePath = basepathParam.value.endsWith('/') ? 
+                                basepathParam.value : basepathParam.value + '/';
+                            
+                            if (this.basePath !== newBasePath) {
+                                this.setBasePath(newBasePath);
+                                console.log("ImageViewer: Updated base path to", this.basePath);
+                                basepathChanged = true;
+                            }
+                        }
+                    
+                        // Check for interactive parameter
+                        const interactiveParam = event.data.parameters.find(p => p.label === "interactive");
+                        if (interactiveParam && typeof interactiveParam.value === 'string') {
+                            const value = interactiveParam.value.toLowerCase();
+                            if (value === "true" || value === "false") {
+                                const shouldBeInteractive = value === "true";
+                                this.setDisableInteraction(!shouldBeInteractive);
+                                console.log("ImageViewer: Interaction set to", shouldBeInteractive);
+                            }
+                        }
+                    }
+                
+                    const vaData = event.data.data;
+                    
+                    if (!vaData || !Array.isArray(vaData) || vaData.length === 0) {
+                        this.showError(
+                            "Invalid data format received", 
+                            "Data array is missing or empty", 
+                            'error',
+                            event.data
+                        );
+                        return;
+                    }
+
+                    // Check if we have more than one row or column
+                    if (vaData.length > 1 || (vaData[0] && vaData[0].length > 1)) {
+                        this.showError(
+                            "Select a single image to view", 
+                            "", 
+                            'neutral',
+                            event.data
+                        );
+                        return;
+                    }
+
+                    // Extract the image name from the first cell
+                    const imageName = vaData[0][0];
+                    if (typeof imageName !== 'string' || !imageName) {
+                        this.showError(
+                            "Invalid image name format", 
+                            "Image name must be a non-empty string. Received: " + JSON.stringify(vaData[0][0]), 
+                            'error',
+                            event.data
+                        );
+                        return;
+                    }
+
+                    // Special case: Check if this is the same image as currently displayed
+                    const currentImageName = this.getCurrentImageName();
+                    const isSameImage = currentImageName === imageName && !basepathChanged;
+                    
+                    if (isSameImage && this.image.complete && this.image.naturalWidth > 0) {
+                        console.log("ImageViewer: Same image detected, not reloading");
+                    } else {
+                        // Load the image
+                        this.loadImage(imageName);
+                    }
+                } catch (error) {
+                    console.error("ImageViewer: Error processing data:", error);
+                    this.showError(
+                        "Error processing data", 
+                        error.message, 
+                        'error',
+                        event.data
+                    );
+                }
+            }
+
+            /**
+             * Gets the filename of the currently displayed image
+             * @return {string|null} The current image filename or null if no image is displayed
+             */
+            getCurrentImageName() {
+                if (!this.image.src) return null;
+                
+                // Extract the filename from the full path
+                const urlParts = this.image.src.split('/');
+                return urlParts[urlParts.length - 1];
+            }
+
+            /**
+             * Loads an image from the configured base path
+             * @param {string} imageName - The filename or relative path of the image
+             */
+            loadImage(imageName) {
+                const fullPath = this.basePath + imageName;
+                console.log('Starting to load new image:', fullPath);
+                
+                this.image.style.display = 'none';
+                this.toolbar.classList.add('hidden');
+                
+                // Reset zoom and position before loading new image
+                this.zoomLevel = 1;
+                this.imageX = 0;
+                this.imageY = 0;
+                
+                // Add load event listener before setting src
+                this.image.onload = () => {
+                    console.log('Image loaded:', fullPath);
+                    
+                    // Hide error message if it was showing
+                    this.errorMessage.style.display = 'none';
+                    
+                    // Show image and toolbar on successful load
+                    this.image.style.display = 'block';
+                    if (!this.disableInteraction) {
+                        this.toolbar.classList.remove('hidden');
+                    }
+                    
+                    // Update the view with improved scaling
+                    requestAnimationFrame(() => {
+                        this.updateImageSize();
+                        this.updateZoomSlider();
+                    });
+                };
+                
+                // Add error handler for this specific load attempt
+                this.image.onerror = (e) => {
+                    // Show error message with failed image info
+                    this.showError(
+                        "Failed to load image", 
+                        `The image could not be loaded: ${e.target.src}`,
+                        'error'
+                    );
+                    
+                    // Hide toolbar
+                    this.toolbar.classList.add('hidden');
+                };
+                
+                // Set src to trigger load/error event
+                this.image.src = fullPath;
+                
+                // Force reload by clearing src if it's the same URL
+                if (this.image.src === fullPath) {
+                    this.image.src = '';
+                    this.image.src = fullPath;
+                }
+            }
+
+            /**
+             * Updates the base path for image loading
+             * @param {string} path - The new base path to use for image URLs
+             */
+            setBasePath(path) {
+                this.basePath = path.endsWith('/') ? path : path + '/';
+                this.updateBasepathDisplay();
+                if (this.image.src) {
+                    const currentImage = this.image.src.split('/').pop();
+                    this.loadImage(currentImage);
+                }
+            }
+
+            /**
+             * Handles mouse wheel events for zooming
+             * @param {WheelEvent} event - The wheel event
+             */
+            handleWheel(event) {
+                if (this.disableInteraction) return;
+                event.preventDefault();
+                if (event.deltaY < 0) {
+                    this.zoomIn();
+                } else {
+                    this.zoomOut();
+                }
+            }
+
+            /**
+             * Increases zoom level by a fixed increment
+             */
+            zoomIn() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = Math.min(3, this.zoomLevel + 0.15);
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+            }
+
+            /**
+             * Decreases zoom level by a fixed increment
+             */
+            zoomOut() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = Math.max(0.2, this.zoomLevel - 0.15);
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+            }
+
+            /**
+             * Updates zoom level based on slider value
+             */
+            sliderZoom() {
+                if (this.disableInteraction) return;
+                this.zoomLevel = this.zoomSlider.value / 100;
+                this.updateImageTransform(false);
+            }
+
+            /**
+             * Updates the image size based on container dimensions and natural image dimensions
+             * This ensures consistent scaling across different images
+             */
+            updateImageSize() {
+                // Get container dimensions
+                const container = this.shadowRoot.querySelector('#image-container');
+                const containerRect = container.getBoundingClientRect();
+                
+                // Calculate the scaling factor to fit the image in the container
+                const scaleWidth = containerRect.width / this.image.naturalWidth;
+                const scaleHeight = containerRect.height / this.image.naturalHeight;
+                
+                // Use a slightly larger scale factor (90% of the way between min and max)
+                // This provides a better default zoom level that fills more of the container
+                const minScale = Math.min(scaleWidth, scaleHeight);
+                const maxScale = Math.max(scaleWidth, scaleHeight);
+                const scale = minScale + (maxScale - minScale) * 0.1; // 10% toward the max scale
+                
+                // Calculate base dimensions maintaining aspect ratio
+                const baseWidth = this.image.naturalWidth * scale;
+                const baseHeight = this.image.naturalHeight * scale;
+                
+                console.log('updateImageSize - Input values:', {
+                    containerDimensions: {
+                        width: containerRect.width,
+                        height: containerRect.height
+                    },
+                    naturalDimensions: {
+                        width: this.image.naturalWidth,
+                        height: this.image.naturalHeight
+                    },
+                    minScale,
+                    maxScale,
+                    adjustedScale: scale,
+                    zoomLevel: this.zoomLevel
+                });
+                
+                // Update image size
+                this.image.style.width = `${baseWidth}px`;
+                this.image.style.height = `${baseHeight}px`;
+                
+                console.log('updateImageSize - Calculated values:', {
+                    baseWidth,
+                    baseHeight,
+                    imageStyleWidth: this.image.style.width,
+                    imageStyleHeight: this.image.style.height
+                });
+                
+                // Set zoom level to 1 since we've already scaled the image appropriately
+                this.zoomLevel = 1;
+                this.imageX = 0;
+                this.imageY = 0;
+                
+                // Update the transform
+                this.updateImageTransform(true);
+                this.updateZoomSlider();
+            }
+
+            /**
+             * Scales the image to fit the container while maintaining aspect ratio
+             * This can be used regardless of whether interaction is enabled or disabled
+             */
+            fitImageToContainer() {
+                const containerWidth = this.shadowRoot.querySelector('#image-container').clientWidth;
+                const containerHeight = this.shadowRoot.querySelector('#image-container').clientHeight;
+                
+                // If the image is not loaded or has no dimensions, we can't proceed
+                if (!this.image.naturalWidth || !this.image.naturalHeight) return;
+                
+                // Calculate the scaling factor to fit the image in the container
+                const scaleWidth = containerWidth / this.image.naturalWidth;
+                const scaleHeight = containerHeight / this.image.naturalHeight;
+                
+                // Use the smaller scale to ensure the image fits the container
+                this.zoomLevel = Math.min(scaleWidth, scaleHeight);
+                this.imageX = 0;
+                this.imageY = 0;
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+            }
+
+            /**
+             * Scales the image to fill the container (may crop parts of the image)
+             * This can be used regardless of whether interaction is enabled or disabled
+             */
+            fillImageToContainer() {
+                const containerWidth = this.shadowRoot.querySelector('#image-container').clientWidth;
+                const containerHeight = this.shadowRoot.querySelector('#image-container').clientHeight;
+                
+                // If the image is not loaded or has no dimensions, we can't proceed
+                if (!this.image.naturalWidth || !this.image.naturalHeight) return;
+                
+                // Calculate the scaling factor to fill the container
+                const scaleWidth = containerWidth / this.image.naturalWidth;
+                const scaleHeight = containerHeight / this.image.naturalHeight;
+                
+                // Use the larger scale to ensure the image fills the container
+                this.zoomLevel = Math.max(scaleWidth, scaleHeight);
+                this.imageX = 0;
+                this.imageY = 0;
+                this.updateZoomSlider();
+                this.updateImageTransform(true);
+            }
+
+            /**
+             * Fills the container with the image (may crop parts of the image)
+             */
+            maximize() {
+                if (this.disableInteraction) return;
+                this.fillImageToContainer();
+            }
+
+            /**
+             * Resets zoom and position to the default improved scaling
+             */
+            minimize() {
+                if (this.disableInteraction) return;
+                this.updateImageSize();
+            }
+
+            /**
+             * Initiates image dragging operation
+             */
+            startDrag(event) {
+                if (this.disableInteraction) return;
+                this.isDragging = true;
+                this.startX = event.clientX - this.imageX;
+                this.startY = event.clientY - this.imageY;
+                this.image.classList.remove('smooth');
+                event.preventDefault();
+            }
+
+            /**
+             * Updates image position during drag operation
+             */
+            drag(event) {
+                if (!this.isDragging) return;
+                this.imageX = event.clientX - this.startX;
+                this.imageY = event.clientY - this.startY;
+                this.updateImageTransform(false);
+            }
+
+            /**
+             * Completes drag operation and restores smooth transitions
+             */
+            endDrag() {
+                this.isDragging = false;
+                this.image.classList.add('smooth');
+            }
+
+            /**
+             * Synchronizes zoom slider UI with current zoom level
+             */
+            updateZoomSlider() {
+                this.zoomSlider.value = this.zoomLevel * 100;
+            }
+
+            /**
+             * Updates image transform properties for zoom and pan
+             */
+            updateImageTransform(smooth) {
+                const transformValue = `translate(-50%, -50%) scale(${this.zoomLevel}) translate(${this.imageX / this.zoomLevel}px, ${this.imageY / this.zoomLevel}px)`;
+                if (smooth) {
+                    this.image.classList.add('smooth');
+                } else {
+                    this.image.classList.remove('smooth');
+                }
+                this.image.style.transform = transformValue;
+            }
+
+            /**
+             * Enables or disables user interaction with the viewer
+             */
+            setDisableInteraction(disabled) {
+                this.disableInteraction = disabled;
+                const toolbar = this.shadowRoot.querySelector('#toolbar');
+                if (disabled) {
+                    toolbar.classList.add('hidden');
+                    // Reset zoom and position when disabling interaction
+                    this.zoomLevel = 1;
+                    this.imageX = 0;
+                    this.imageY = 0;
+                    this.updateImageTransform(true);
+                } else {
+                    toolbar.classList.remove('hidden');
+                }
+            }
+        }
+
+        customElements.define('image-viewer', ImageViewer);
+    </script>
+</body>
+</html>
