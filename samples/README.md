@@ -64,6 +64,12 @@ https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/sampl
 
 <img width="600" height="600" src="./images/google_OrgChart.png">
 
+### Google Organizational Chart No Dependencies | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/google_OrgChart_nodeps.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/google_OrgChart.html)
+
+Functionally equivalent to the previous one, just without any external dependencies for easier use with a SAS Job Definition.
+
+<img width="600" height="600" src="./images/google_OrgChart.png">
+
 ### Highcharts | [Code](https://github.com/sassoftware/sas-visualanalytics-thirdpartyvisualizations/blob/master/samples/highcharts.html) | [Demo](https://sassoftware.github.io/sas-visualanalytics-thirdpartyvisualizations/samples/highcharts.html)
 
 <img width="600" height="600" src="./images/highcharts.gif">
